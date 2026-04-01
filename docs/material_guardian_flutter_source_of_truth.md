@@ -34,6 +34,7 @@ Material Guardian is moving toward:
 Current reality:
 
 - the Flutter scaffold and first shared shell now exist in this repo
+- the backend repo now has a runnable scaffold, normalized plan/auth/session/trial endpoints, and a first Postgres migration foundation
 - shared Dart workflow should stay cross-platform by default
 - the receiving form now carries a meaningful donor-aligned field block rather than only a placeholder shell
 - saved-material editing now goes back through the same shared form and draft lifecycle rather than using a separate platform-specific edit path
@@ -44,6 +45,7 @@ Current reality:
 - this repo has already produced a Windows-built debug APK and release AAB, so Android compile plumbing is no longer hypothetical
 - first real Android phone validation has now happened on a Samsung S911U; install, launch, and home-screen rendering are proven, and the first device-found safe-area bug has already been fixed in shared Flutter layout code
 - iOS-specific fit and validation still need to be completed on the Mac through the Apple handoff queue
+- privacy/store wording must now be tracked as part of migration because the current shipped Android privacy language is intentionally local-only and will become inaccurate once backend account features are released
 
 ## Current reference behavior to preserve
 
@@ -86,6 +88,7 @@ Current reality:
 - port photos and document scanning
 - port PDF export and ZIP/PDF share flows
 - wire backend-aware entitlement state and backend-driven plan catalog
+- update privacy/store wording in step with actual backend/account features instead of after the fact
 
 ## Architectural rules
 

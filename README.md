@@ -13,6 +13,7 @@ This repo now contains the initial Flutter scaffold and the first shared app she
 Current foundation:
 
 - the backend contract still needs to stay ahead of hard-coded client assumptions
+- the backend repo now has a runnable scaffold plus the first Postgres migration foundation, but mobile should still treat account/entitlement features as in-progress until real persistent auth and store verification land
 - the current Android app is still the real implementation to copy behavior from
 - the initial iOS handoff docs and Android reference assets were copied here so migration can continue without splitting product truth across repos
 - the Flutter shell already proves jobs, job detail, drafts, customization defaults, and blank `Add Material`
@@ -26,6 +27,7 @@ Current foundation:
 - local validation has already produced a debug APK and a release AAB from this repo on Windows
 - first live Samsung phone validation is now complete for install, launch, and home-screen rendering; the initial bottom safe-area overlap was found on-device and fixed in shared screen padding
 - the shared Flutter direction is right for both Android and iPhone, but Apple-specific validation, permissions, export behavior, and signing are still tracked separately under `ios/`
+- future account-backed releases will require updated privacy/store wording; the current shipped Android local-only policy language should not be reused blindly once backend auth/entitlements ship
 
 ## Relationship to the other repos
 
@@ -49,16 +51,19 @@ docs/      migration notes and behavior references
 1. deepen donor receiving-form parity where fields are still simplified
 2. continue Android-native phone validation for camera, file picker, share, export-open behavior, and form interaction beyond the shell/home screen
 3. replace scaffold icons and launch visuals
-4. wire backend-aware entitlement checks when backend contracts are ready
-5. complete Apple-specific identifiers, permissions, and file/share validation on the Mac
-6. finalize store metadata and release signing
+4. wire the shared app to backend `plans`, `me`, and entitlement endpoints without breaking local-first jobs/drafts
+5. complete the first real sign-in/account shell around the backend session model
+6. complete Apple-specific identifiers, permissions, and file/share validation on the Mac
+7. finalize store metadata, privacy wording, and release signing with backend scope reflected accurately
 
 ## Read first
 
 1. `docs/material_guardian_flutter_source_of_truth.md`
-2. `docs/flutter_cross_platform_build_plan.md`
-3. `docs/mobile_architecture.md`
-4. `docs/migration_plan.md`
-5. `docs/android_behavior_reference.md`
-6. `docs/android_migration_inventory.md`
-7. `ios/README.md`
+2. `docs/backend_rollout_status_2026-04-01.md`
+3. `docs/privacy_store_readiness_2026-04-01.md`
+4. `docs/flutter_cross_platform_build_plan.md`
+5. `docs/mobile_architecture.md`
+6. `docs/migration_plan.md`
+7. `docs/android_behavior_reference.md`
+8. `docs/android_migration_inventory.md`
+9. `ios/README.md`

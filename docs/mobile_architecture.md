@@ -33,6 +33,7 @@ Build one shared Flutter client for Android and iPhone while preserving the prov
 - entitlement lookup
 - trial status
 - later sync/recovery
+- privacy/account-deletion/store-disclosure surfaces that depend on backend-backed account features
 
 ## Architectural rules
 
@@ -40,4 +41,5 @@ Build one shared Flutter client for Android and iPhone while preserving the prov
 - Platform-specific code should be isolated to the places where Android and iOS actually differ.
 - The current Android app is the reference for workflow and export behavior until the Flutter app is complete.
 - Pricing screens should consume backend plan definitions and show yearly savings clearly instead of hard-coding plan meaning separately on each platform.
+- Privacy policy text and store disclosures must track the real backend scope: account/session/entitlement handling can ship before cloud job/media sync, and the wording should reflect that distinction.
 - Use `docs/flutter_cross_platform_build_plan.md` as the operational guide for deciding whether a new feature belongs in shared Dart, a Dart platform contract, or OS-specific glue.

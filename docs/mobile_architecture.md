@@ -40,3 +40,4 @@ Build one shared Flutter client for Android and iPhone while preserving the prov
 - Platform-specific code should be isolated to the places where Android and iOS actually differ.
 - The current Android app is the reference for workflow and export behavior until the Flutter app is complete.
 - Pricing screens should consume backend plan definitions and show yearly savings clearly instead of hard-coding plan meaning separately on each platform.
+- Use `docs/flutter_cross_platform_build_plan.md` as the operational guide for deciding whether a new feature belongs in shared Dart, a Dart platform contract, or OS-specific glue.

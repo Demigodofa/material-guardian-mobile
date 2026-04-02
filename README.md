@@ -68,6 +68,14 @@ docs/      migration notes and behavior references
 6. complete Apple-specific identifiers, permissions, and file/share validation on the Mac
 7. finalize store metadata, privacy wording, and release signing with backend scope reflected accurately
 
+## Play release
+
+- release signing and AAB upload notes now live in `docs/play_release.md`
+- the shared release/version naming convention stays:
+  - `versionName`: `major.minor.patch`
+  - Android `versionCode`: monotonically increasing integer
+  - Play release label: `major.minor.patch (build) - summary`
+
 ## Read first
 
 1. `docs/material_guardian_flutter_source_of_truth.md`

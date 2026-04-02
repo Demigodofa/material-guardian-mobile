@@ -11,4 +11,5 @@ ios/Pods/
 ios/.symlinks/
 macos/Pods/
 *.log
-
+release-signing.properties
+keystore/

@@ -735,6 +735,11 @@ class MaterialGuardianAppState extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    if (!_looksLikeEmail(normalizedEmail)) {
+      _backendAccountError = 'Enter a valid email address.';
+      notifyListeners();
+      return;
+    }
 
     _isAuthenticatingBackend = true;
     _backendAccountError = null;
@@ -1373,6 +1378,11 @@ class MaterialGuardianAppState extends ChangeNotifier {
       return 'Linux';
     }
     return 'Unknown Device';
+  }
+
+  bool _looksLikeEmail(String value) {
+    const pattern = r'^[^@\s]+@[^@\s]+\.[^@\s]+$';
+    return RegExp(pattern).hasMatch(value);
   }
 
   String _defaultSessionPlatform() {

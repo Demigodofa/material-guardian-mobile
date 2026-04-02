@@ -65,154 +65,162 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
             ],
           ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _BackendStatusCard(appState: appState),
-              const SizedBox(height: 16),
-              if (appState.backendAccountError != null &&
-                  appState.backendAccountError!.trim().isNotEmpty) ...[
-                _ErrorCard(message: appState.backendAccountError!),
+          body: SafeArea(
+            top: false,
+            minimum: const EdgeInsets.only(bottom: 12),
+            child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+              children: [
+                _BackendStatusCard(appState: appState),
                 const SizedBox(height: 16),
-              ],
-              if (!appState.isSignedIn) ...[
-                _SignInCard(
-                  emailController: _emailController,
-                  displayNameController: _displayNameController,
-                  onStartSignIn: () async {
-                    await appState.startBackendSignIn(
-                      email: _emailController.text,
-                      displayName: _displayNameController.text,
-                    );
-                    if (!context.mounted) {
-                      return;
-                    }
-                    final challenge = appState.pendingBackendAuthStart;
-                    if (challenge != null) {
-                      _codeController.text = challenge.demoCode;
-                    }
-                  },
-                  isBusy: appState.isAuthenticatingBackend,
-                ),
-                if (pendingAuth != null) ...[
+                if (appState.backendAccountError != null &&
+                    appState.backendAccountError!.trim().isNotEmpty) ...[
+                  _ErrorCard(message: appState.backendAccountError!),
                   const SizedBox(height: 16),
-                  _CodeVerificationCard(
-                    authStart: pendingAuth,
-                    codeController: _codeController,
-                    isBusy: appState.isAuthenticatingBackend,
-                    onComplete: () async {
-                      await appState.completeBackendSignIn(
-                        code: _codeController.text,
-                      );
-                    },
-                  ),
                 ],
-                if (conflict != null &&
-                    appState.hasPendingSessionReplacement) ...[
-                  const SizedBox(height: 16),
-                  _SessionReplacementCard(
-                    conflict: conflict,
-                    isBusy: appState.isAuthenticatingBackend,
-                    onReplace: () => appState.replacePendingBackendSession(),
-                  ),
-                ],
-              ] else ...[
-                _AccountSummaryCard(
-                  me: me!,
-                  entitlement: entitlement,
-                  isRefreshing: appState.isRefreshingBackendAccount,
-                  onRefresh: () => appState.refreshBackendAccount(),
-                  onLogout: () => appState.logoutBackend(),
-                ),
-                const SizedBox(height: 16),
-                _MembershipsCard(
-                  memberships: me.memberships,
-                  activeOrganization: organization,
-                  organizationNameController: _organizationNameController,
-                  organizationIdController: _redeemOrganizationIdController,
-                  codeController: _redeemCodeController,
-                  isBusy: appState.isAuthenticatingBackend,
-                  onCreateOrganization: () =>
-                      appState.createOrganization(
-                        name: _organizationNameController.text,
-                      ),
-                  onRedeem: () => appState.redeemOrganizationAccess(
-                    organizationId: _redeemOrganizationIdController.text,
-                    code: _redeemCodeController.text,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _BillingCard(
-                  plans: plans,
-                  storeProductsById: appState.storeProductsById,
-                  activeEntitlement: entitlement ?? me.activeEntitlement,
-                  activeOrganization: organization,
-                  isLoadingCatalog: appState.isLoadingPurchaseCatalog,
-                  isPurchasing: appState.isPurchasing,
-                  isStoreAvailable: appState.isStoreAvailable,
-                  purchaseStatusMessage: appState.purchaseStatusMessage,
-                  purchaseError: appState.purchaseError,
-                  onLoadCatalog: () => appState.loadPurchaseCatalog(),
-                  onRestorePurchases: () => appState.restorePurchases(),
-                  onPurchasePlan: (planCode) =>
-                      appState.purchasePlan(planCode: planCode),
-                ),
-                if (organization != null) ...[
-                  const SizedBox(height: 16),
-                  _OrganizationCard(
-                    organization: organization,
-                    inviteEmailController: _inviteEmailController,
-                    inviteDisplayNameController: _inviteDisplayNameController,
-                    inviteRole: _inviteRole,
-                    isBusy: appState.isAuthenticatingBackend,
-                    onInviteRoleChanged: (value) {
-                      setState(() {
-                        _inviteRole = value;
-                      });
-                    },
-                    onInvite: () async {
-                      final result = await appState.inviteOrganizationMember(
-                        organizationId: organization.id,
-                        email: _inviteEmailController.text,
-                        displayName: _inviteDisplayNameController.text,
-                        role: _inviteRole,
+                if (!appState.isSignedIn) ...[
+                  _SignInCard(
+                    emailController: _emailController,
+                    displayNameController: _displayNameController,
+                    onStartSignIn: () async {
+                      await appState.startBackendSignIn(
+                        email: _emailController.text,
+                        displayName: _displayNameController.text,
                       );
-                      if (!context.mounted || result == null) {
+                      if (!context.mounted) {
                         return;
                       }
-                      _inviteEmailController.clear();
-                      _inviteDisplayNameController.clear();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            result.accessGrant.demoAccessCode == null ||
-                                    result.accessGrant.demoAccessCode!.isEmpty
-                                ? 'Invite sent to ${result.member.email}.'
-                                : 'Invite created for ${result.member.email}. Demo code: ${result.accessGrant.demoAccessCode}',
-                          ),
-                        ),
-                      );
+                      final challenge = appState.pendingBackendAuthStart;
+                      if (challenge != null) {
+                        _codeController.text = challenge.demoCode;
+                      }
                     },
-                    onResend: (membershipId) =>
-                        appState.resendOrganizationMemberAccess(
-                          organizationId: organization.id,
-                          membershipId: membershipId,
-                        ),
-                    onToggleSeat: (membership) =>
-                        appState.updateOrganizationMemberSeat(
-                          organizationId: organization.id,
-                          membershipId: membership.membershipId,
-                          assignSeat: !membership.seatAssigned,
-                        ),
-                    onRemove: (membershipId) =>
-                        appState.removeOrganizationMember(
-                          organizationId: organization.id,
-                          membershipId: membershipId,
-                        ),
+                    isBusy: appState.isAuthenticatingBackend,
                   ),
+                  if (pendingAuth != null) ...[
+                    const SizedBox(height: 16),
+                    _CodeVerificationCard(
+                      authStart: pendingAuth,
+                      codeController: _codeController,
+                      isBusy: appState.isAuthenticatingBackend,
+                      onComplete: () async {
+                        await appState.completeBackendSignIn(
+                          code: _codeController.text,
+                        );
+                      },
+                    ),
+                  ],
+                  if (conflict != null &&
+                      appState.hasPendingSessionReplacement) ...[
+                    const SizedBox(height: 16),
+                    _SessionReplacementCard(
+                      conflict: conflict,
+                      isBusy: appState.isAuthenticatingBackend,
+                      onReplace: () => appState.replacePendingBackendSession(),
+                    ),
+                  ],
+                ] else ...[
+                  _AccountSummaryCard(
+                    me: me!,
+                    entitlement: entitlement,
+                    isRefreshing: appState.isRefreshingBackendAccount,
+                    onRefresh: () => appState.refreshBackendAccount(),
+                    onLogout: () => appState.logoutBackend(),
+                  ),
+                  const SizedBox(height: 16),
+                  _MembershipsCard(
+                    memberships: me.memberships,
+                    activeOrganization: organization,
+                    organizationNameController: _organizationNameController,
+                    organizationIdController: _redeemOrganizationIdController,
+                    codeController: _redeemCodeController,
+                    isBusy: appState.isAuthenticatingBackend,
+                    onCreateOrganization: () =>
+                        appState.createOrganization(
+                          name: _organizationNameController.text,
+                        ),
+                    onRedeem: () => appState.redeemOrganizationAccess(
+                      organizationId: _redeemOrganizationIdController.text,
+                      code: _redeemCodeController.text,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _BillingCard(
+                    plans: plans,
+                    storeProductsById: appState.storeProductsById,
+                    activeEntitlement: entitlement ?? me.activeEntitlement,
+                    activeOrganization: organization,
+                    isLoadingCatalog: appState.isLoadingPurchaseCatalog,
+                    isPurchasing: appState.isPurchasing,
+                    isStoreAvailable: appState.isStoreAvailable,
+                    purchaseStatusMessage: appState.purchaseStatusMessage,
+                    purchaseError: appState.purchaseError,
+                    onLoadCatalog: () => appState.loadPurchaseCatalog(),
+                    onRestorePurchases: () => appState.restorePurchases(),
+                    onPurchasePlan: (planCode) =>
+                        appState.purchasePlan(planCode: planCode),
+                  ),
+                  if (organization != null) ...[
+                    const SizedBox(height: 16),
+                    _OrganizationCard(
+                      organization: organization,
+                      inviteEmailController: _inviteEmailController,
+                      inviteDisplayNameController: _inviteDisplayNameController,
+                      inviteRole: _inviteRole,
+                      isBusy: appState.isAuthenticatingBackend,
+                      onInviteRoleChanged: (value) {
+                        setState(() {
+                          _inviteRole = value;
+                        });
+                      },
+                      onInvite: () async {
+                        final result = await appState.inviteOrganizationMember(
+                          organizationId: organization.id,
+                          email: _inviteEmailController.text,
+                          displayName: _inviteDisplayNameController.text,
+                          role: _inviteRole,
+                        );
+                        if (!context.mounted || result == null) {
+                          return;
+                        }
+                        _inviteEmailController.clear();
+                        _inviteDisplayNameController.clear();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              result.accessGrant.demoAccessCode == null ||
+                                      result
+                                          .accessGrant
+                                          .demoAccessCode!
+                                          .isEmpty
+                                  ? 'Invite sent to ${result.member.email}.'
+                                  : 'Invite created for ${result.member.email}. Demo code: ${result.accessGrant.demoAccessCode}',
+                            ),
+                          ),
+                        );
+                      },
+                      onResend: (membershipId) =>
+                          appState.resendOrganizationMemberAccess(
+                            organizationId: organization.id,
+                            membershipId: membershipId,
+                          ),
+                      onToggleSeat: (membership) =>
+                          appState.updateOrganizationMemberSeat(
+                            organizationId: organization.id,
+                            membershipId: membership.membershipId,
+                            assignSeat: !membership.seatAssigned,
+                          ),
+                      onRemove: (membershipId) =>
+                          appState.removeOrganizationMember(
+                            organizationId: organization.id,
+                            membershipId: membershipId,
+                          ),
+                    ),
+                  ],
                 ],
               ],
-            ],
+            ),
           ),
         );
       },
@@ -285,6 +293,8 @@ class _SignInCard extends StatelessWidget {
             TextField(
               controller: emailController,
               keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              enableSuggestions: false,
               decoration: const InputDecoration(labelText: 'Email'),
             ),
             const SizedBox(height: 12),

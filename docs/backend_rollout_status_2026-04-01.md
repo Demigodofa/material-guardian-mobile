@@ -68,6 +68,8 @@ The Flutter repo already has:
   - backend-typed plan loading
   - signed-in organization creation for business checkout
   - first Google Play purchase shell that maps store purchases back into backend verification
+  - Samsung-safe bottom insets on the account flow so sign-in and org buttons stay above system navigation
+  - client-side email-shape validation before auth start requests are sent
 
 ## Path forward from the mobile side
 

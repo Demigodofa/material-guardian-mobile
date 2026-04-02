@@ -259,6 +259,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
   bool _isRefreshingBackendAccount = false;
   bool _isLoadingPurchaseCatalog = false;
   bool _isPurchasing = false;
+  bool _isRestoringPurchases = false;
   bool _isStoreAvailable = false;
   final Map<String, String?> _pendingPurchaseOrganizationIdsByProductId =
       <String, String?>{};
@@ -295,6 +296,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
   bool get isRefreshingBackendAccount => _isRefreshingBackendAccount;
   bool get isLoadingPurchaseCatalog => _isLoadingPurchaseCatalog;
   bool get isPurchasing => _isPurchasing;
+  bool get isRestoringPurchases => _isRestoringPurchases;
   bool get isStoreAvailable => _isStoreAvailable;
   bool get isSignedIn => _backendAuthSession != null && _backendMe != null;
   bool get hasPendingSessionReplacement => _pendingSessionReplacementId != null;
@@ -980,16 +982,19 @@ class MaterialGuardianAppState extends ChangeNotifier {
   }
 
   Future<void> restorePurchases() async {
-    _isPurchasing = true;
+    _isRestoringPurchases = true;
     _purchaseError = null;
     _purchaseStatusMessage = 'Checking the store for existing purchases.';
     notifyListeners();
 
     try {
       await _storePurchaseService.restorePurchases();
+      _purchaseStatusMessage = null;
     } catch (error) {
-      _isPurchasing = false;
+      _purchaseStatusMessage = null;
       _purchaseError = error.toString();
+    } finally {
+      _isRestoringPurchases = false;
       notifyListeners();
     }
   }
@@ -1240,6 +1245,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     for (final update in updates) {
       if (update.isPending) {
         _isPurchasing = true;
+        _isRestoringPurchases = false;
         _purchaseStatusMessage =
             'Waiting for the store to finish ${update.productId}.';
         _purchaseError = null;
@@ -1249,6 +1255,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
 
       if (update.isCanceled) {
         _isPurchasing = false;
+        _isRestoringPurchases = false;
         _purchaseStatusMessage = 'Purchase canceled.';
         _purchaseError = null;
         _pendingPurchaseOrganizationIdsByProductId.remove(update.productId);
@@ -1258,6 +1265,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
 
       if (update.isError) {
         _isPurchasing = false;
+        _isRestoringPurchases = false;
         _purchaseError = update.errorMessage ?? 'The store purchase failed.';
         _purchaseStatusMessage = null;
         _pendingPurchaseOrganizationIdsByProductId.remove(update.productId);
@@ -1283,6 +1291,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
       }
       if (session == null || plan == null) {
         _isPurchasing = false;
+        _isRestoringPurchases = false;
         _purchaseError =
             'Purchase completed in the store, but the app could not match it to a signed-in plan.';
         _purchaseStatusMessage = null;
@@ -1321,6 +1330,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
         _purchaseStatusMessage = null;
       } finally {
         _isPurchasing = false;
+        _isRestoringPurchases = false;
         _pendingPurchaseOrganizationIdsByProductId.remove(update.productId);
         if (update.pendingCompletePurchase) {
           await _storePurchaseService.completePurchase(update.productId);

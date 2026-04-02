@@ -155,6 +155,7 @@ class _AccountScreenState extends State<AccountScreen> {
                     activeOrganization: organization,
                     isLoadingCatalog: appState.isLoadingPurchaseCatalog,
                     isPurchasing: appState.isPurchasing,
+                    isRestoringPurchases: appState.isRestoringPurchases,
                     isStoreAvailable: appState.isStoreAvailable,
                     purchaseStatusMessage: appState.purchaseStatusMessage,
                     purchaseError: appState.purchaseError,
@@ -583,6 +584,7 @@ class _BillingCard extends StatelessWidget {
     required this.activeOrganization,
     required this.isLoadingCatalog,
     required this.isPurchasing,
+    required this.isRestoringPurchases,
     required this.isStoreAvailable,
     required this.purchaseStatusMessage,
     required this.purchaseError,
@@ -599,6 +601,7 @@ class _BillingCard extends StatelessWidget {
   final BackendOrganizationSummary? activeOrganization;
   final bool isLoadingCatalog;
   final bool isPurchasing;
+  final bool isRestoringPurchases;
   final bool isStoreAvailable;
   final String? purchaseStatusMessage;
   final String? purchaseError;
@@ -635,10 +638,16 @@ class _BillingCard extends StatelessWidget {
                   child: const Text('Load Plans'),
                 ),
                 OutlinedButton(
-                  onPressed: (!isStoreAvailable || isPurchasing)
+                  onPressed: (!isStoreAvailable ||
+                          isPurchasing ||
+                          isRestoringPurchases)
                       ? null
                       : onRestorePurchases,
-                  child: const Text('Restore Purchases'),
+                  child: Text(
+                    isRestoringPurchases
+                        ? 'Checking Purchases...'
+                        : 'Restore Purchases',
+                  ),
                 ),
               ],
             ),

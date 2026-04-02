@@ -480,6 +480,25 @@ void main() {
       contains('Play did not return these product IDs'),
     );
   });
+
+  test('restoring purchases does not leave the app stuck in purchasing mode', () async {
+    final appState = MaterialGuardianAppState.seeded(
+      storePurchaseService: const _FakeStorePurchaseService(
+        available: true,
+        queryResult: StoreProductQueryResult(
+          products: <StoreProductSnapshot>[],
+          notFoundIds: <String>[],
+          errorMessage: null,
+        ),
+      ),
+    );
+
+    await appState.restorePurchases();
+
+    expect(appState.isRestoringPurchases, isFalse);
+    expect(appState.isPurchasing, isFalse);
+    expect(appState.purchaseStatusMessage, isNull);
+  });
 }
 
 class _FakeStorePurchaseService implements StorePurchaseService {

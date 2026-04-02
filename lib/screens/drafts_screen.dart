@@ -93,7 +93,21 @@ class DraftsScreen extends StatelessWidget {
                                 ),
                               ),
                               OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.error,
+                                ),
                                 onPressed: () async {
+                                  final confirmed = await _showDeleteDraftDialog(
+                                    context,
+                                    draft.description.trim().isEmpty
+                                        ? 'this draft'
+                                        : draft.description,
+                                  );
+                                  if (confirmed != true) {
+                                    return;
+                                  }
                                   await appState.deleteDraft(draft.id);
                                   if (!context.mounted) {
                                     return;
@@ -121,4 +135,36 @@ class DraftsScreen extends StatelessWidget {
       },
     );
   }
+}
+
+Future<bool?> _showDeleteDraftDialog(
+  BuildContext context,
+  String draftLabel,
+) {
+  return showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Delete draft?'),
+        content: Text('Delete $draftLabel?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, false);
+            },
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, true);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
 }

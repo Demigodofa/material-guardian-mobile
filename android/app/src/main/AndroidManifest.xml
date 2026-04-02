@@ -1,8 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.CAMERA" />
     <application
         android:label="Material Guardian"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@drawable/material_guardian_192"
+        android:roundIcon="@drawable/material_guardian_192">
         <activity
             android:name=".MainActivity"
             android:exported="true"

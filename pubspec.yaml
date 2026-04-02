@@ -8,11 +8,14 @@ environment:
 
 dependencies:
   archive: ^4.0.9
+  camera: ^0.11.0+2
   file_picker: ^10.3.10
   flutter:
     sdk: flutter
   http: ^1.5.0
   image_picker: ^1.2.1
+  in_app_purchase: ^3.2.3
+  in_app_purchase_android: ^0.4.0+10
   open_filex: ^4.7.0
   path: ^1.9.1
   path_provider: ^2.1.5
@@ -27,3 +30,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/reference/android-source/icons/

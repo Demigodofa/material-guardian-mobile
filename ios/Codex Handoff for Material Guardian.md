@@ -1,6 +1,6 @@
 # Codex Handoff for Material Guardian
 
-Last updated: 2026-04-01
+Last updated: 2026-04-02
 
 ## Project location
 
@@ -12,12 +12,15 @@ Last updated: 2026-04-01
 ## Current state
 
 - This repo is the source of truth for the future shared Flutter client and Apple handoff notes.
-- The shipping Android app still does not live in this repo; it remains the behavior donor.
+- The shipping Android app still does not live in this repo; it remains the behavior donor and the original Android-only source this Flutter work was built from.
 - The Flutter scaffold now exists in this repo, including generated Android and iOS projects.
 - Shared Dart code now exists in `lib/` and currently covers jobs, job detail, drafts, customization defaults, and local persistence.
 - The app is being built as one shared Flutter client for Android and Apple, but iOS-specific validation and platform fit are still unfinished.
+- The current delivery stage is debugging/hardening the Flutter app against donor behavior and real Android device use, not greenfield scaffolding.
 - Android app work is ahead of the older iOS notes and should be treated as the current product reference.
 - Long-term client direction is now a shared Flutter app plus backend, not "separate full native iOS app by default."
+- `Welders Helper` is the umbrella company/brand for the app suite, and `Material Guardian` is one product in that suite.
+- The suite-level "Brought to you by" splash behavior is intended to carry forward to sibling apps such as `Flange Helper`; keep that umbrella splash rule documented rather than implicit.
 - Active repo split is now:
   - `MaterialGuardian_Android` for the current shipping/reference app
   - `material-guardian-mobile` for the future shared Flutter client
@@ -31,6 +34,7 @@ Last updated: 2026-04-01
 - Shared Flutter code is the correct direction for both Android and Apple.
 - That does not mean the app is already optimized for iPhone.
 - The shared product/data/navigation layer should be built once in Dart where possible.
+- Android is the active debugging lane right now; Apple work should pick up from stable shared workflow and documented suite rules rather than from stale assumptions.
 - Apple-specific build settings, permissions, camera/scanner behavior, file export behavior, app icons, launch assets, and signing must still be finished and validated on the Mac.
 - Keep Apple-specific follow-up work tracked in `ios/apple-platform-todo-2026-04-01.md`.
 
@@ -124,6 +128,23 @@ Last updated: 2026-04-01
 - Photo previews were corrected to respect image orientation while exported photos already retained proper orientation.
 - Export PDF layout was tightened repeatedly to keep the receiving report on one page and keep lower sections aligned.
 - Android launch behavior was cleaned so the app should go straight into the intended splash flow instead of briefly showing the launcher icon first.
+- The Flutter repo is now actively debugging shared splash/launch behavior and Downloads-backed export reopening on real Android hardware.
+- Samsung donor-parity validation has now confirmed that the home screen no longer shows a global drafts button and that the job-detail materials list is back to a donor-style tap-to-edit summary row with a separate `Delete`, positioned safely above the Samsung navigation bar.
+- Samsung donor-parity validation has now also confirmed the new in-app photo capture flow: `Add material photos -> Take Photo` stays inside the Flutter app, shows a `Material Photos` camera overlay, uses `Retake` / `Use Photo`, advances the in-overlay counter after accept, and returns to the form with the photo count updated.
+- Samsung donor-parity validation has now also confirmed the camera-based scan flow: `Scan MTR/CoC PDFs -> Scan With Camera` stays inside the Flutter app, shows an `MTR/CoC Scans` overlay, uses `Retake` / `Use Scan`, advances the in-overlay counter after accept, and returns to the form with the scan count updated.
+- The lower media controls on the receiving form were also moved clear of Samsung navigation chrome so `Scan MTR/CoC PDFs`, `Save Material`, and `Save Draft and Close` are reachable on-device.
+- Samsung donor-parity validation has now also confirmed that the shared Flutter form no longer exposes the donor-inaccurate `Heat Number` field; the live upper form block shows `Material Description`, `PO #`, `Qty`, `Product`, `A/SA`, `Spec / Grade`, and `Fitting`.
+- Samsung donor-parity validation has also confirmed the packet-report wording update with a pulled PDF artifact: the exported packet now contains `RECEIVING INSPECTION REPORT`, `Material Details`, `Dimensions`, `Inspection`, `Comments`, `Quality Control`, `PO#`, `Qty`, `Product`, `Grade/Type`, `Marking Actual`, `MTR/CoC Acceptable to Specification`, `Disposition`, and `QC Manager`, and no `Heat Number`.
+- Samsung donor-parity validation now also confirms that the shared Flutter form exposes donor-style `Material approval` instead of inferring it on save, and that the `Quality Control -> Material approval -> QC Manager` order is restored on-device without the duplicate manager printed-name field.
+- Samsung donor-parity validation also reconfirmed the lower media block after that QC fix: the live form still shows attached photo thumbnails, empty photo/scan slots, and reachable `Save Material` / `Save Draft and Close` controls above the Samsung nav bar.
+- Samsung donor-parity validation also reconfirmed the latest in-app photo flow from the corrected media block: tapping `Add material photos` opens the in-app action sheet, `Take Photo` stays inside `com.asme.receiving.dev`, and the overlay still shows `Material Photos` with the running counter.
+- Samsung snapshot validation has now also confirmed that creating a job on-device really persists: after entering `JOBTEST6` and pressing `Create`, the new job appeared in `files/material_guardian_snapshot.json`.
+- Shared Flutter now also restores the donor field caps that protect receiving-report line placement: `Material Description` 40, `PO #` 20, `Vendor` 20, `Qty` 6, `Spec/Grade` 12, dimension fields 10, QC inspector/manager names 20, and `Actual Markings` back to 5 lines.
+- Shared Flutter now also has widget-test coverage for donor back-out behavior: dirty receiving forms show `Exit receiving report?`, offer `Keep Editing` / `Leave` / `Delete Draft`, preserve the draft on leave, and remove it on delete.
+- Shared Flutter now also restores donor QC-date parity: the receiving form has date pickers beside `QC Inspector` and `QC Manager`, drafts/materials persist those dates, and export packets now include `QC Inspector Date` / `QC Manager Date` plus dated signature blocks.
+- Shared Flutter now also restores more donor packet structure: the export no longer prints the internal `Tag` row or generic `Field / Value` headers, blank surface-finish rows are omitted, material-detail order is back to donor order, and the signature area now has a donor-style `Signatures` heading.
+- Shared Flutter now also matches the donor surface-finish form row more closely by rendering `Actual Surface Finish Reading` as the field label with the unit beside the field instead of inside the label.
+- The next Android parity pass should now move beyond the old camera/media/job-create/QC-date/packet-structure uncertainty and focus on broader donor comparisons: receiving-report field order/details, plus any remaining back-out edge cases that only show up on-device or scan-preview mismatches.
 - The next agreed product pass includes explicit draft access, explicit PDF-vs-ZIP sharing, and QC-name/signature defaults driven from customization.
 
 ## Important Android details to preserve when porting
@@ -155,6 +176,6 @@ These help on Kevin's PC but should not drive iOS architecture:
 
 Ask Codex to:
 
-`Open C:\Users\KevinPenfield\source\repos\Demigodofa\material-guardian-mobile and read ios/Codex Handoff for Material Guardian.md first. Use C:\Users\KevinPenfield\source\repos\Demigodofa\MaterialGuardian_Android as the behavior reference, read docs/material_guardian_flutter_source_of_truth.md, and help plan or build the Flutter + backend path for Material Guardian without touching Android signing files.`
+`Open C:\Users\KevinPenfield\source\repos\Demigodofa\material-guardian-mobile and read ios/Codex Handoff for Material Guardian.md first. Use C:\Users\KevinPenfield\source\repos\Demigodofa\MaterialGuardian_Android as the behavior reference, read docs/material_guardian_flutter_source_of_truth.md, and continue the Flutter debugging/hardening path for Material Guardian without touching Android signing files. Keep the Welders Helper suite branding and shared "Brought to you by" splash behavior in mind for future sibling apps like Flange Helper. Start from the remaining Android donor-parity checks around receiving-report field/detail order, back-out edge cases, and any remaining scan/preview mismatches unless newer notes in the repo override that priority.`
 
 Also tell Codex that if there is already iOS work in this clone, branch, or another newer Mac copy, it should preserve and extend that work instead of replacing it with a fresh scaffold. Have it also check `C:\Users\KevinPenfield\.codex\skills\kevin-codex\` on this PC to pick up Kevin-machine workflow context and see whether any durable guidance or legacy workflow notes should be updated as the iOS work progresses.

@@ -3,12 +3,14 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../data/backend_auth_session_store.dart';
 import '../data/customization_store.dart';
 import '../data/material_guardian_snapshot_store.dart';
 import '../services/backend_api_service.dart';
 import '../services/customization_asset_service.dart';
 import '../services/job_export_service.dart';
 import '../services/material_media_service.dart';
+import '../services/store_purchase_service.dart';
 import 'models.dart';
 
 class MaterialGuardianAppState extends ChangeNotifier {
@@ -20,6 +22,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
     required CustomizationStore customizationStore,
     required CustomizationAssetService customizationAssetService,
     required BackendApiService backendApiService,
+    required BackendAuthSessionStore authSessionStore,
+    required StorePurchaseService storePurchaseService,
     required MaterialMediaService mediaService,
     required JobExportService exportService,
   }) : _jobs = jobs,
@@ -29,11 +33,18 @@ class MaterialGuardianAppState extends ChangeNotifier {
        _customizationStore = customizationStore,
        _customizationAssetService = customizationAssetService,
        _backendApiService = backendApiService,
+       _authSessionStore = authSessionStore,
+       _storePurchaseService = storePurchaseService,
        _mediaService = mediaService,
-       _exportService = exportService;
+       _exportService = exportService {
+    _storePurchaseUpdatesSubscription = _storePurchaseService.purchaseUpdates
+        .listen(_handleStorePurchaseUpdates);
+  }
 
   factory MaterialGuardianAppState.seeded({
     BackendApiService? backendApiService,
+    BackendAuthSessionStore? authSessionStore,
+    StorePurchaseService? storePurchaseService,
   }) {
     final customization = CustomizationSettings(
       receiveAsmeB16Parts: true,
@@ -69,8 +80,11 @@ class MaterialGuardianAppState extends ChangeNotifier {
             fittingStandard: 'B16.34',
             fittingSuffix: '',
             dimensionUnit: UnitSystem.imperial,
-            heatNumber: 'HT-44721',
+            heatNumber: '',
             thickness1: '',
+            thickness2: '',
+            thickness3: '',
+            thickness4: '',
             width: '',
             length: '',
             diameter: '2',
@@ -83,13 +97,17 @@ class MaterialGuardianAppState extends ChangeNotifier {
             markings: '',
             markingAcceptable: true,
             markingAcceptableNa: false,
+            markingSelected: true,
             mtrAcceptable: true,
             mtrAcceptableNa: false,
+            mtrSelected: true,
             acceptanceStatus: 'accept',
             comments: '',
             quantity: '2',
             qcInspectorName: 'Kevin Penfield',
+            qcInspectorDate: DateTime(2026, 3, 31),
             qcManagerName: 'Shop QA',
+            qcManagerDate: DateTime(2026, 3, 31),
             qcSignaturePath: '',
             qcManagerSignaturePath: '',
             materialApproval: 'approved',
@@ -125,6 +143,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
         includesB16Data: false,
         b16Size: '',
         thickness1: '',
+        thickness2: '',
+        thickness3: '',
+        thickness4: '',
         width: '',
         length: '',
         diameter: '',
@@ -134,16 +155,21 @@ class MaterialGuardianAppState extends ChangeNotifier {
         surfaceFinishReading: '',
         surfaceFinishUnit: customization.surfaceFinishUnit,
         markings: '',
-        markingAcceptable: true,
+        markingAcceptable: false,
         markingAcceptableNa: false,
-        mtrAcceptable: true,
+        markingSelected: false,
+        mtrAcceptable: false,
         mtrAcceptableNa: false,
+        mtrSelected: false,
         comments: '',
         acceptanceStatus: 'accept',
         qcInspectorName: customization.defaultQcInspectorName,
+        qcInspectorDate: DateTime(2026, 4, 1),
         qcManagerName: customization.defaultQcManagerName,
+        qcManagerDate: DateTime(2026, 4, 1),
         qcSignaturePath: '',
         qcManagerSignaturePath: '',
+        materialApproval: 'approved',
         photoPaths: const [],
         scanPaths: const [],
         signatureApplied: false,
@@ -159,6 +185,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
       customizationStore: CustomizationStore(),
       customizationAssetService: CustomizationAssetService(),
       backendApiService: backendApiService ?? BackendApiService(),
+      authSessionStore: authSessionStore ?? InMemoryBackendAuthSessionStore(),
+      storePurchaseService:
+          storePurchaseService ?? _defaultStorePurchaseService(),
       mediaService: MaterialMediaService(),
       exportService: JobExportService(),
     );
@@ -166,6 +195,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
 
   static Future<MaterialGuardianAppState> create({
     BackendApiService? backendApiService,
+    BackendAuthSessionStore? authSessionStore,
+    StorePurchaseService? storePurchaseService,
   }) async {
     final snapshotStore = MaterialGuardianSnapshotStore();
     final customizationStore = CustomizationStore();
@@ -179,10 +210,16 @@ class MaterialGuardianAppState extends ChangeNotifier {
       customizationStore: customizationStore,
       customizationAssetService: CustomizationAssetService(),
       backendApiService: backendApiService ?? BackendApiService(),
+      authSessionStore:
+          authSessionStore ?? SharedPreferencesBackendAuthSessionStore(),
+      storePurchaseService:
+          storePurchaseService ?? _defaultStorePurchaseService(),
       mediaService: MaterialMediaService(),
       exportService: JobExportService(),
     );
     await appState.refreshBackendHealth();
+    await appState.restoreBackendSession();
+    await appState.loadPurchaseCatalog();
     return appState;
   }
 
@@ -190,15 +227,39 @@ class MaterialGuardianAppState extends ChangeNotifier {
   final CustomizationStore _customizationStore;
   final CustomizationAssetService _customizationAssetService;
   final BackendApiService _backendApiService;
+  final BackendAuthSessionStore _authSessionStore;
+  final StorePurchaseService _storePurchaseService;
   final MaterialMediaService _mediaService;
   final JobExportService _exportService;
+  late final StreamSubscription<List<StorePurchaseUpdate>>
+  _storePurchaseUpdatesSubscription;
 
   List<JobRecord> _jobs;
   List<MaterialDraft> _drafts;
   CustomizationSettings _customization;
   BackendHealthSnapshot? _backendHealth;
   String? _backendHealthError;
+  StoredBackendAuthSession? _backendAuthSession;
+  BackendAuthStartSnapshot? _pendingBackendAuthStart;
+  BackendSessionConflictSnapshot? _pendingSessionConflict;
+  String? _pendingSessionReplacementId;
+  BackendMeSnapshot? _backendMe;
+  BackendEntitlementSnapshot? _backendEntitlement;
+  BackendOrganizationSummary? _backendOrganization;
+  List<BackendPlanSnapshot> _backendPlans = const <BackendPlanSnapshot>[];
+  Map<String, StoreProductSnapshot> _storeProductsById =
+      const <String, StoreProductSnapshot>{};
+  String? _backendAccountError;
+  String? _purchaseStatusMessage;
+  String? _purchaseError;
   bool _isCheckingBackendHealth = false;
+  bool _isAuthenticatingBackend = false;
+  bool _isRefreshingBackendAccount = false;
+  bool _isLoadingPurchaseCatalog = false;
+  bool _isPurchasing = false;
+  bool _isStoreAvailable = false;
+  final Map<String, String?> _pendingPurchaseOrganizationIdsByProductId =
+      <String, String?>{};
 
   List<JobRecord> get jobs => List.unmodifiable(_jobs);
   List<MaterialDraft> get drafts => List.unmodifiable(_drafts);
@@ -210,6 +271,28 @@ class MaterialGuardianAppState extends ChangeNotifier {
   BackendHealthSnapshot? get backendHealth => _backendHealth;
   String? get backendHealthError => _backendHealthError;
   bool get isCheckingBackendHealth => _isCheckingBackendHealth;
+  StoredBackendAuthSession? get backendAuthSession => _backendAuthSession;
+  BackendAuthStartSnapshot? get pendingBackendAuthStart =>
+      _pendingBackendAuthStart;
+  BackendSessionConflictSnapshot? get pendingSessionConflict =>
+      _pendingSessionConflict;
+  String? get pendingSessionReplacementId => _pendingSessionReplacementId;
+  BackendMeSnapshot? get backendMe => _backendMe;
+  BackendEntitlementSnapshot? get backendEntitlement => _backendEntitlement;
+  BackendOrganizationSummary? get backendOrganization => _backendOrganization;
+  List<BackendPlanSnapshot> get backendPlans => List.unmodifiable(_backendPlans);
+  Map<String, StoreProductSnapshot> get storeProductsById =>
+      Map.unmodifiable(_storeProductsById);
+  String? get backendAccountError => _backendAccountError;
+  String? get purchaseStatusMessage => _purchaseStatusMessage;
+  String? get purchaseError => _purchaseError;
+  bool get isAuthenticatingBackend => _isAuthenticatingBackend;
+  bool get isRefreshingBackendAccount => _isRefreshingBackendAccount;
+  bool get isLoadingPurchaseCatalog => _isLoadingPurchaseCatalog;
+  bool get isPurchasing => _isPurchasing;
+  bool get isStoreAvailable => _isStoreAvailable;
+  bool get isSignedIn => _backendAuthSession != null && _backendMe != null;
+  bool get hasPendingSessionReplacement => _pendingSessionReplacementId != null;
   MaterialMediaService get mediaService => _mediaService;
 
   JobRecord jobById(String id) {
@@ -333,6 +416,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
       includesB16Data: _customization.receiveAsmeB16Parts,
       b16Size: '',
       thickness1: '',
+      thickness2: '',
+      thickness3: '',
+      thickness4: '',
       width: '',
       length: '',
       diameter: '',
@@ -342,16 +428,21 @@ class MaterialGuardianAppState extends ChangeNotifier {
       surfaceFinishReading: '',
       surfaceFinishUnit: _customization.surfaceFinishUnit,
       markings: '',
-      markingAcceptable: true,
+      markingAcceptable: false,
       markingAcceptableNa: false,
-      mtrAcceptable: true,
+      markingSelected: false,
+      mtrAcceptable: false,
       mtrAcceptableNa: false,
+      mtrSelected: false,
       comments: '',
       acceptanceStatus: 'accept',
       qcInspectorName: _customization.defaultQcInspectorName,
+      qcInspectorDate: DateTime.now(),
       qcManagerName: _customization.defaultQcManagerName,
+      qcManagerDate: DateTime.now(),
       qcSignaturePath: '',
       qcManagerSignaturePath: '',
+      materialApproval: 'approved',
       photoPaths: const [],
       scanPaths: const [],
       signatureApplied: _customization.hasSavedInspectorSignature,
@@ -395,6 +486,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
       includesB16Data: material.b16DimensionsAcceptable.trim().isNotEmpty,
       b16Size: material.b16DimensionsAcceptable,
       thickness1: material.thickness1,
+      thickness2: material.thickness2,
+      thickness3: material.thickness3,
+      thickness4: material.thickness4,
       width: material.width,
       length: material.length,
       diameter: material.diameter,
@@ -406,14 +500,19 @@ class MaterialGuardianAppState extends ChangeNotifier {
       markings: material.markings,
       markingAcceptable: material.markingAcceptable,
       markingAcceptableNa: material.markingAcceptableNa,
+      markingSelected: material.markingSelected,
       mtrAcceptable: material.mtrAcceptable,
       mtrAcceptableNa: material.mtrAcceptableNa,
+      mtrSelected: material.mtrSelected,
       comments: material.comments,
       acceptanceStatus: material.acceptanceStatus,
       qcInspectorName: material.qcInspectorName,
+      qcInspectorDate: material.qcInspectorDate,
       qcManagerName: material.qcManagerName,
+      qcManagerDate: material.qcManagerDate,
       qcSignaturePath: material.qcSignaturePath,
       qcManagerSignaturePath: material.qcManagerSignaturePath,
+      materialApproval: material.materialApproval,
       photoPaths: material.photoPaths,
       scanPaths: material.scanPaths,
       signatureApplied: _customization.hasSavedInspectorSignature,
@@ -455,7 +554,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
           ? 'mat-${DateTime.now().microsecondsSinceEpoch}'
           : existingMaterialId,
       tag: draft.materialTag.trim().isEmpty
-          ? 'UNASSIGNED'
+          ? (draft.description.trim().isEmpty
+                ? 'Receiving report item'
+                : draft.description.trim())
           : draft.materialTag.trim(),
       description: draft.description.trim().isEmpty
           ? 'Receiving report item'
@@ -471,33 +572,38 @@ class MaterialGuardianAppState extends ChangeNotifier {
       fittingSuffix: draft.fittingSuffix.trim(),
       dimensionUnit: draft.unitSystem,
       thickness1: draft.thickness1.trim(),
+      thickness2: draft.thickness2.trim(),
+      thickness3: draft.thickness3.trim(),
+      thickness4: draft.thickness4.trim(),
       width: draft.width.trim(),
       length: draft.length.trim(),
       diameter: draft.diameter.trim(),
       diameterType: draft.diameterType.trim(),
       visualInspectionAcceptable: draft.visualInspectionAcceptable,
-      b16DimensionsAcceptable: draft.includesB16Data
-          ? draft.b16Size.trim()
-          : '',
+      b16DimensionsAcceptable: draft.b16Size.trim(),
       surfaceFinishCode: draft.surfaceFinish.trim(),
       surfaceFinishReading: draft.surfaceFinishReading.trim(),
       surfaceFinishUnit: draft.surfaceFinishUnit.trim(),
       markings: draft.markings.trim(),
       markingAcceptable: draft.markingAcceptable,
       markingAcceptableNa: draft.markingAcceptableNa,
+      markingSelected: draft.markingSelected,
       mtrAcceptable: draft.mtrAcceptable,
       mtrAcceptableNa: draft.mtrAcceptableNa,
+      mtrSelected: draft.mtrSelected,
       acceptanceStatus: draft.acceptanceStatus.trim().isEmpty
           ? 'accept'
           : draft.acceptanceStatus.trim(),
       comments: draft.comments.trim(),
       qcInspectorName: draft.qcInspectorName.trim(),
+      qcInspectorDate: draft.qcInspectorDate,
       qcManagerName: draft.qcManagerName.trim(),
+      qcManagerDate: draft.qcManagerDate,
       qcSignaturePath: draft.qcSignaturePath.trim(),
       qcManagerSignaturePath: draft.qcManagerSignaturePath.trim(),
-      materialApproval: draft.acceptanceStatus.trim().toLowerCase() == 'accept'
+      materialApproval: draft.materialApproval.trim().isEmpty
           ? 'approved'
-          : 'hold',
+          : draft.materialApproval.trim(),
       offloadStatus: '',
       pdfStatus: '',
       pdfStoragePath: '',
@@ -579,6 +685,709 @@ class MaterialGuardianAppState extends ChangeNotifier {
     }
   }
 
+  Future<void> loadPurchaseCatalog() async {
+    _isLoadingPurchaseCatalog = true;
+    _purchaseError = null;
+    notifyListeners();
+
+    try {
+      final plans = await _backendApiService.fetchPlans();
+      final storeAvailable = await _storePurchaseService.isAvailable();
+      final productIds = plans
+          .map((plan) => plan.storeProductIdForPlatform(_storePlatform()))
+          .whereType<String>()
+          .where((productId) => productId.trim().isNotEmpty)
+          .toSet();
+      final storeProducts = storeAvailable
+          ? await _storePurchaseService.queryProducts(productIds)
+          : const <StoreProductSnapshot>[];
+
+      _backendPlans = plans;
+      _isStoreAvailable = storeAvailable;
+      _storeProductsById = <String, StoreProductSnapshot>{
+        for (final product in storeProducts) product.id: product,
+      };
+    } catch (error) {
+      _purchaseError = error.toString();
+    } finally {
+      _isLoadingPurchaseCatalog = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> restoreBackendSession() async {
+    final storedSession = await _authSessionStore.load();
+    if (storedSession == null) {
+      return;
+    }
+
+    _backendAuthSession = storedSession;
+    await refreshBackendAccount();
+  }
+
+  Future<void> startBackendSignIn({
+    required String email,
+    String? displayName,
+  }) async {
+    final normalizedEmail = email.trim();
+    if (normalizedEmail.isEmpty) {
+      _backendAccountError = 'Email is required to start sign-in.';
+      notifyListeners();
+      return;
+    }
+
+    _isAuthenticatingBackend = true;
+    _backendAccountError = null;
+    _pendingSessionConflict = null;
+    _pendingSessionReplacementId = null;
+    notifyListeners();
+
+    try {
+      _pendingBackendAuthStart = await _backendApiService.startAuth(
+        email: normalizedEmail,
+        displayName: displayName?.trim().isEmpty ?? true
+            ? null
+            : displayName!.trim(),
+      );
+    } catch (error) {
+      _backendAccountError = error.toString();
+    } finally {
+      _isAuthenticatingBackend = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> completeBackendSignIn({
+    required String code,
+    String? deviceLabel,
+    String? platform,
+  }) async {
+    final authStart = _pendingBackendAuthStart;
+    if (authStart == null) {
+      _backendAccountError = 'Start sign-in before entering a code.';
+      notifyListeners();
+      return;
+    }
+
+    _isAuthenticatingBackend = true;
+    _backendAccountError = null;
+    notifyListeners();
+
+    try {
+      final result = await _backendApiService.completeAuth(
+        flowId: authStart.flowId,
+        email: authStart.deliveryTarget,
+        code: code.trim(),
+        deviceLabel: deviceLabel?.trim().isEmpty ?? true
+            ? _defaultDeviceLabel()
+            : deviceLabel!.trim(),
+        platform: platform ?? _defaultSessionPlatform(),
+      );
+
+      if (result.requiresSessionReplacement) {
+        _pendingSessionReplacementId = result.pendingSessionId;
+        _pendingSessionConflict = result.conflict;
+        _backendAccountError =
+            'Another active session exists. Replace it to finish signing in.';
+        return;
+      }
+
+      await _acceptAuthenticatedBackendResult(result);
+    } catch (error) {
+      _backendAccountError = error.toString();
+    } finally {
+      _isAuthenticatingBackend = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> replacePendingBackendSession() async {
+    final pendingSessionId = _pendingSessionReplacementId;
+    if (pendingSessionId == null) {
+      return;
+    }
+
+    _isAuthenticatingBackend = true;
+    _backendAccountError = null;
+    notifyListeners();
+
+    try {
+      final result = await _backendApiService.replaceSession(
+        pendingSessionId: pendingSessionId,
+      );
+      await _acceptAuthenticatedBackendResult(result);
+    } catch (error) {
+      _backendAccountError = error.toString();
+    } finally {
+      _isAuthenticatingBackend = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> createOrganization({
+    required String name,
+  }) async {
+    final session = _backendAuthSession;
+    if (session == null) {
+      _backendAccountError = 'Sign in before creating an organization.';
+      notifyListeners();
+      return;
+    }
+
+    final normalizedName = name.trim();
+    if (normalizedName.isEmpty) {
+      _backendAccountError = 'Organization name is required.';
+      notifyListeners();
+      return;
+    }
+
+    _isAuthenticatingBackend = true;
+    _backendAccountError = null;
+    notifyListeners();
+
+    try {
+      final result = await _backendApiService.createOrganization(
+        name: normalizedName,
+        accessToken: session.accessToken,
+      );
+      _backendOrganization = result.organization;
+      await _hydrateBackendAccount(accessToken: session.accessToken);
+    } catch (error) {
+      _backendAccountError = error.toString();
+    } finally {
+      _isAuthenticatingBackend = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshBackendAccount() async {
+    final session = _backendAuthSession;
+    if (session == null) {
+      return;
+    }
+
+    _isRefreshingBackendAccount = true;
+    _backendAccountError = null;
+    notifyListeners();
+
+    try {
+      final refreshed = await _backendApiService.refreshSession(
+        refreshToken: session.refreshToken,
+      );
+      await _acceptAuthenticatedBackendResult(
+        refreshed,
+        hydrateFromAccessToken: true,
+      );
+    } catch (error) {
+      await _clearBackendAuthState(
+        errorMessage:
+            'Saved backend session could not be refreshed. Sign in again.',
+      );
+    } finally {
+      _isRefreshingBackendAccount = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> purchasePlan({required String planCode}) async {
+    final session = _backendAuthSession;
+    if (session == null) {
+      _purchaseError = 'Sign in before purchasing a plan.';
+      notifyListeners();
+      return;
+    }
+
+    BackendPlanSnapshot? plan;
+    for (final currentPlan in _backendPlans) {
+      if (currentPlan.planCode == planCode) {
+        plan = currentPlan;
+        break;
+      }
+    }
+    if (plan == null) {
+      _purchaseError = 'Plan $planCode is not available in the billing catalog.';
+      notifyListeners();
+      return;
+    }
+
+    final productId = plan.storeProductIdForPlatform(_storePlatform());
+    if (productId == null || productId.trim().isEmpty) {
+      _purchaseError = 'This plan is not available for the current platform.';
+      notifyListeners();
+      return;
+    }
+
+    if (!_storeProductsById.containsKey(productId)) {
+      _purchaseError = 'Store product $productId has not been loaded yet.';
+      notifyListeners();
+      return;
+    }
+
+    final organizationId = _currentPurchaseOrganizationIdForPlan(plan);
+    if (plan.isBusiness && (organizationId == null || organizationId.isEmpty)) {
+      _purchaseError =
+          'Create or select your organization before buying a business plan.';
+      notifyListeners();
+      return;
+    }
+
+    _isPurchasing = true;
+    _purchaseError = null;
+    _purchaseStatusMessage = 'Starting purchase for ${plan.displayPrice}.';
+    _pendingPurchaseOrganizationIdsByProductId[productId] = organizationId;
+    notifyListeners();
+
+    try {
+      await _storePurchaseService.buyProduct(productId);
+    } catch (error) {
+      _isPurchasing = false;
+      _purchaseError = error.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> restorePurchases() async {
+    _isPurchasing = true;
+    _purchaseError = null;
+    _purchaseStatusMessage = 'Checking the store for existing purchases.';
+    notifyListeners();
+
+    try {
+      await _storePurchaseService.restorePurchases();
+    } catch (error) {
+      _isPurchasing = false;
+      _purchaseError = error.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> logoutBackend() async {
+    final session = _backendAuthSession;
+    if (session == null) {
+      return;
+    }
+
+    _isAuthenticatingBackend = true;
+    _backendAccountError = null;
+    notifyListeners();
+
+    try {
+      await _backendApiService.logout(accessToken: session.accessToken);
+    } catch (_) {
+      // Clear local auth state even if the server-side revoke request fails.
+    } finally {
+      await _clearBackendAuthState();
+      _isAuthenticatingBackend = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> redeemOrganizationAccess({
+    required String organizationId,
+    required String code,
+  }) async {
+    final session = _backendAuthSession;
+    if (session == null) {
+      _backendAccountError = 'Sign in before redeeming an organization code.';
+      notifyListeners();
+      return;
+    }
+
+    _isAuthenticatingBackend = true;
+    _backendAccountError = null;
+    notifyListeners();
+
+    try {
+      await _backendApiService.redeemOrganizationAccess(
+        organizationId: organizationId.trim(),
+        code: code.trim(),
+        accessToken: session.accessToken,
+      );
+      await _hydrateBackendAccount(accessToken: session.accessToken);
+    } catch (error) {
+      _backendAccountError = error.toString();
+    } finally {
+      _isAuthenticatingBackend = false;
+      notifyListeners();
+    }
+  }
+
+  Future<BackendInviteOrganizationMemberResult?> inviteOrganizationMember({
+    required String organizationId,
+    required String email,
+    String? displayName,
+    String role = 'member',
+  }) async {
+    final session = _backendAuthSession;
+    if (session == null) {
+      _backendAccountError = 'Sign in before inviting organization members.';
+      notifyListeners();
+      return null;
+    }
+
+    _isAuthenticatingBackend = true;
+    _backendAccountError = null;
+    notifyListeners();
+
+    try {
+      final result = await _backendApiService.inviteOrganizationMember(
+        organizationId: organizationId,
+        accessToken: session.accessToken,
+        email: email.trim(),
+        displayName: displayName?.trim().isEmpty ?? true
+            ? null
+            : displayName!.trim(),
+        role: role,
+      );
+      _backendOrganization = result.organization;
+      return result;
+    } catch (error) {
+      _backendAccountError = error.toString();
+      return null;
+    } finally {
+      _isAuthenticatingBackend = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> resendOrganizationMemberAccess({
+    required String organizationId,
+    required String membershipId,
+  }) async {
+    final session = _backendAuthSession;
+    if (session == null) {
+      _backendAccountError = 'Sign in before resending organization access.';
+      notifyListeners();
+      return;
+    }
+
+    _isAuthenticatingBackend = true;
+    _backendAccountError = null;
+    notifyListeners();
+
+    try {
+      final result = await _backendApiService.resendOrganizationMemberAccess(
+        organizationId: organizationId,
+        membershipId: membershipId,
+        accessToken: session.accessToken,
+      );
+      _backendOrganization = result.organization;
+    } catch (error) {
+      _backendAccountError = error.toString();
+    } finally {
+      _isAuthenticatingBackend = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateOrganizationMemberSeat({
+    required String organizationId,
+    required String membershipId,
+    required bool assignSeat,
+  }) async {
+    final session = _backendAuthSession;
+    if (session == null) {
+      _backendAccountError = 'Sign in before updating organization seats.';
+      notifyListeners();
+      return;
+    }
+
+    _isAuthenticatingBackend = true;
+    _backendAccountError = null;
+    notifyListeners();
+
+    try {
+      final result = await _backendApiService.updateOrganizationMemberSeat(
+        organizationId: organizationId,
+        membershipId: membershipId,
+        accessToken: session.accessToken,
+        assignSeat: assignSeat,
+      );
+      _backendOrganization = result.organization;
+      await _hydrateBackendAccount(accessToken: session.accessToken);
+    } catch (error) {
+      _backendAccountError = error.toString();
+    } finally {
+      _isAuthenticatingBackend = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> removeOrganizationMember({
+    required String organizationId,
+    required String membershipId,
+  }) async {
+    final session = _backendAuthSession;
+    if (session == null) {
+      _backendAccountError = 'Sign in before removing organization members.';
+      notifyListeners();
+      return;
+    }
+
+    _isAuthenticatingBackend = true;
+    _backendAccountError = null;
+    notifyListeners();
+
+    try {
+      final result = await _backendApiService.removeOrganizationMember(
+        organizationId: organizationId,
+        membershipId: membershipId,
+        accessToken: session.accessToken,
+      );
+      _backendOrganization = result.organization;
+      await _hydrateBackendAccount(accessToken: session.accessToken);
+    } catch (error) {
+      _backendAccountError = error.toString();
+    } finally {
+      _isAuthenticatingBackend = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _acceptAuthenticatedBackendResult(
+    BackendAuthResult result, {
+    bool hydrateFromAccessToken = true,
+  }) async {
+    final accessToken = result.accessToken;
+    final refreshToken = result.refreshToken;
+    if (!result.isAuthenticated ||
+        accessToken == null ||
+        refreshToken == null) {
+      throw StateError(
+        'Backend auth did not finish with an authenticated session.',
+      );
+    }
+
+    _pendingBackendAuthStart = null;
+    _pendingSessionConflict = null;
+    _pendingSessionReplacementId = null;
+    _backendAuthSession = StoredBackendAuthSession(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+    );
+    await _authSessionStore.save(_backendAuthSession!);
+
+    if (hydrateFromAccessToken) {
+      await _hydrateBackendAccount(accessToken: accessToken);
+    }
+  }
+
+  Future<void> _hydrateBackendAccount({required String accessToken}) async {
+    final me = await _backendApiService.fetchMe(accessToken: accessToken);
+    final entitlement = await _backendApiService.fetchCurrentEntitlement(
+      accessToken: accessToken,
+    );
+
+    BackendOrganizationSummary? organization;
+    final adminMembership = _firstAdminMembership(me.memberships);
+    if (adminMembership != null && adminMembership.isAccepted) {
+      try {
+        organization = await _backendApiService.fetchOrganizationSummary(
+          organizationId: adminMembership.organizationId,
+          accessToken: accessToken,
+        );
+      } catch (_) {
+        organization = null;
+      }
+    }
+
+    _backendMe = me;
+    _backendEntitlement = entitlement;
+    _backendOrganization = organization;
+    _backendAccountError = null;
+  }
+
+  Future<void> _handleStorePurchaseUpdates(
+    List<StorePurchaseUpdate> updates,
+  ) async {
+    if (updates.isEmpty) {
+      return;
+    }
+
+    for (final update in updates) {
+      if (update.isPending) {
+        _isPurchasing = true;
+        _purchaseStatusMessage =
+            'Waiting for the store to finish ${update.productId}.';
+        _purchaseError = null;
+        notifyListeners();
+        continue;
+      }
+
+      if (update.isCanceled) {
+        _isPurchasing = false;
+        _purchaseStatusMessage = 'Purchase canceled.';
+        _purchaseError = null;
+        _pendingPurchaseOrganizationIdsByProductId.remove(update.productId);
+        notifyListeners();
+        continue;
+      }
+
+      if (update.isError) {
+        _isPurchasing = false;
+        _purchaseError = update.errorMessage ?? 'The store purchase failed.';
+        _purchaseStatusMessage = null;
+        _pendingPurchaseOrganizationIdsByProductId.remove(update.productId);
+        if (update.pendingCompletePurchase) {
+          await _storePurchaseService.completePurchase(update.productId);
+        }
+        notifyListeners();
+        continue;
+      }
+
+      if (!update.isPurchased && !update.isRestored) {
+        continue;
+      }
+
+      final session = _backendAuthSession;
+      BackendPlanSnapshot? plan;
+      for (final currentPlan in _backendPlans) {
+        if (currentPlan.storeProductIdForPlatform(_storePlatform()) ==
+            update.productId) {
+          plan = currentPlan;
+          break;
+        }
+      }
+      if (session == null || plan == null) {
+        _isPurchasing = false;
+        _purchaseError =
+            'Purchase completed in the store, but the app could not match it to a signed-in plan.';
+        _purchaseStatusMessage = null;
+        if (update.pendingCompletePurchase) {
+          await _storePurchaseService.completePurchase(update.productId);
+        }
+        notifyListeners();
+        continue;
+      }
+
+      final organizationId =
+          _pendingPurchaseOrganizationIdsByProductId[update.productId] ??
+          _currentPurchaseOrganizationIdForPlan(plan);
+
+      try {
+        await _backendApiService.verifyPurchase(
+          provider: update.provider,
+          accessToken: session.accessToken,
+          planCode: plan.planCode,
+          organizationId: organizationId,
+          providerTransactionRef:
+              update.providerTransactionRef ??
+              update.purchaseId ??
+              '${update.productId}-${DateTime.now().millisecondsSinceEpoch}',
+          providerOriginalRef:
+              update.providerOriginalRef ?? update.purchaseId,
+          rawStatus: update.status,
+        );
+        await _hydrateBackendAccount(accessToken: session.accessToken);
+        _purchaseStatusMessage = update.isRestored
+            ? 'Purchase restored and verified.'
+            : 'Purchase verified. Your backend access has been refreshed.';
+        _purchaseError = null;
+      } catch (error) {
+        _purchaseError = error.toString();
+        _purchaseStatusMessage = null;
+      } finally {
+        _isPurchasing = false;
+        _pendingPurchaseOrganizationIdsByProductId.remove(update.productId);
+        if (update.pendingCompletePurchase) {
+          await _storePurchaseService.completePurchase(update.productId);
+        }
+        notifyListeners();
+      }
+    }
+  }
+
+  BackendMembershipSummary? _firstAdminMembership(
+    List<BackendMembershipSummary> memberships,
+  ) {
+    for (final membership in memberships) {
+      if (membership.isAdmin) {
+        return membership;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _clearBackendAuthState({String? errorMessage}) async {
+    _backendAuthSession = null;
+    _pendingBackendAuthStart = null;
+    _pendingSessionConflict = null;
+    _pendingSessionReplacementId = null;
+    _backendMe = null;
+    _backendEntitlement = null;
+    _backendOrganization = null;
+    _backendAccountError = errorMessage;
+    await _authSessionStore.clear();
+  }
+
+  String? _currentPurchaseOrganizationIdForPlan(BackendPlanSnapshot plan) {
+    if (!plan.isBusiness) {
+      return null;
+    }
+
+    if (_backendOrganization != null) {
+      return _backendOrganization!.id;
+    }
+
+    final membership = _firstAdminMembership(_backendMe?.memberships ?? const []);
+    return membership?.organizationId;
+  }
+
+  String _storePlatform() {
+    if (kIsWeb) {
+      return 'web';
+    }
+    if (Platform.isAndroid) {
+      return 'android';
+    }
+    if (Platform.isIOS) {
+      return 'ios';
+    }
+    return 'unknown';
+  }
+
+  @override
+  void dispose() {
+    _storePurchaseUpdatesSubscription.cancel();
+    _storePurchaseService.dispose();
+    super.dispose();
+  }
+
+  String _defaultDeviceLabel() {
+    if (kIsWeb) {
+      return 'Web Browser';
+    }
+    if (Platform.isAndroid) {
+      return 'Android Device';
+    }
+    if (Platform.isIOS) {
+      return 'iPhone';
+    }
+    if (Platform.isMacOS) {
+      return 'Mac';
+    }
+    if (Platform.isWindows) {
+      return 'Windows';
+    }
+    if (Platform.isLinux) {
+      return 'Linux';
+    }
+    return 'Unknown Device';
+  }
+
+  String _defaultSessionPlatform() {
+    if (kIsWeb) {
+      return 'web';
+    }
+    if (Platform.isAndroid) {
+      return 'android';
+    }
+    if (Platform.isIOS) {
+      return 'ios';
+    }
+    return 'web';
+  }
+
   Future<JobExportResult> exportJob(String jobId) async {
     final job = jobById(jobId);
     final exportResult = await _exportService.exportJob(
@@ -635,4 +1444,11 @@ class MaterialGuardianAppState extends ChangeNotifier {
       MaterialGuardianSnapshot(jobs: _jobs, drafts: _drafts),
     );
   }
+}
+
+StorePurchaseService _defaultStorePurchaseService() {
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    return InAppStorePurchaseService();
+  }
+  return const NoopStorePurchaseService();
 }

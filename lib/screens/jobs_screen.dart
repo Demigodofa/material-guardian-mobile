@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../app/brand_assets.dart';
 import '../app/material_guardian_state.dart';
 import '../app/routes.dart';
 import '../util/formatting.dart';
@@ -15,89 +16,77 @@ class JobsScreen extends StatelessWidget {
       animation: appState,
       builder: (context, _) {
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Material Guardian'),
-            actions: [
-              IconButton(
-                onPressed: () async {
-                  await _showCreateJobDialog(context, appState);
-                },
-                icon: const Icon(Icons.add_circle_outline_rounded),
-                tooltip: 'Add Job',
-              ),
-              IconButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, AppRoutes.customization);
-                },
-                icon: const Icon(Icons.tune_rounded),
-                tooltip: 'Customization',
-              ),
-              IconButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, AppRoutes.privacyPolicy);
-                },
-                icon: const Icon(Icons.policy_outlined),
-                tooltip: 'Privacy Policy',
-              ),
-            ],
-          ),
-          body: ListView(
-            padding: screenListPadding(context),
-            children: [
-              _HeroCard(appState: appState),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Text(
-                    'Active Jobs',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.pushNamed(context, AppRoutes.drafts);
-                    },
-                    icon: const Icon(Icons.note_alt_outlined),
-                    label: Text('Drafts (${appState.drafts.length})'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (appState.jobs.isEmpty) ...[
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(22),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'No jobs saved yet.',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Create the first job here. The Flutter shell now persists jobs and drafts locally between launches.',
-                        ),
-                        const SizedBox(height: 16),
-                        FilledButton.icon(
-                          onPressed: () async {
-                            await _showCreateJobDialog(context, appState);
-                          },
-                          icon: const Icon(Icons.add_task_rounded),
-                          label: const Text('Create First Job'),
-                        ),
-                      ],
+          body: SafeArea(
+            child: ListView(
+              padding: screenListPadding(context).copyWith(top: 24),
+              children: [
+                const _LandingLogo(),
+                const SizedBox(height: 20),
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 360),
+                    child: FilledButton(
+                      onPressed: () async {
+                        await _showCreateJobDialog(context, appState);
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 2),
+                        child: Text('Create Job'),
+                      ),
                     ),
                   ),
                 ),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _LandingLinkButton(
+                      label: 'Account',
+                      onPressed: () {
+                        Navigator.pushNamed(context, AppRoutes.account);
+                      },
+                    ),
+                    _LandingLinkButton(
+                      label: 'Customization',
+                      onPressed: () {
+                        Navigator.pushNamed(context, AppRoutes.customization);
+                      },
+                    ),
+                    _LandingLinkButton(
+                      label: 'Privacy Policy',
+                      onPressed: () {
+                        Navigator.pushNamed(context, AppRoutes.privacyPolicy);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Divider(),
                 const SizedBox(height: 14),
+                Text(
+                  'Current Jobs',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                if (appState.jobs.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: Text(
+                        'No jobs yet. Create your first job above.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Color(0xFF7B8794)),
+                      ),
+                    ),
+                  )
+                else
+                  for (final job in appState.jobs) ...[
+                    _JobLinkRow(appState: appState, jobId: job.id),
+                    const SizedBox(height: 10),
+                  ],
               ],
-              for (final job in appState.jobs) ...[
-                _JobCard(appState: appState, jobId: job.id),
-                const SizedBox(height: 14),
-              ],
-            ],
+            ),
           ),
         );
       },
@@ -117,27 +106,29 @@ Future<void> _showCreateJobDialog(
     context: context,
     builder: (context) {
       return AlertDialog(
-        title: const Text('Create Job'),
-        content: SizedBox(
-          width: 420,
+        scrollable: true,
+        title: const Text('Create New Job'),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: jobNumberController,
-                decoration: const InputDecoration(labelText: 'Job number'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: notesController,
-                decoration: const InputDecoration(
-                  labelText: 'Notes / customer / team',
-                ),
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'Job Number'),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: descriptionController,
+                textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(labelText: 'Description'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesController,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(labelText: 'Notes'),
               ),
             ],
           ),
@@ -151,6 +142,9 @@ Future<void> _showCreateJobDialog(
           ),
           FilledButton(
             onPressed: () async {
+              if (jobNumberController.text.trim().isEmpty) {
+                return;
+              }
               await appState.saveJob(
                 jobNumber: jobNumberController.text,
                 description: descriptionController.text,
@@ -160,7 +154,7 @@ Future<void> _showCreateJobDialog(
                 Navigator.pop(context);
               }
             },
-            child: const Text('Save Job'),
+            child: const Text('Create'),
           ),
         ],
       );
@@ -172,110 +166,53 @@ Future<void> _showCreateJobDialog(
   notesController.dispose();
 }
 
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.appState});
-
-  final MaterialGuardianAppState appState;
+class _LandingLogo extends StatelessWidget {
+  const _LandingLogo();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                'Flutter migration shell',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Blank Add Material, explicit drafts, shared signatures, and customization defaults are already carried into the first shared client shell.',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                height: 1.15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Android remains the behavior donor. This shell is proving the shared flow shape while camera, scan, signature, PDF, ZIP, and policy behavior are moved into shared Flutter where possible.',
-              style: theme.textTheme.bodyLarge?.copyWith(height: 1.4),
-            ),
-            const SizedBox(height: 18),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _StatPill(label: 'Jobs', value: '${appState.jobs.length}'),
-                _StatPill(label: 'Drafts', value: '${appState.drafts.length}'),
-                _StatPill(
-                  label: 'Surface Finish',
-                  value: appState.customization.surfaceFinishRequired
-                      ? 'On'
-                      : 'Off',
-                ),
-                _StatPill(
-                  label: 'Saved Signature',
-                  value: appState.customization.hasSavedInspectorSignature
-                      ? 'Ready'
-                      : 'Off',
-                ),
-              ],
-            ),
-          ],
+    final logoSize = (MediaQuery.sizeOf(context).height * 0.2).clamp(
+      96.0,
+      160.0,
+    );
+    return Center(
+      child: Image.asset(
+        BrandAssets.materialGuardianLogo512,
+        width: logoSize,
+        height: logoSize,
+        fit: BoxFit.contain,
+      ),
+    );
+  }
+}
+
+class _LandingLinkButton extends StatelessWidget {
+  const _LandingLinkButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 150,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            decoration: TextDecoration.underline,
+            color: const Color(0xFF1E3A5F),
+          ),
         ),
       ),
     );
   }
 }
 
-class _StatPill extends StatelessWidget {
-  const _StatPill({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _JobCard extends StatelessWidget {
-  const _JobCard({required this.appState, required this.jobId});
+class _JobLinkRow extends StatelessWidget {
+  const _JobLinkRow({required this.appState, required this.jobId});
 
   final MaterialGuardianAppState appState;
   final String jobId;
@@ -283,71 +220,118 @@ class _JobCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final job = appState.jobById(jobId);
-    final draftCount = appState.draftsForJob(job.id).length;
+    final exportStatus = job.exportedAt == null ? 'Not exported' : 'Exported';
+    final exportColor = job.exportedAt == null
+        ? const Color(0xFF9A3412)
+        : const Color(0xFF166534);
+
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        job.jobNumber,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          Navigator.pushNamed(
+            context,
+            AppRoutes.jobDetail,
+            arguments: JobDetailRouteArgs(jobId: job.id),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Job# ${job.jobNumber}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: const Color(0xFF1E3A5F),
+                        decoration: TextDecoration.underline,
                       ),
+                    ),
+                    if (job.description.trim().isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        job.description.trim().isEmpty
-                            ? 'Receiving job'
-                            : job.description,
-                        style: Theme.of(context).textTheme.bodyLarge,
+                        job.description,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
                     ],
+                    const SizedBox(height: 6),
+                    Text(
+                      exportStatus,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: exportColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (job.notes.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(job.notes),
+                    ],
+                    const SizedBox(height: 8),
+                    Text(
+                      '${job.materials.length} materials',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF566173),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFB00020),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
+                  minimumSize: Size.zero,
                 ),
-                Chip(label: Text('${job.materials.length} materials')),
-              ],
-            ),
-            const SizedBox(height: 10),
-            if (job.notes.trim().isNotEmpty)
-              Text(job.notes, style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 18),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(
-                      context,
-                      AppRoutes.jobDetail,
-                      arguments: JobDetailRouteArgs(jobId: job.id),
-                    );
-                  },
-                  icon: const Icon(Icons.arrow_forward_rounded),
-                  label: const Text('Open Job'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(
-                      context,
-                      AppRoutes.drafts,
-                      arguments: DraftsRouteArgs(jobId: job.id),
-                    );
-                  },
-                  icon: const Icon(Icons.note_alt_outlined),
-                  label: Text('Drafts ($draftCount)'),
-                ),
-              ],
-            ),
-          ],
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) {
+                      final message = job.exportedAt == null
+                          ? 'This job has not been exported yet. Deleting will remove it and its materials from this device.'
+                          : 'This job was already exported. Delete the local copy?';
+                      return AlertDialog(
+                        title: const Text('Delete job?'),
+                        content: Text(message),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context, false);
+                            },
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context, true);
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFFB00020),
+                            ),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                  if (confirmed != true) {
+                    return;
+                  }
+                  await appState.deleteJob(job.id);
+                },
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
         ),
       ),
     );

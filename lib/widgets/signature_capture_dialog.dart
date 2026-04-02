@@ -27,16 +27,32 @@ class _SignatureCaptureDialog extends StatefulWidget {
 class _SignatureCaptureDialogState extends State<_SignatureCaptureDialog> {
   final GlobalKey _boundaryKey = GlobalKey();
   final List<List<Offset>> _strokes = <List<Offset>>[];
+  final GlobalKey _canvasKey = GlobalKey();
 
   bool get _hasSignature => _strokes.any((stroke) => stroke.isNotEmpty);
 
-  void _startStroke(Offset offset) {
+  Offset? _localOffsetFromGlobal(Offset globalPosition) {
+    final renderBox =
+        _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) {
+      return null;
+    }
+    return renderBox.globalToLocal(globalPosition);
+  }
+
+  void _startStroke(Offset? offset) {
+    if (offset == null) {
+      return;
+    }
     setState(() {
       _strokes.add(<Offset>[offset]);
     });
   }
 
-  void _extendStroke(Offset offset) {
+  void _extendStroke(Offset? offset) {
+    if (offset == null) {
+      return;
+    }
     if (_strokes.isEmpty) {
       _startStroke(offset);
       return;
@@ -107,13 +123,14 @@ class _SignatureCaptureDialogState extends State<_SignatureCaptureDialog> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: GestureDetector(
+                  child: Listener(
                     behavior: HitTestBehavior.opaque,
-                    onPanStart: (details) =>
-                        _startStroke(details.localPosition),
-                    onPanUpdate: (details) =>
-                        _extendStroke(details.localPosition),
+                    onPointerDown: (event) =>
+                        _startStroke(_localOffsetFromGlobal(event.position)),
+                    onPointerMove: (event) =>
+                        _extendStroke(_localOffsetFromGlobal(event.position)),
                     child: CustomPaint(
+                      key: _canvasKey,
                       painter: _SignaturePainter(
                         strokes: _strokes,
                         color: Colors.black87,

@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 
+import 'android_export_bridge.dart';
 import 'storage_utils.dart';
 
 enum PhotoCaptureSource { camera, gallery }
@@ -43,6 +44,50 @@ class MaterialMediaService {
           '${safeBaseName(materialLabel, fallback: 'material')}_photo_$nextIndex',
       forcedExtension: '.jpg',
     );
+  }
+
+  Future<String> saveCapturedPhoto({
+    required String sourcePath,
+    required String jobNumber,
+    required String materialLabel,
+    required int nextIndex,
+  }) async {
+    final targetDirectory = await appSupportSubdirectory([
+      'job_media',
+      safeBaseName(jobNumber, fallback: 'job'),
+      'photos',
+    ]);
+    final savedPath = await copyFileToDirectory(
+      sourcePath: sourcePath,
+      targetDirectory: targetDirectory,
+      targetBaseName:
+          '${safeBaseName(materialLabel, fallback: 'material')}_photo_$nextIndex',
+      forcedExtension: '.jpg',
+    );
+    await deletePath(sourcePath);
+    return savedPath;
+  }
+
+  Future<String> saveCapturedScan({
+    required String sourcePath,
+    required String jobNumber,
+    required String materialLabel,
+    required int nextIndex,
+  }) async {
+    final targetDirectory = await appSupportSubdirectory([
+      'job_media',
+      safeBaseName(jobNumber, fallback: 'job'),
+      'scans',
+    ]);
+    final savedPath = await copyFileToDirectory(
+      sourcePath: sourcePath,
+      targetDirectory: targetDirectory,
+      targetBaseName:
+          '${safeBaseName(materialLabel, fallback: 'material')}_scan_$nextIndex',
+      forcedExtension: '.jpg',
+    );
+    await deletePath(sourcePath);
+    return savedPath;
   }
 
   Future<List<String>> addScans({
@@ -152,7 +197,70 @@ class MaterialMediaService {
     if (normalized.isEmpty) {
       return false;
     }
-    final result = await OpenFilex.open(normalized);
+    final openTarget = await _resolveOpenTarget(normalized);
+    if (openTarget == null) {
+      return false;
+    }
+    final result = await OpenFilex.open(openTarget);
     return result.type == ResultType.done;
+  }
+
+  Future<bool> openExport({
+    required String exportRootPath,
+    required String jobNumber,
+  }) async {
+    if (Platform.isAndroid) {
+      try {
+        final opened = await AndroidExportBridge.openDownloadsExport(
+          sourceRootPath: exportRootPath,
+          downloadsSubdirectory:
+              'MaterialGuardian/${safeBaseName(jobNumber, fallback: 'job')}',
+        );
+        if (opened) {
+          return true;
+        }
+      } catch (_) {
+        // Fall back to the generic file opener if the Android bridge fails.
+      }
+    }
+    return openPath(exportRootPath);
+  }
+
+  Future<String?> _resolveOpenTarget(String path) async {
+    final file = File(path);
+    if (await file.exists()) {
+      return path;
+    }
+
+    final directory = Directory(path);
+    if (!await directory.exists()) {
+      return null;
+    }
+
+    final zipPath =
+        '$path${path.endsWith(r'\') || path.endsWith('/') ? '' : Platform.pathSeparator}${path.split(RegExp(r'[\\/]')).last}.zip';
+    final zipFile = File(zipPath);
+    if (await zipFile.exists()) {
+      return zipPath;
+    }
+
+    final packetDirectory = Directory(
+      '$path${path.endsWith(r'\') || path.endsWith('/') ? '' : Platform.pathSeparator}material_packets',
+    );
+    if (!await packetDirectory.exists()) {
+      return null;
+    }
+
+    final packetFiles =
+        packetDirectory
+            .listSync()
+            .whereType<File>()
+            .where((entry) => isPdfPath(entry.path))
+            .toList(growable: false)
+          ..sort((left, right) => left.path.compareTo(right.path));
+    if (packetFiles.isEmpty) {
+      return null;
+    }
+    return packetFiles.first.path;
   }
 }

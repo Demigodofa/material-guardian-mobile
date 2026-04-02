@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 
 import '../app/material_guardian_state.dart';
 import '../app/models.dart';
@@ -51,6 +54,12 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasLogo = _companyLogoPath.trim().isNotEmpty;
+    final hasSavedSignature = _savedInspectorSignaturePath.trim().isNotEmpty;
+    final cardBackground = Theme.of(context).colorScheme.surface;
+    final borderColor = Theme.of(context).colorScheme.outlineVariant;
+    final deleteColor = Theme.of(context).colorScheme.error;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Customization')),
       body: ListView(
@@ -93,25 +102,38 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                     },
                     title: const Text('Surface finish required'),
                   ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _surfaceFinishUnit,
-                    decoration: const InputDecoration(
-                      labelText: 'Surface finish unit',
+                  if (_surfaceFinishRequired) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Surface finish unit',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 'u-in', child: Text('u-in')),
-                      DropdownMenuItem(value: 'Ra', child: Text('Ra')),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) {
-                        return;
-                      }
-                      setState(() {
-                        _surfaceFinishUnit = value;
-                      });
-                    },
-                  ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('u-in'),
+                          selected: _surfaceFinishUnit == 'u-in',
+                          onSelected: (_) {
+                            setState(() {
+                              _surfaceFinishUnit = 'u-in';
+                            });
+                          },
+                        ),
+                        ChoiceChip(
+                          label: const Text('Ra'),
+                          selected: _surfaceFinishUnit == 'Ra',
+                          onSelected: (_) {
+                            setState(() {
+                              _surfaceFinishUnit = 'Ra';
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextField(
                     controller: _qcInspectorController,
@@ -132,11 +154,48 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    _savedInspectorSignaturePath.trim().isEmpty
-                        ? 'No reusable inspector signature has been imported yet.'
-                        : _savedInspectorSignaturePath,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: cardBackground,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: borderColor),
+                    ),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (hasSavedSignature &&
+                            File(_savedInspectorSignaturePath).existsSync()) ...[
+                          Center(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                color: Colors.white,
+                                padding: const EdgeInsets.all(8),
+                                child: Image.file(
+                                  File(_savedInspectorSignaturePath),
+                                  height: 88,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        Text(
+                          hasSavedSignature
+                              ? p.basename(_savedInspectorSignaturePath)
+                              : 'No reusable inspector signature has been imported yet.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                fontWeight: hasSavedSignature
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                              ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Wrap(
@@ -186,7 +245,7 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                         icon: const Icon(Icons.file_open_outlined),
                         label: const Text('Import Signature'),
                       ),
-                      if (_savedInspectorSignaturePath.trim().isNotEmpty)
+                      if (hasSavedSignature)
                         OutlinedButton.icon(
                           onPressed: () async {
                             final opened = await widget
@@ -207,8 +266,11 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                           icon: const Icon(Icons.visibility_outlined),
                           label: const Text('Preview Signature'),
                         ),
-                      if (_savedInspectorSignaturePath.trim().isNotEmpty)
+                      if (hasSavedSignature)
                         OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: deleteColor,
+                          ),
                           onPressed: () async {
                             await widget.appState.customizationAssetService
                                 .clearAssetPath(_savedInspectorSignaturePath);
@@ -230,11 +292,47 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    _companyLogoPath.trim().isEmpty
-                        ? 'No company logo has been imported yet.'
-                        : _companyLogoPath,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: cardBackground,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: borderColor),
+                    ),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (hasLogo && File(_companyLogoPath).existsSync()) ...[
+                          Center(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                color: Colors.white,
+                                padding: const EdgeInsets.all(10),
+                                child: Image.file(
+                                  File(_companyLogoPath),
+                                  height: 120,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        Text(
+                          hasLogo
+                              ? p.basename(_companyLogoPath)
+                              : 'No company logo has been imported yet.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                fontWeight: hasLogo
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                              ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Wrap(
@@ -255,13 +353,9 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                           });
                         },
                         icon: const Icon(Icons.image_outlined),
-                        label: Text(
-                          _companyLogoPath.trim().isEmpty
-                              ? 'Import Logo'
-                              : 'Replace Logo',
-                        ),
+                        label: Text(hasLogo ? 'Replace Logo' : 'Import Logo'),
                       ),
-                      if (_companyLogoPath.trim().isNotEmpty)
+                      if (hasLogo)
                         OutlinedButton.icon(
                           onPressed: () async {
                             final opened = await widget
@@ -282,8 +376,11 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                           icon: const Icon(Icons.visibility_outlined),
                           label: const Text('Preview Logo'),
                         ),
-                      if (_companyLogoPath.trim().isNotEmpty)
+                      if (hasLogo)
                         OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: deleteColor,
+                          ),
                           onPressed: () async {
                             await widget.appState.customizationAssetService
                                 .clearAssetPath(_companyLogoPath);
@@ -338,7 +435,7 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
               Navigator.pop(context);
             },
             icon: const Icon(Icons.save_outlined),
-            label: const Text('Save Defaults'),
+            label: const Text('Save Customization'),
           ),
         ],
       ),

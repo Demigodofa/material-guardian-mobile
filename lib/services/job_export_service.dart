@@ -7,11 +7,13 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 
 import '../app/models.dart';
+import 'android_export_bridge.dart';
 import 'storage_utils.dart';
 
 class JobExportResult {
   const JobExportResult({
     required this.exportRootPath,
+    required this.downloadsFolder,
     required this.packetPathsByMaterialId,
     required this.zipPath,
     required this.packetCount,
@@ -20,6 +22,7 @@ class JobExportResult {
   });
 
   final String exportRootPath;
+  final String downloadsFolder;
   final Map<String, String> packetPathsByMaterialId;
   final String zipPath;
   final int packetCount;
@@ -114,8 +117,21 @@ class JobExportService {
     );
 
     final zipPath = await _buildZip(exportDirectory);
+    var downloadsFolder = '';
+    try {
+      downloadsFolder =
+          await AndroidExportBridge.syncExportToDownloads(
+            sourceRootPath: exportDirectory.path,
+            downloadsSubdirectory:
+                'MaterialGuardian/${safeBaseName(job.jobNumber, fallback: 'job')}',
+          ) ??
+          '';
+    } catch (_) {
+      downloadsFolder = '';
+    }
     return JobExportResult(
       exportRootPath: exportDirectory.path,
+      downloadsFolder: downloadsFolder,
       packetPathsByMaterialId: packetPathsByMaterialId,
       zipPath: zipPath,
       packetCount: packetPathsByMaterialId.length,
@@ -185,6 +201,42 @@ class JobExportService {
       ...material.photoPaths.where(isImagePath),
     ];
 
+    final dimensionRows = <List<String>>[
+      ['Unit', material.dimensionUnit.label],
+      [
+        'Thickness Readings',
+        [
+                  material.thickness1,
+                  material.thickness2,
+                  material.thickness3,
+                  material.thickness4,
+                ]
+                .where((value) => value.trim().isNotEmpty)
+                .join(', ')
+                .isEmpty
+            ? 'N/A'
+            : [
+                material.thickness1,
+                material.thickness2,
+                material.thickness3,
+                material.thickness4,
+              ].where((value) => value.trim().isNotEmpty).join(', '),
+      ],
+      ['Width', material.width],
+      ['Length', material.length],
+      ['Diameter', material.diameter],
+      ['O.D./I.D.', material.diameterType],
+      if (material.b16DimensionsAcceptable.trim().isNotEmpty)
+        ['B16 Dimensions Acceptable', material.b16DimensionsAcceptable],
+      if (material.surfaceFinishCode.trim().isNotEmpty)
+        ['Surface Finish', material.surfaceFinishCode],
+      if (material.surfaceFinishReading.trim().isNotEmpty)
+        ['Surface Finish Reading', material.surfaceFinishReading],
+      if (material.surfaceFinishUnit.trim().isNotEmpty &&
+          material.surfaceFinishReading.trim().isNotEmpty)
+        ['Surface Finish Unit', material.surfaceFinishUnit],
+    ];
+
     document.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.letter,
@@ -197,61 +249,79 @@ class JobExportService {
                 child: pw.Image(logo, height: 48, fit: pw.BoxFit.contain),
               ),
             pw.Text(
-              'Material Guardian Receiving Packet',
+              'RECEIVING INSPECTION REPORT',
               style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 12),
-            pw.Text('Job ${job.jobNumber}'),
+            pw.Text('Job#: ${job.jobNumber}'),
             if (job.description.trim().isNotEmpty) pw.Text(job.description),
             if (job.notes.trim().isNotEmpty) pw.Text(job.notes),
             pw.SizedBox(height: 16),
+            _sectionHeading('Material Details'),
             _fieldTable(<List<String>>[
-              ['Tag', material.tag],
-              ['Description', material.description],
+              ['Material Description', material.description],
+              ['PO#', material.poNumber],
               ['Vendor', material.vendor],
-              ['Quantity', material.quantity],
-              ['PO Number', material.poNumber],
-              ['Product Type', material.productType],
+              ['Qty', material.quantity],
+              ['Product', material.productType],
               ['Specification', material.specificationPrefix],
-              ['Grade', material.gradeType],
-              ['Fitting Standard', material.fittingStandard],
-              ['Fitting Suffix', material.fittingSuffix],
-              ['Heat Number', material.heatNumber],
-              ['Unit System', material.dimensionUnit.label],
-              ['Thickness', material.thickness1],
-              ['Width', material.width],
-              ['Length', material.length],
-              ['Diameter', material.diameter],
-              ['Diameter Type', material.diameterType],
-              ['B16', material.b16DimensionsAcceptable],
-              ['Surface Finish', material.surfaceFinishCode],
-              ['Surface Finish Reading', material.surfaceFinishReading],
-              ['Surface Finish Unit', material.surfaceFinishUnit],
+              ['Grade/Type', material.gradeType],
+              ['Fitting', _fittingValue(material)],
+            ]),
+            pw.SizedBox(height: 12),
+            _sectionHeading('Dimensions'),
+            _fieldTable(dimensionRows),
+            pw.SizedBox(height: 12),
+            _sectionHeading('Inspection'),
+            _fieldTable(<List<String>>[
               [
-                'Visual Inspection',
+                'Visual Inspection Acceptable',
                 material.visualInspectionAcceptable ? 'Yes' : 'No',
               ],
-              ['Markings', material.markings],
+              ['Marking Actual', material.markings],
               [
-                'Marking Acceptable',
-                material.markingAcceptableNa
+                'Marking Acceptable to Code/Standard',
+                !material.markingSelected
+                    ? 'N/A'
+                    : material.markingAcceptableNa
                     ? 'N/A'
                     : material.markingAcceptable
                     ? 'Yes'
                     : 'No',
               ],
               [
-                'MTR Acceptable',
-                material.mtrAcceptableNa
+                'MTR/CoC Acceptable to Specification',
+                !material.mtrSelected
+                    ? 'N/A'
+                    : material.mtrAcceptableNa
                     ? 'N/A'
                     : material.mtrAcceptable
                     ? 'Yes'
                     : 'No',
               ],
-              ['Acceptance Status', material.acceptanceStatus],
-              ['Inspector', material.qcInspectorName],
-              ['Manager', material.qcManagerName],
-              ['Comments', material.comments],
+              ['Disposition', _formatDisposition(material.acceptanceStatus)],
+            ]),
+            pw.SizedBox(height: 12),
+            _sectionHeading('Comments'),
+            _fieldTable(<List<String>>[
+              [
+                'Comments',
+                [material.comments, material.description]
+                    .where((value) => value.trim().isNotEmpty)
+                    .join(' | '),
+              ],
+            ]),
+            pw.SizedBox(height: 12),
+            _sectionHeading('Quality Control'),
+            _fieldTable(<List<String>>[
+              [
+                'Material Disposition',
+                _formatMaterialDisposition(material.materialApproval),
+              ],
+              ['QC Inspector', material.qcInspectorName],
+              ['QC Inspector Date', _formatExportDate(material.qcInspectorDate)],
+              ['QC Manager', material.qcManagerName],
+              ['QC Manager Date', _formatExportDate(material.qcManagerDate)],
             ]),
             pw.SizedBox(height: 16),
             if (material.scanPaths.where(isPdfPath).isNotEmpty)
@@ -268,6 +338,8 @@ class JobExportService {
                   pw.SizedBox(height: 12),
                 ],
               ),
+            _sectionHeading('Signatures'),
+            pw.SizedBox(height: 8),
             pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
@@ -275,6 +347,8 @@ class JobExportService {
                   child: _signatureBlock(
                     'QC Inspector Signature',
                     inspectorSignature,
+                    printedName: material.qcInspectorName,
+                    dateText: _formatExportDate(material.qcInspectorDate),
                   ),
                 ),
                 pw.SizedBox(width: 18),
@@ -282,6 +356,8 @@ class JobExportService {
                   child: _signatureBlock(
                     'QC Manager Signature',
                     managerSignature,
+                    printedName: material.qcManagerName,
+                    dateText: _formatExportDate(material.qcManagerDate),
                   ),
                 ),
               ],
@@ -326,24 +402,72 @@ class JobExportService {
   }
 
   pw.Widget _fieldTable(List<List<String>> rows) {
-    return pw.TableHelper.fromTextArray(
-      border: null,
-      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-      cellAlignment: pw.Alignment.centerLeft,
-      cellPadding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-      headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
-      data: <List<String>>[
-        ['Field', 'Value'],
-        ...rows.map((row) => [row[0], row[1].trim().isEmpty ? '-' : row[1]]),
-      ],
+    return pw.Table(
+      columnWidths: <int, pw.TableColumnWidth>{
+        0: const pw.FlexColumnWidth(0.42),
+        1: const pw.FlexColumnWidth(0.58),
+      },
+      children: rows
+          .map(
+            (row) => pw.TableRow(
+              children: [
+                pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 6,
+                  ),
+                  child: pw.Text(
+                    row[0],
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                ),
+                pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 6,
+                  ),
+                  child: pw.Text(row[1].trim().isEmpty ? '-' : row[1]),
+                ),
+              ],
+            ),
+          )
+          .toList(growable: false),
     );
   }
 
-  pw.Widget _signatureBlock(String title, pw.MemoryImage? image) {
+  pw.Widget _sectionHeading(String title) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Text(
+        title,
+        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13),
+      ),
+    );
+  }
+
+  String _formatExportDate(DateTime value) {
+    final local = value.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    return '$month/$day/${local.year}';
+  }
+
+  pw.Widget _signatureBlock(
+    String title,
+    pw.MemoryImage? image, {
+    required String printedName,
+    required String dateText,
+  }) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text(title, style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 8),
+        if (printedName.trim().isNotEmpty) ...[
+          pw.Text('Printed Name: $printedName'),
+          pw.SizedBox(height: 4),
+        ],
+        pw.Text('Date: $dateText'),
         pw.SizedBox(height: 8),
         pw.Container(
           height: 72,
@@ -407,5 +531,42 @@ class JobExportService {
   String _timestampSegment(DateTime dateTime) {
     String two(int value) => value.toString().padLeft(2, '0');
     return '${dateTime.year}${two(dateTime.month)}${two(dateTime.day)}_${two(dateTime.hour)}${two(dateTime.minute)}${two(dateTime.second)}';
+  }
+
+  String _fittingValue(MaterialRecord material) {
+    final standard = material.fittingStandard.trim();
+    final suffix = material.fittingSuffix.trim();
+    if (standard.isEmpty || standard == 'N/A') {
+      return suffix;
+    }
+    if (suffix.isEmpty) {
+      return standard;
+    }
+    if (standard == 'B16') {
+      return '$standard.$suffix';
+    }
+    return '$standard $suffix';
+  }
+
+  String _formatDisposition(String value) {
+    switch (value.trim().toLowerCase()) {
+      case 'accept':
+        return 'Accept';
+      case 'reject':
+        return 'Reject';
+      default:
+        return value;
+    }
+  }
+
+  String _formatMaterialDisposition(String value) {
+    switch (value.trim().toLowerCase()) {
+      case 'approved':
+        return 'Approved';
+      case 'rejected':
+        return 'Rejected';
+      default:
+        return value;
+    }
   }
 }

@@ -21,388 +21,425 @@ class JobDetailScreen extends StatelessWidget {
       builder: (context, _) {
         final job = appState.jobById(jobId);
         final drafts = appState.draftsForJob(jobId);
+        final sortedDrafts = [...drafts]
+          ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+        final latestDraft = sortedDrafts.isEmpty ? null : sortedDrafts.first;
         return Scaffold(
           appBar: AppBar(title: Text(job.jobNumber)),
           body: ListView(
             padding: screenListPadding(context),
             children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        job.description.trim().isEmpty
-                            ? 'Receiving job'
-                            : job.description,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        job.notes.trim().isEmpty
-                            ? 'Use this job to collect receiving materials, drafts, and later exports.'
-                            : job.notes,
-                      ),
-                      const SizedBox(height: 18),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          FilledButton.icon(
-                            onPressed: () async {
-                              final draft = await appState.createBlankDraft(
-                                jobId: jobId,
-                              );
-                              if (!context.mounted) {
-                                return;
-                              }
-                              Navigator.pushNamed(
-                                context,
-                                AppRoutes.materialForm,
-                                arguments: MaterialFormRouteArgs(
-                                  jobId: jobId,
-                                  draftId: draft.id,
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.add_task_rounded),
-                            label: const Text('Add Material'),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () async {
-                              await _showEditJobDialog(
-                                context,
-                                appState,
-                                jobId,
-                              );
-                            },
-                            icon: const Icon(Icons.edit_outlined),
-                            label: const Text('Edit Job'),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () async {
-                              await appState.deleteJob(jobId);
-                              if (!context.mounted) {
-                                return;
-                              }
-                              Navigator.pop(context);
-                            },
-                            icon: const Icon(Icons.delete_outline_rounded),
-                            label: const Text('Delete Job'),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.pushNamed(
-                                context,
-                                AppRoutes.drafts,
-                                arguments: DraftsRouteArgs(jobId: jobId),
-                              );
-                            },
-                            icon: const Icon(Icons.history_edu_outlined),
-                            label: Text('Resume Draft (${drafts.length})'),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.pushNamed(
-                                context,
-                                AppRoutes.customization,
-                              );
-                            },
-                            icon: const Icon(Icons.tune_rounded),
-                            label: const Text('Customization'),
-                          ),
-                          FilledButton.icon(
-                            onPressed: () async {
-                              final result = await appState.exportJob(jobId);
-                              if (!context.mounted) {
-                                return;
-                              }
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Exported ${result.packetCount} packet PDFs, ${result.photoCount} photos, and ${result.scanCount} scans.',
-                                  ),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.ios_share_outlined),
-                            label: const Text('Export Job'),
-                          ),
-                        ],
-                      ),
-                      if (job.exportPath.trim().isNotEmpty) ...[
-                        const SizedBox(height: 18),
-                        Text(
-                          'Latest export: ${job.exportPath}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: () async {
-                                final opened = await appState.mediaService
-                                    .openPath(job.exportPath);
-                                if (opened || !context.mounted) {
-                                  return;
-                                }
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Could not open the export folder on this device.',
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.folder_open_outlined),
-                              label: const Text('Open Export'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () async {
-                                final shared = await appState
-                                    .shareLatestExportPdfs(jobId);
-                                if (shared || !context.mounted) {
-                                  return;
-                                }
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Could not share the latest packet PDFs.',
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.picture_as_pdf_outlined),
-                              label: const Text('Share PDFs'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () async {
-                                final shared = await appState
-                                    .shareLatestExportZip(jobId);
-                                if (shared || !context.mounted) {
-                                  return;
-                                }
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Could not share the latest export ZIP.',
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.archive_outlined),
-                              label: const Text('Share ZIP'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
+              Center(
+                child: Text(
+                  'JOB DETAILS',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-              if (drafts.isNotEmpty) ...[
-                Text(
-                  'Active Drafts',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                for (final draft in drafts) ...[
-                  Card(
-                    child: ListTile(
-                      title: Text(
-                        draft.description.trim().isEmpty
-                            ? draft.sourceMaterialId.trim().isEmpty
-                                  ? 'Blank receiving draft'
-                                  : 'Material edit draft'
-                            : draft.description,
-                      ),
-                      subtitle: Text(
-                        'Updated ${formatCompactDateTime(draft.updatedAt)}',
-                      ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          AppRoutes.materialForm,
-                          arguments: MaterialFormRouteArgs(
-                            jobId: jobId,
-                            draftId: draft.id,
-                          ),
-                        );
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        await _showEditJobDialog(context, appState, jobId);
                       },
+                      child: Text(
+                        'Job# ${job.jobNumber}',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: const Color(0xFF1E3A5F),
+                              decoration: TextDecoration.underline,
+                            ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(width: 12),
+                  Text(
+                    job.exportedAt == null ? 'Not exported' : 'Exported',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: job.exportedAt == null
+                          ? const Color(0xFF9A3412)
+                          : const Color(0xFF166534),
+                    ),
+                  ),
                 ],
-                const SizedBox(height: 14),
+              ),
+              const SizedBox(height: 6),
+              InkWell(
+                onTap: () async {
+                  await _showEditJobDialog(context, appState, jobId);
+                },
+                child: Text(
+                  job.description.trim().isEmpty
+                      ? 'Add job description'
+                      : job.description,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: job.description.trim().isEmpty
+                        ? const Color(0xFF1E3A5F)
+                        : null,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+              if (job.notes.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(job.notes),
               ],
+              const SizedBox(height: 24),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 340),
+                  child: FilledButton(
+                    onPressed: () async {
+                      final draft = await appState.createBlankDraft(
+                        jobId: jobId,
+                      );
+                      if (!context.mounted) {
+                        return;
+                      }
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.materialForm,
+                        arguments: MaterialFormRouteArgs(
+                          jobId: jobId,
+                          draftId: draft.id,
+                        ),
+                      );
+                    },
+                    child: const Text('Add Receiving Report'),
+                  ),
+                ),
+              ),
+              if (latestDraft != null) ...[
+                const SizedBox(height: 10),
+                if (sortedDrafts.length == 1)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            Navigator.pushNamed(
+                              context,
+                              AppRoutes.materialForm,
+                              arguments: MaterialFormRouteArgs(
+                                jobId: jobId,
+                                draftId: latestDraft.id,
+                              ),
+                            );
+                          },
+                          child: const Text('Resume Draft'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      TextButton(
+                        onPressed: () async {
+                          final confirmed = await _showDeleteDraftDialog(
+                            context,
+                            latestDraft.description.trim().isEmpty
+                                ? 'this draft'
+                                : latestDraft.description,
+                          );
+                          if (confirmed != true) {
+                            return;
+                          }
+                          await appState.deleteDraft(latestDraft.id);
+                          if (!context.mounted) {
+                            return;
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Draft deleted.')),
+                          );
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: Theme.of(context).colorScheme.error,
+                        ),
+                        child: const Text('Delete Draft'),
+                      ),
+                    ],
+                  )
+                else
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 340),
+                      child: FilledButton(
+                        onPressed: () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.drafts,
+                            arguments: DraftsRouteArgs(jobId: jobId),
+                          );
+                        },
+                        child: Text('Open Drafts (${sortedDrafts.length})'),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 6),
+                Text(
+                  latestDraft.description.trim().isEmpty
+                      ? sortedDrafts.length == 1
+                            ? 'Unsaved receiving report draft'
+                            : '${sortedDrafts.length} saved drafts ready to resume'
+                      : latestDraft.description,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await _showEditJobDialog(context, appState, jobId);
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit Job'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pushNamed(context, AppRoutes.customization);
+                    },
+                    icon: const Icon(Icons.tune_rounded),
+                    label: const Text('Customization'),
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                    onPressed: () async {
+                      final confirmed = await _showDeleteJobDialog(
+                        context,
+                        alreadyExported: job.exportedAt != null,
+                      );
+                      if (confirmed != true) {
+                        return;
+                      }
+                      await appState.deleteJob(jobId);
+                      if (!context.mounted) {
+                        return;
+                      }
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    label: const Text('Delete Job'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
               Text(
-                'Saved Materials',
+                'Materials Received',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 12),
-              for (final material in job.materials) ...[
+              if (job.materials.isEmpty)
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    material.tag,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w700),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    material.description,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyLarge,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Chip(label: Text('Qty ${material.quantity}')),
-                          ],
+                    padding: const EdgeInsets.all(18),
+                    child: Text(
+                      'No receiving reports saved yet.',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ),
+              for (final material in job.materials) ...[
+                Card(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () async {
+                      final draft = await appState.createEditDraft(
+                        jobId: jobId,
+                        materialId: material.id,
+                      );
+                      if (!context.mounted) {
+                        return;
+                      }
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.materialForm,
+                        arguments: MaterialFormRouteArgs(
+                          jobId: jobId,
+                          draftId: draft.id,
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          [
-                            if (material.vendor.trim().isNotEmpty)
-                              'Vendor ${material.vendor.trim()}',
-                            if (material.poNumber.trim().isNotEmpty)
-                              'PO ${material.poNumber.trim()}',
-                            if (material.heatNumber.trim().isNotEmpty)
-                              'Heat ${material.heatNumber.trim()}',
-                          ].join('  |  '),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            if (material.productType.trim().isNotEmpty)
-                              Chip(label: Text(material.productType.trim())),
-                            Chip(label: Text(material.dimensionUnit.label)),
-                            Chip(
-                              label: Text(
-                                material.acceptanceStatus.toUpperCase(),
-                              ),
-                            ),
-                            if (material.photoPaths.isNotEmpty)
-                              Chip(
-                                label: Text(
-                                  'Photos ${material.photoPaths.length}',
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  material.description.trim().isEmpty
+                                      ? 'Material'
+                                      : material.description.trim(),
+                                  style: Theme.of(context).textTheme.bodyLarge,
                                 ),
-                              ),
-                            if (material.scanPaths.isNotEmpty)
-                              Chip(
-                                label: Text(
-                                  'Scans ${material.scanPaths.length}',
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Qty ${material.quantity}',
+                                  style: Theme.of(context).textTheme.bodySmall,
                                 ),
-                              ),
-                            Chip(
-                              label: Text(
-                                material.visualInspectionAcceptable
-                                    ? 'Visual OK'
-                                    : 'Visual Hold',
-                              ),
+                              ],
                             ),
-                            Chip(
-                              label: Text(
-                                material.markingAcceptableNa
-                                    ? 'Markings N/A'
-                                    : material.markingAcceptable
-                                    ? 'Markings Yes'
-                                    : 'Markings No',
-                              ),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              final confirmed = await _showDeleteMaterialDialog(
+                                context,
+                                material.description.trim().isEmpty
+                                    ? material.tag
+                                    : material.description,
+                              );
+                              if (confirmed != true) {
+                                return;
+                              }
+                              await appState.deleteMaterial(
+                                jobId: jobId,
+                                materialId: material.id,
+                              );
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.error,
                             ),
-                            Chip(
-                              label: Text(
-                                material.mtrAcceptableNa
-                                    ? 'MTR N/A'
-                                    : material.mtrAcceptable
-                                    ? 'MTR Yes'
-                                    : 'MTR No',
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (material.comments.trim().isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            material.comments,
-                            style: Theme.of(context).textTheme.bodyMedium,
+                            child: const Text('Delete'),
                           ),
                         ],
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: () async {
-                                final draft = await appState.createEditDraft(
-                                  jobId: jobId,
-                                  materialId: material.id,
-                                );
-                                if (!context.mounted) {
-                                  return;
-                                }
-                                Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.materialForm,
-                                  arguments: MaterialFormRouteArgs(
-                                    jobId: jobId,
-                                    draftId: draft.id,
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.edit_outlined),
-                              label: const Text('Edit Material'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () async {
-                                final confirmed =
-                                    await _showDeleteMaterialDialog(
-                                      context,
-                                      material.description.trim().isEmpty
-                                          ? material.tag
-                                          : material.description,
-                                    );
-                                if (confirmed != true) {
-                                  return;
-                                }
-                                await appState.deleteMaterial(
-                                  jobId: jobId,
-                                  materialId: material.id,
-                                );
-                              },
-                              icon: const Icon(Icons.delete_outline_rounded),
-                              label: const Text('Delete'),
-                            ),
-                          ],
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 10),
+              ],
+              const SizedBox(height: 18),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 320),
+                  child: FilledButton.icon(
+                    onPressed: () async {
+                      final confirmed = await _showExportJobDialog(
+                        context,
+                        alreadyExported: job.exportedAt != null,
+                      );
+                      if (confirmed != true) {
+                        return;
+                      }
+                      final result = await appState.exportJob(jobId);
+                      if (!context.mounted) {
+                        return;
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result.downloadsFolder.trim().isEmpty
+                                ? 'Exported ${result.packetCount} packet PDFs, ${result.photoCount} photos, and ${result.scanCount} scans.'
+                                : 'Exported ${result.packetCount} packet PDFs, ${result.photoCount} photos, and ${result.scanCount} scans to ${result.downloadsFolder}.',
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.ios_share_outlined),
+                    label: const Text('Export Job'),
+                  ),
+                ),
+              ),
+              if (job.exportPath.trim().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Latest export folder',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 6),
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 320),
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final opened = await appState.mediaService.openExport(
+                          exportRootPath: job.exportPath,
+                          jobNumber: job.jobNumber,
+                        );
+                        if (opened || !context.mounted) {
+                          return;
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Could not open the exported files on this device.',
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.folder_open_outlined),
+                      label: const Text('Open Export Folder'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _displayExportFolder(job.jobNumber),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () async {
+                          final shared = await appState.shareLatestExportPdfs(
+                            jobId,
+                          );
+                          if (shared || !context.mounted) {
+                            return;
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Could not share the latest packet PDFs.',
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('Share PDFs'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          final shared = await appState.shareLatestExportZip(
+                            jobId,
+                          );
+                          if (shared || !context.mounted) {
+                            return;
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Could not share the latest export ZIP.',
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('Share ZIP'),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ],
           ),
@@ -410,6 +447,15 @@ class JobDetailScreen extends StatelessWidget {
       },
     );
   }
+}
+
+String _displayExportFolder(String jobNumber) {
+  final safeJobNumber = jobNumber
+      .trim()
+      .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
+      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp(r'^_|_$'), '');
+  return 'Downloads/MaterialGuardian/${safeJobNumber.isEmpty ? 'job' : safeJobNumber}';
 }
 
 Future<void> _showEditJobDialog(
@@ -482,6 +528,73 @@ Future<void> _showEditJobDialog(
   notesController.dispose();
 }
 
+Future<bool?> _showDeleteJobDialog(
+  BuildContext context, {
+  required bool alreadyExported,
+}) {
+  final message = alreadyExported
+      ? 'This job was already exported. Delete the local copy?'
+      : 'This job has not been exported yet. Deleting will remove it and its materials from this device.';
+  return showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Delete job?'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, false);
+            },
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, true);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+Future<bool?> _showExportJobDialog(
+  BuildContext context, {
+  required bool alreadyExported,
+}) {
+  final message = alreadyExported
+      ? 'This job was already exported. Export again?'
+      : 'Export job files to local storage and Downloads?';
+  return showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Export job'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, false);
+            },
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context, true);
+            },
+            child: const Text('Export'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
 Future<bool?> _showDeleteMaterialDialog(
   BuildContext context,
   String materialLabel,
@@ -503,6 +616,38 @@ Future<bool?> _showDeleteMaterialDialog(
             onPressed: () {
               Navigator.pop(context, true);
             },
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+Future<bool?> _showDeleteDraftDialog(BuildContext context, String draftLabel) {
+  return showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Delete draft?'),
+        content: Text('Delete $draftLabel?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, false);
+            },
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, true);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: const Text('Delete'),
           ),
         ],

@@ -4,16 +4,20 @@ Shared Flutter mobile client for Material Guardian.
 
 This repo is now the source of truth for the shared Material Guardian mobile client.
 It is the future home of the cross-platform Android and iPhone app.
+Material Guardian is one app in the broader Welders Helper suite.
+Within the suite, `Welders Helper` is the umbrella company/brand and Material Guardian is a product under it.
 Until the migration exists, `MaterialGuardian_Android` remains the product behavior reference and donor repo.
 
 ## Current state
 
 This repo now contains the initial Flutter scaffold and the first shared app shell.
+The app was started from the Android-only `MaterialGuardian_Android` repo and is now in the Flutter migration plus debugging stage.
 
 Current foundation:
 
 - the backend contract still needs to stay ahead of hard-coded client assumptions
 - the backend repo now has a runnable scaffold plus the first Postgres migration foundation, but mobile should still treat account/entitlement features as in-progress until real persistent auth and store verification land
+- the shared Flutter client now has a first real backend account shell: token-backed sign-in, session restore, account summary, membership summary, access-code redemption, and a simple org-admin surface for invites and seat/member actions
 - the current Android app is still the real implementation to copy behavior from
 - the initial iOS handoff docs and Android reference assets were copied here so migration can continue without splitting product truth across repos
 - the Flutter shell already proves jobs, job detail, drafts, customization defaults, and blank `Add Material`
@@ -26,15 +30,23 @@ Current foundation:
 - Android identity is aligned to the donor release package `com.asme.receiving`, while debug builds intentionally use `com.asme.receiving.dev` so phone testing can coexist with the shipped app later
 - local validation has already produced a debug APK and a release AAB from this repo on Windows
 - first live Samsung phone validation is now complete for install, launch, and home-screen rendering; the initial bottom safe-area overlap was found on-device and fixed in shared screen padding
+- active work is currently focused on debugging and hardening the Flutter app against real Android behavior, especially launch/splash behavior, export-open behavior, and on-device interaction details
 - the shared Flutter direction is right for both Android and iPhone, but Apple-specific validation, permissions, export behavior, and signing are still tracked separately under `ios/`
 - future account-backed releases will require updated privacy/store wording; the current shipped Android local-only policy language should not be reused blindly once backend auth/entitlements ship
 
 ## Relationship to the other repos
 
 - `MaterialGuardian_Android`
-  Current shipping/reference app. Use it to port behavior deliberately.
+  Current shipping/reference app and original Android-only donor. Use it to port behavior deliberately.
 - `app-platforms-backend`
   Future source of truth for auth, orgs, seats, subscriptions, sessions, trials, and entitlements.
+
+## Suite branding rules
+
+- `Welders Helper` is the umbrella company/brand for the suite.
+- `Material Guardian` is one suite app under that umbrella.
+- `Flange Helper` is expected to reuse the same umbrella "Brought to you by" splash behavior before handing off to its own app shell.
+- Suite apps should stay visually homogeneous in splash treatment, colors, spacing, headers, and primary actions unless a repo note explicitly records a justified exception.
 
 ## Planned repo shape
 
@@ -49,10 +61,10 @@ docs/      migration notes and behavior references
 ## First build targets
 
 1. deepen donor receiving-form parity where fields are still simplified
-2. continue Android-native phone validation for camera, file picker, share, export-open behavior, and form interaction beyond the shell/home screen
-3. replace scaffold icons and launch visuals
-4. wire the shared app to backend `plans`, `me`, and entitlement endpoints without breaking local-first jobs/drafts
-5. complete the first real sign-in/account shell around the backend session model
+2. continue Android-native phone validation for camera, file picker, share, export-open behavior, splash/launch behavior, and form interaction beyond the shell/home screen
+3. lock the Welders Helper umbrella splash behavior so it can transfer cleanly to sibling apps like Flange Helper
+4. keep tightening the shared app against backend `plans`, `me`, entitlement, org, and admin endpoints without breaking local-first jobs/drafts
+5. harden the new account/admin shell around real device validation and store/privacy readiness
 6. complete Apple-specific identifiers, permissions, and file/share validation on the Mac
 7. finalize store metadata, privacy wording, and release signing with backend scope reflected accurately
 

@@ -105,6 +105,9 @@ class MaterialRecord {
     required this.dimensionUnit,
     required this.heatNumber,
     required this.thickness1,
+    required this.thickness2,
+    required this.thickness3,
+    required this.thickness4,
     required this.width,
     required this.length,
     required this.diameter,
@@ -117,12 +120,16 @@ class MaterialRecord {
     required this.markings,
     required this.markingAcceptable,
     required this.markingAcceptableNa,
+    required this.markingSelected,
     required this.mtrAcceptable,
     required this.mtrAcceptableNa,
+    required this.mtrSelected,
     required this.acceptanceStatus,
     required this.comments,
     required this.qcInspectorName,
+    required this.qcInspectorDate,
     required this.qcManagerName,
+    required this.qcManagerDate,
     required this.qcSignaturePath,
     required this.qcManagerSignaturePath,
     required this.materialApproval,
@@ -149,6 +156,9 @@ class MaterialRecord {
   final UnitSystem dimensionUnit;
   final String heatNumber;
   final String thickness1;
+  final String thickness2;
+  final String thickness3;
+  final String thickness4;
   final String width;
   final String length;
   final String diameter;
@@ -161,12 +171,16 @@ class MaterialRecord {
   final String markings;
   final bool markingAcceptable;
   final bool markingAcceptableNa;
+  final bool markingSelected;
   final bool mtrAcceptable;
   final bool mtrAcceptableNa;
+  final bool mtrSelected;
   final String acceptanceStatus;
   final String comments;
   final String qcInspectorName;
+  final DateTime qcInspectorDate;
   final String qcManagerName;
+  final DateTime qcManagerDate;
   final String qcSignaturePath;
   final String qcManagerSignaturePath;
   final String materialApproval;
@@ -194,6 +208,9 @@ class MaterialRecord {
       'dimensionUnit': dimensionUnit.name,
       'heatNumber': heatNumber,
       'thickness1': thickness1,
+      'thickness2': thickness2,
+      'thickness3': thickness3,
+      'thickness4': thickness4,
       'width': width,
       'length': length,
       'diameter': diameter,
@@ -206,12 +223,16 @@ class MaterialRecord {
       'markings': markings,
       'markingAcceptable': markingAcceptable,
       'markingAcceptableNa': markingAcceptableNa,
+      'markingSelected': markingSelected,
       'mtrAcceptable': mtrAcceptable,
       'mtrAcceptableNa': mtrAcceptableNa,
+      'mtrSelected': mtrSelected,
       'acceptanceStatus': acceptanceStatus,
       'comments': comments,
       'qcInspectorName': qcInspectorName,
+      'qcInspectorDate': qcInspectorDate.toIso8601String(),
       'qcManagerName': qcManagerName,
+      'qcManagerDate': qcManagerDate.toIso8601String(),
       'qcSignaturePath': qcSignaturePath,
       'qcManagerSignaturePath': qcManagerSignaturePath,
       'materialApproval': materialApproval,
@@ -241,6 +262,9 @@ class MaterialRecord {
       dimensionUnit: UnitSystem.fromName(json['dimensionUnit'] as String?),
       heatNumber: json['heatNumber'] as String? ?? '',
       thickness1: json['thickness1'] as String? ?? '',
+      thickness2: json['thickness2'] as String? ?? '',
+      thickness3: json['thickness3'] as String? ?? '',
+      thickness4: json['thickness4'] as String? ?? '',
       width: json['width'] as String? ?? '',
       length: json['length'] as String? ?? '',
       diameter: json['diameter'] as String? ?? '',
@@ -254,12 +278,20 @@ class MaterialRecord {
       markings: json['markings'] as String? ?? '',
       markingAcceptable: json['markingAcceptable'] as bool? ?? true,
       markingAcceptableNa: json['markingAcceptableNa'] as bool? ?? false,
+      markingSelected: json['markingSelected'] as bool? ?? false,
       mtrAcceptable: json['mtrAcceptable'] as bool? ?? true,
       mtrAcceptableNa: json['mtrAcceptableNa'] as bool? ?? false,
+      mtrSelected: json['mtrSelected'] as bool? ?? false,
       acceptanceStatus: json['acceptanceStatus'] as String? ?? 'accept',
       comments: json['comments'] as String? ?? '',
       qcInspectorName: json['qcInspectorName'] as String? ?? '',
+      qcInspectorDate:
+          DateTime.tryParse(json['qcInspectorDate'] as String? ?? '') ??
+          DateTime.now(),
       qcManagerName: json['qcManagerName'] as String? ?? '',
+      qcManagerDate:
+          DateTime.tryParse(json['qcManagerDate'] as String? ?? '') ??
+          DateTime.now(),
       qcSignaturePath: json['qcSignaturePath'] as String? ?? '',
       qcManagerSignaturePath: json['qcManagerSignaturePath'] as String? ?? '',
       materialApproval: json['materialApproval'] as String? ?? 'approved',
@@ -294,6 +326,9 @@ class MaterialRecord {
     UnitSystem? dimensionUnit,
     String? heatNumber,
     String? thickness1,
+    String? thickness2,
+    String? thickness3,
+    String? thickness4,
     String? width,
     String? length,
     String? diameter,
@@ -306,12 +341,16 @@ class MaterialRecord {
     String? markings,
     bool? markingAcceptable,
     bool? markingAcceptableNa,
+    bool? markingSelected,
     bool? mtrAcceptable,
     bool? mtrAcceptableNa,
+    bool? mtrSelected,
     String? acceptanceStatus,
     String? comments,
     String? qcInspectorName,
+    DateTime? qcInspectorDate,
     String? qcManagerName,
+    DateTime? qcManagerDate,
     String? qcSignaturePath,
     String? qcManagerSignaturePath,
     String? materialApproval,
@@ -338,6 +377,9 @@ class MaterialRecord {
       dimensionUnit: dimensionUnit ?? this.dimensionUnit,
       heatNumber: heatNumber ?? this.heatNumber,
       thickness1: thickness1 ?? this.thickness1,
+      thickness2: thickness2 ?? this.thickness2,
+      thickness3: thickness3 ?? this.thickness3,
+      thickness4: thickness4 ?? this.thickness4,
       width: width ?? this.width,
       length: length ?? this.length,
       diameter: diameter ?? this.diameter,
@@ -352,12 +394,16 @@ class MaterialRecord {
       markings: markings ?? this.markings,
       markingAcceptable: markingAcceptable ?? this.markingAcceptable,
       markingAcceptableNa: markingAcceptableNa ?? this.markingAcceptableNa,
+      markingSelected: markingSelected ?? this.markingSelected,
       mtrAcceptable: mtrAcceptable ?? this.mtrAcceptable,
       mtrAcceptableNa: mtrAcceptableNa ?? this.mtrAcceptableNa,
+      mtrSelected: mtrSelected ?? this.mtrSelected,
       acceptanceStatus: acceptanceStatus ?? this.acceptanceStatus,
       comments: comments ?? this.comments,
       qcInspectorName: qcInspectorName ?? this.qcInspectorName,
+      qcInspectorDate: qcInspectorDate ?? this.qcInspectorDate,
       qcManagerName: qcManagerName ?? this.qcManagerName,
+      qcManagerDate: qcManagerDate ?? this.qcManagerDate,
       qcSignaturePath: qcSignaturePath ?? this.qcSignaturePath,
       qcManagerSignaturePath:
           qcManagerSignaturePath ?? this.qcManagerSignaturePath,
@@ -393,6 +439,9 @@ class MaterialDraft {
     required this.includesB16Data,
     required this.b16Size,
     required this.thickness1,
+    required this.thickness2,
+    required this.thickness3,
+    required this.thickness4,
     required this.width,
     required this.length,
     required this.diameter,
@@ -404,14 +453,19 @@ class MaterialDraft {
     required this.markings,
     required this.markingAcceptable,
     required this.markingAcceptableNa,
+    required this.markingSelected,
     required this.mtrAcceptable,
     required this.mtrAcceptableNa,
+    required this.mtrSelected,
     required this.comments,
     required this.acceptanceStatus,
     required this.qcInspectorName,
+    required this.qcInspectorDate,
     required this.qcManagerName,
+    required this.qcManagerDate,
     required this.qcSignaturePath,
     required this.qcManagerSignaturePath,
+    required this.materialApproval,
     required this.photoPaths,
     required this.scanPaths,
     required this.signatureApplied,
@@ -436,6 +490,9 @@ class MaterialDraft {
   final bool includesB16Data;
   final String b16Size;
   final String thickness1;
+  final String thickness2;
+  final String thickness3;
+  final String thickness4;
   final String width;
   final String length;
   final String diameter;
@@ -447,14 +504,19 @@ class MaterialDraft {
   final String markings;
   final bool markingAcceptable;
   final bool markingAcceptableNa;
+  final bool markingSelected;
   final bool mtrAcceptable;
   final bool mtrAcceptableNa;
+  final bool mtrSelected;
   final String comments;
   final String acceptanceStatus;
   final String qcInspectorName;
+  final DateTime qcInspectorDate;
   final String qcManagerName;
+  final DateTime qcManagerDate;
   final String qcSignaturePath;
   final String qcManagerSignaturePath;
+  final String materialApproval;
   final List<String> photoPaths;
   final List<String> scanPaths;
   final bool signatureApplied;
@@ -480,6 +542,9 @@ class MaterialDraft {
       'includesB16Data': includesB16Data,
       'b16Size': b16Size,
       'thickness1': thickness1,
+      'thickness2': thickness2,
+      'thickness3': thickness3,
+      'thickness4': thickness4,
       'width': width,
       'length': length,
       'diameter': diameter,
@@ -491,14 +556,19 @@ class MaterialDraft {
       'markings': markings,
       'markingAcceptable': markingAcceptable,
       'markingAcceptableNa': markingAcceptableNa,
+      'markingSelected': markingSelected,
       'mtrAcceptable': mtrAcceptable,
       'mtrAcceptableNa': mtrAcceptableNa,
+      'mtrSelected': mtrSelected,
       'comments': comments,
       'acceptanceStatus': acceptanceStatus,
       'qcInspectorName': qcInspectorName,
+      'qcInspectorDate': qcInspectorDate.toIso8601String(),
       'qcManagerName': qcManagerName,
+      'qcManagerDate': qcManagerDate.toIso8601String(),
       'qcSignaturePath': qcSignaturePath,
       'qcManagerSignaturePath': qcManagerSignaturePath,
+      'materialApproval': materialApproval,
       'photoPaths': photoPaths,
       'scanPaths': scanPaths,
       'signatureApplied': signatureApplied,
@@ -526,6 +596,9 @@ class MaterialDraft {
       includesB16Data: json['includesB16Data'] as bool? ?? false,
       b16Size: json['b16Size'] as String? ?? '',
       thickness1: json['thickness1'] as String? ?? '',
+      thickness2: json['thickness2'] as String? ?? '',
+      thickness3: json['thickness3'] as String? ?? '',
+      thickness4: json['thickness4'] as String? ?? '',
       width: json['width'] as String? ?? '',
       length: json['length'] as String? ?? '',
       diameter: json['diameter'] as String? ?? '',
@@ -538,14 +611,23 @@ class MaterialDraft {
       markings: json['markings'] as String? ?? '',
       markingAcceptable: json['markingAcceptable'] as bool? ?? true,
       markingAcceptableNa: json['markingAcceptableNa'] as bool? ?? false,
+      markingSelected: json['markingSelected'] as bool? ?? false,
       mtrAcceptable: json['mtrAcceptable'] as bool? ?? true,
       mtrAcceptableNa: json['mtrAcceptableNa'] as bool? ?? false,
+      mtrSelected: json['mtrSelected'] as bool? ?? false,
       comments: json['comments'] as String? ?? '',
       acceptanceStatus: json['acceptanceStatus'] as String? ?? 'accept',
       qcInspectorName: json['qcInspectorName'] as String? ?? '',
+      qcInspectorDate:
+          DateTime.tryParse(json['qcInspectorDate'] as String? ?? '') ??
+          DateTime.now(),
       qcManagerName: json['qcManagerName'] as String? ?? '',
+      qcManagerDate:
+          DateTime.tryParse(json['qcManagerDate'] as String? ?? '') ??
+          DateTime.now(),
       qcSignaturePath: json['qcSignaturePath'] as String? ?? '',
       qcManagerSignaturePath: json['qcManagerSignaturePath'] as String? ?? '',
+      materialApproval: json['materialApproval'] as String? ?? 'approved',
       photoPaths: ((json['photoPaths'] as List<dynamic>?) ?? const [])
           .map((item) => item.toString())
           .toList(growable: false),
@@ -578,6 +660,9 @@ class MaterialDraft {
     bool? includesB16Data,
     String? b16Size,
     String? thickness1,
+    String? thickness2,
+    String? thickness3,
+    String? thickness4,
     String? width,
     String? length,
     String? diameter,
@@ -589,14 +674,19 @@ class MaterialDraft {
     String? markings,
     bool? markingAcceptable,
     bool? markingAcceptableNa,
+    bool? markingSelected,
     bool? mtrAcceptable,
     bool? mtrAcceptableNa,
+    bool? mtrSelected,
     String? comments,
     String? acceptanceStatus,
     String? qcInspectorName,
+    DateTime? qcInspectorDate,
     String? qcManagerName,
+    DateTime? qcManagerDate,
     String? qcSignaturePath,
     String? qcManagerSignaturePath,
+    String? materialApproval,
     List<String>? photoPaths,
     List<String>? scanPaths,
     bool? signatureApplied,
@@ -621,6 +711,9 @@ class MaterialDraft {
       includesB16Data: includesB16Data ?? this.includesB16Data,
       b16Size: b16Size ?? this.b16Size,
       thickness1: thickness1 ?? this.thickness1,
+      thickness2: thickness2 ?? this.thickness2,
+      thickness3: thickness3 ?? this.thickness3,
+      thickness4: thickness4 ?? this.thickness4,
       width: width ?? this.width,
       length: length ?? this.length,
       diameter: diameter ?? this.diameter,
@@ -633,15 +726,20 @@ class MaterialDraft {
       markings: markings ?? this.markings,
       markingAcceptable: markingAcceptable ?? this.markingAcceptable,
       markingAcceptableNa: markingAcceptableNa ?? this.markingAcceptableNa,
+      markingSelected: markingSelected ?? this.markingSelected,
       mtrAcceptable: mtrAcceptable ?? this.mtrAcceptable,
       mtrAcceptableNa: mtrAcceptableNa ?? this.mtrAcceptableNa,
+      mtrSelected: mtrSelected ?? this.mtrSelected,
       comments: comments ?? this.comments,
       acceptanceStatus: acceptanceStatus ?? this.acceptanceStatus,
       qcInspectorName: qcInspectorName ?? this.qcInspectorName,
+      qcInspectorDate: qcInspectorDate ?? this.qcInspectorDate,
       qcManagerName: qcManagerName ?? this.qcManagerName,
+      qcManagerDate: qcManagerDate ?? this.qcManagerDate,
       qcSignaturePath: qcSignaturePath ?? this.qcSignaturePath,
       qcManagerSignaturePath:
           qcManagerSignaturePath ?? this.qcManagerSignaturePath,
+      materialApproval: materialApproval ?? this.materialApproval,
       photoPaths: photoPaths ?? this.photoPaths,
       scanPaths: scanPaths ?? this.scanPaths,
       signatureApplied: signatureApplied ?? this.signatureApplied,

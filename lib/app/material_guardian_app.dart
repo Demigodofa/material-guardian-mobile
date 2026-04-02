@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../screens/account_screen.dart';
 import '../screens/customization_screen.dart';
 import '../screens/drafts_screen.dart';
 import '../screens/job_detail_screen.dart';
 import '../screens/jobs_screen.dart';
 import '../screens/material_form_screen.dart';
 import '../screens/privacy_policy_screen.dart';
+import '../screens/splash_screen.dart';
 import 'material_guardian_state.dart';
 import 'routes.dart';
 import 'theme.dart';
@@ -24,6 +26,7 @@ class MaterialGuardianApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           title: 'Material Guardian',
           theme: buildMaterialGuardianTheme(),
+          home: _LaunchGate(appState: appState),
           onGenerateRoute: (settings) {
             switch (settings.name) {
               case AppRoutes.jobs:
@@ -57,6 +60,11 @@ class MaterialGuardianApp extends StatelessWidget {
                       DraftsScreen(appState: appState, jobId: args.jobId),
                   settings: settings,
                 );
+              case AppRoutes.account:
+                return MaterialPageRoute<void>(
+                  builder: (_) => AccountScreen(appState: appState),
+                  settings: settings,
+                );
               case AppRoutes.customization:
                 return MaterialPageRoute<void>(
                   builder: (_) => CustomizationScreen(appState: appState),
@@ -77,5 +85,36 @@ class MaterialGuardianApp extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class _LaunchGate extends StatefulWidget {
+  const _LaunchGate({required this.appState});
+
+  final MaterialGuardianAppState appState;
+
+  @override
+  State<_LaunchGate> createState() => _LaunchGateState();
+}
+
+class _LaunchGateState extends State<_LaunchGate> {
+  bool _showSplash = true;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_showSplash) {
+      return SplashScreen(
+        onFinished: () {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _showSplash = false;
+          });
+        },
+      );
+    }
+
+    return JobsScreen(appState: widget.appState);
   }
 }

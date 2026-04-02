@@ -23,11 +23,9 @@ It now has a live dev database path, but it is still not a finished production b
 It does **not** yet mean production-ready:
 
 - fully hardened auth
-- final email delivery behavior
+- final production email-delivery approval state
 - final session token storage model
-- real admin writes
 - real Apple verification
-- real Google verification
 - real sync/recovery
 
 ## What mobile can safely assume now
@@ -41,8 +39,9 @@ Shared Flutter should assume the long-term backend model is:
 - normalized plan catalog
 - normalized entitlement state
 - server-side trial counting
+- backend-owned free-job trial limits, with the current intended launch target now `6`
 
-Shared Flutter can now also assume that the backend dev environment is real enough to begin wiring read-only and auth-shell integration work, not just mock contracts.
+Shared Flutter can now also assume that the backend dev environment is real enough to support the first real account shell, not just mock contracts.
 
 Shared Flutter should **not** assume yet:
 
@@ -60,23 +59,33 @@ The Flutter repo already has:
 - local customization/defaults
 - local signatures, photos/scans attachments, and export/share entry points
 - Android package identity alignment and first real Samsung validation
+- a first real backend account shell:
+  - sign-in start and code completion
+  - refresh-token-backed session restore
+  - bearer-auth `/me` and entitlement hydration
+  - membership display plus org access-code redemption
+  - simple org-admin invite / resend / seat / remove actions for backend testing
+  - backend-typed plan loading
+  - signed-in organization creation for business checkout
+  - first Google Play purchase shell that maps store purchases back into backend verification
 
 ## Path forward from the mobile side
 
 ### Immediate next mobile/backend handshake
 
-1. consume backend `GET /plans`
-2. consume backend `GET /me`
-3. consume backend `GET /entitlements/current`
-4. build the shared sign-in shell around the backend account/session plus refresh-token model
-5. keep local jobs/drafts working while backend account work lands
+1. validate the new shared sign-in/account shell against the live backend on-device
+2. switch trial UX assumptions to the launch target of `6` backend-counted free jobs
+3. keep local jobs/drafts working while backend account work lands
+4. consume backend `GET /plans` in customer-facing pricing/paywall screens
+5. validate real Android purchase callbacks on-device and confirm successful backend verification against the live dev backend
+6. keep privacy/store wording aligned with the actual backend-backed release scope
 
 ### After the first real backend auth pass
 
-1. add real sign-in UI states
-2. add session-conflict replace flow
-3. add entitlement-aware paywall/account state
-4. add admin/business surfaces only after org write APIs exist
+1. harden session-conflict replace flow on-device
+2. add entitlement-aware paywall/account state
+3. move from operator-style admin controls toward cleaner business UX
+4. keep purchase verification, privacy wording, and store disclosures in step with the real release path
 
 ### Deferred until later
 

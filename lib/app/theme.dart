@@ -1,29 +1,47 @@
 import 'package:flutter/material.dart';
 
 ThemeData buildMaterialGuardianTheme() {
-  const canvas = Color(0xFFF3EEE4);
-  const seed = Color(0xFFB86A1A);
-  const deepSlate = Color(0xFF1E2B34);
+  const screenBackground = Color(0xFFF1F3F6);
+  const cardBackground = Color(0xFFF8FAFC);
+  const divider = Color(0xFFCDD4DE);
+  const primaryButton = Color(0xFF22324A);
+  const primaryButtonText = Color(0xFFF2F4F7);
+  const exportButton = Color(0xFF1C3F5B);
+  const textPrimary = Color(0xFF1F2937);
+  const textSecondary = Color(0xFF566173);
+  const deleteButton = Color(0xFFB00020);
+  const deleteButtonText = Color(0xFFFFFFFF);
 
-  final scheme = ColorScheme.fromSeed(
-    seedColor: seed,
-    brightness: Brightness.light,
-    surface: Colors.white,
+  const scheme = ColorScheme.light(
+    primary: primaryButton,
+    onPrimary: primaryButtonText,
+    secondary: exportButton,
+    onSecondary: Colors.white,
+    surface: cardBackground,
+    onSurface: textPrimary,
+    error: deleteButton,
+    onError: deleteButtonText,
+    outline: divider,
+    outlineVariant: divider,
   );
 
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: canvas,
+    scaffoldBackgroundColor: screenBackground,
+    canvasColor: screenBackground,
+    dividerColor: divider,
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
-      foregroundColor: deepSlate,
+      foregroundColor: textPrimary,
       elevation: 0,
       scrolledUnderElevation: 0,
+      centerTitle: false,
     ),
+    dividerTheme: const DividerThemeData(color: divider, thickness: 1),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
+      fillColor: cardBackground,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -35,25 +53,60 @@ ThemeData buildMaterialGuardianTheme() {
       ),
     ),
     cardTheme: CardThemeData(
-      color: Colors.white,
-      elevation: 0,
+      color: cardBackground,
+      elevation: 1,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: scheme.outlineVariant),
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: divider),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
+        backgroundColor: primaryButton,
+        foregroundColor: primaryButtonText,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        backgroundColor: cardBackground,
+        foregroundColor: exportButton,
+        side: const BorderSide(color: divider),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(foregroundColor: exportButton),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: cardBackground,
+      selectedColor: primaryButton,
+      side: const BorderSide(color: divider),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      labelStyle: const TextStyle(
+        color: textPrimary,
+        fontWeight: FontWeight.w600,
+      ),
+      secondaryLabelStyle: const TextStyle(
+        color: primaryButtonText,
+        fontWeight: FontWeight.w600,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    ),
+    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+    textTheme: const TextTheme(
+      headlineSmall: TextStyle(
+        color: textPrimary,
+        fontWeight: FontWeight.w700,
+      ),
+      titleLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
+      titleMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
+      bodyLarge: TextStyle(color: textPrimary),
+      bodyMedium: TextStyle(color: textSecondary),
+      labelLarge: TextStyle(fontWeight: FontWeight.w600),
     ),
   );
 }

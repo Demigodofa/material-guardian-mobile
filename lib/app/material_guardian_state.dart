@@ -799,7 +799,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
 
       await _acceptAuthenticatedBackendResult(result);
     } catch (error) {
-      _backendAccountError = error.toString();
+      _backendAccountError = _describeBackendAuthError(error);
     } finally {
       _isAuthenticatingBackend = false;
       notifyListeners();
@@ -822,7 +822,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
       );
       await _acceptAuthenticatedBackendResult(result);
     } catch (error) {
-      _backendAccountError = error.toString();
+      _backendAccountError = _describeBackendAuthError(error);
     } finally {
       _isAuthenticatingBackend = false;
       notifyListeners();
@@ -1311,6 +1311,26 @@ class MaterialGuardianAppState extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  String _describeBackendAuthError(Object error) {
+    if (error is BackendApiException) {
+      switch (error.statusCode) {
+        case 400:
+          return 'That sign-in code was not accepted. Start sign-in again and use the newest code.';
+        case 401:
+          return 'The backend session is no longer valid. Start sign-in again.';
+        case 404:
+          return 'That sign-in flow no longer exists. Start sign-in again.';
+        case 409:
+          return 'That sign-in code was already used. Start sign-in again for a fresh code.';
+        case 410:
+          return 'That sign-in code expired. Start sign-in again for a fresh code.';
+        case 500:
+          return 'The backend hit an internal error while signing in. Start sign-in again. If it repeats, stop here.';
+      }
+    }
+    return error.toString();
   }
 
   Future<void> _clearBackendAuthState({String? errorMessage}) async {

@@ -661,6 +661,7 @@ class _BillingCard extends StatelessWidget {
                         : (plan.googleStoreProductId ?? '')
                   ],
                   isBusy: isPurchasing,
+                  isStoreAvailable: isStoreAvailable,
                   activeOrganization: activeOrganization,
                   onPurchase: () => onPurchasePlan(plan.planCode),
                 ),
@@ -678,6 +679,7 @@ class _PlanTile extends StatelessWidget {
     required this.plan,
     required this.storeProduct,
     required this.isBusy,
+    required this.isStoreAvailable,
     required this.activeOrganization,
     required this.onPurchase,
   });
@@ -685,6 +687,7 @@ class _PlanTile extends StatelessWidget {
   final BackendPlanSnapshot plan;
   final StoreProductSnapshot? storeProduct;
   final bool isBusy;
+  final bool isStoreAvailable;
   final BackendOrganizationSummary? activeOrganization;
   final Future<void> Function() onPurchase;
 
@@ -695,6 +698,13 @@ class _PlanTile extends StatelessWidget {
         storeProduct != null &&
         (!requiresOrganization || activeOrganization != null) &&
         !isBusy;
+    final disabledReason = switch ((storeProduct != null, requiresOrganization, activeOrganization != null, isStoreAvailable, isBusy)) {
+      (_, _, _, _, true) => 'Purchase in progress',
+      (_, true, false, _, _) => 'Create an organization first for business checkout',
+      (false, _, _, false, _) => 'Store is unavailable on this build/device',
+      (false, _, _, true, _) => 'Play product details have not loaded yet',
+      _ => null,
+    };
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -704,8 +714,7 @@ class _PlanTile extends StatelessWidget {
           'Backend: ${plan.displayPrice}',
           if (storeProduct != null) 'Store: ${storeProduct!.price}',
           'Seats: ${plan.seatLimit}',
-          if (requiresOrganization && activeOrganization == null)
-            'Create an organization first for business checkout',
+          if (disabledReason case final message) message,
         ].join(' | '),
       ),
       trailing: FilledButton(

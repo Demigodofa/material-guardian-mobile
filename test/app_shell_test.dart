@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:material_guardian_mobile/app/material_guardian_state.dart';
 import 'package:material_guardian_mobile/data/backend_auth_session_store.dart';
 import 'package:material_guardian_mobile/screens/material_form_screen.dart';
 import 'package:material_guardian_mobile/services/backend_api_service.dart';
+import 'package:material_guardian_mobile/services/store_purchase_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const MethodChannel _pathProviderChannel = MethodChannel(
@@ -413,4 +415,102 @@ void main() {
       isTrue,
     );
   });
+
+  test('billing catalog surfaces missing Play product IDs instead of failing silently', () async {
+    final service = BackendApiService(
+      baseUrl:
+          'https://app-platforms-backend-dev-293518443128.us-east4.run.app',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/plans')) {
+          return http.Response(
+            '''
+            {
+              "plans": [
+                {
+                  "planCode": "material_guardian_individual_monthly",
+                  "productCode": "material_guardian",
+                  "audienceType": "individual",
+                  "billingInterval": "monthly",
+                  "seatLimit": 1,
+                  "displayPrice": "\$9.99",
+                  "displayPriceCents": 999,
+                  "storeProductIds": {
+                    "google": "material_guardian_individual_monthly"
+                  },
+                  "futureBilling": {}
+                }
+              ]
+            }
+            ''',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        return http.Response(
+          '{"status":"ok","service":"app-platforms-backend","mode":"postgres"}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final appState = MaterialGuardianAppState.seeded(
+      backendApiService: service,
+      storePurchaseService: const _FakeStorePurchaseService(
+        available: true,
+        queryResult: StoreProductQueryResult(
+          products: <StoreProductSnapshot>[],
+          notFoundIds: <String>['material_guardian_individual_monthly'],
+          errorMessage: null,
+        ),
+      ),
+    );
+
+    await appState.loadPurchaseCatalog();
+
+    expect(appState.isStoreAvailable, isTrue);
+    expect(appState.storeProductsById, isEmpty);
+    expect(
+      appState.lastMissingStoreProductIds,
+      equals(<String>['material_guardian_individual_monthly']),
+    );
+    expect(
+      appState.purchaseError,
+      contains('Play did not return these product IDs'),
+    );
+  });
+}
+
+class _FakeStorePurchaseService implements StorePurchaseService {
+  const _FakeStorePurchaseService({
+    required this.available,
+    required this.queryResult,
+  });
+
+  final bool available;
+  final StoreProductQueryResult queryResult;
+
+  @override
+  Stream<List<StorePurchaseUpdate>> get purchaseUpdates =>
+      const Stream<List<StorePurchaseUpdate>>.empty();
+
+  @override
+  Future<bool> isAvailable() async => available;
+
+  @override
+  Future<StoreProductQueryResult> queryProducts(Set<String> productIds) async =>
+      queryResult;
+
+  @override
+  Future<void> buyProduct(String productId) async {}
+
+  @override
+  Future<void> completePurchase(String productId) async {}
+
+  @override
+  Future<void> restorePurchases() async {}
+
+  @override
+  void dispose() {}
 }

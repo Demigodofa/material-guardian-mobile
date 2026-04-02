@@ -249,6 +249,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
   List<BackendPlanSnapshot> _backendPlans = const <BackendPlanSnapshot>[];
   Map<String, StoreProductSnapshot> _storeProductsById =
       const <String, StoreProductSnapshot>{};
+  List<String> _lastMissingStoreProductIds = const <String>[];
+  String? _lastStoreCatalogError;
   String? _backendAccountError;
   String? _purchaseStatusMessage;
   String? _purchaseError;
@@ -283,6 +285,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
   List<BackendPlanSnapshot> get backendPlans => List.unmodifiable(_backendPlans);
   Map<String, StoreProductSnapshot> get storeProductsById =>
       Map.unmodifiable(_storeProductsById);
+  List<String> get lastMissingStoreProductIds =>
+      List.unmodifiable(_lastMissingStoreProductIds);
+  String? get lastStoreCatalogError => _lastStoreCatalogError;
   String? get backendAccountError => _backendAccountError;
   String? get purchaseStatusMessage => _purchaseStatusMessage;
   String? get purchaseError => _purchaseError;
@@ -688,6 +693,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
   Future<void> loadPurchaseCatalog() async {
     _isLoadingPurchaseCatalog = true;
     _purchaseError = null;
+    _lastStoreCatalogError = null;
+    _lastMissingStoreProductIds = const <String>[];
     notifyListeners();
 
     try {
@@ -698,15 +705,36 @@ class MaterialGuardianAppState extends ChangeNotifier {
           .whereType<String>()
           .where((productId) => productId.trim().isNotEmpty)
           .toSet();
-      final storeProducts = storeAvailable
+      final queryResult = storeAvailable
           ? await _storePurchaseService.queryProducts(productIds)
-          : const <StoreProductSnapshot>[];
+          : const StoreProductQueryResult(
+              products: <StoreProductSnapshot>[],
+              notFoundIds: <String>[],
+              errorMessage: null,
+            );
 
       _backendPlans = plans;
       _isStoreAvailable = storeAvailable;
       _storeProductsById = <String, StoreProductSnapshot>{
-        for (final product in storeProducts) product.id: product,
+        for (final product in queryResult.products) product.id: product,
       };
+      _lastMissingStoreProductIds = queryResult.notFoundIds;
+      _lastStoreCatalogError = queryResult.errorMessage;
+
+      if (!storeAvailable) {
+        _purchaseError =
+            'The store is unavailable on this build or device. Use the Play-installed internal test app.';
+      } else if (queryResult.errorMessage != null &&
+          queryResult.errorMessage!.trim().isNotEmpty) {
+        _purchaseError =
+            'Store catalog lookup failed: ${queryResult.errorMessage}';
+      } else if (queryResult.notFoundIds.isNotEmpty) {
+        _purchaseError =
+            'Play did not return these product IDs: ${queryResult.notFoundIds.join(', ')}';
+      } else if (productIds.isNotEmpty && queryResult.products.isEmpty) {
+        _purchaseError =
+            'Play billing is available, but no subscription product details were returned for this account/build yet.';
+      }
     } catch (error) {
       _purchaseError = error.toString();
     } finally {

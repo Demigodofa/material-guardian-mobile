@@ -149,6 +149,8 @@ class _AccountScreenState extends State<AccountScreen> {
                   _BillingCard(
                     plans: plans,
                     storeProductsById: appState.storeProductsById,
+                    missingStoreProductIds: appState.lastMissingStoreProductIds,
+                    storeCatalogError: appState.lastStoreCatalogError,
                     activeEntitlement: entitlement ?? me.activeEntitlement,
                     activeOrganization: organization,
                     isLoadingCatalog: appState.isLoadingPurchaseCatalog,
@@ -575,6 +577,8 @@ class _BillingCard extends StatelessWidget {
   const _BillingCard({
     required this.plans,
     required this.storeProductsById,
+    required this.missingStoreProductIds,
+    required this.storeCatalogError,
     required this.activeEntitlement,
     required this.activeOrganization,
     required this.isLoadingCatalog,
@@ -589,6 +593,8 @@ class _BillingCard extends StatelessWidget {
 
   final List<BackendPlanSnapshot> plans;
   final Map<String, StoreProductSnapshot> storeProductsById;
+  final List<String> missingStoreProductIds;
+  final String? storeCatalogError;
   final BackendEntitlementSnapshot activeEntitlement;
   final BackendOrganizationSummary? activeOrganization;
   final bool isLoadingCatalog;
@@ -646,6 +652,18 @@ class _BillingCard extends StatelessWidget {
               Text(
                 purchaseError!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            if (storeCatalogError != null &&
+                storeCatalogError!.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text('Store error: $storeCatalogError'),
+            ],
+            if (missingStoreProductIds.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              SelectableText(
+                'Missing Play product IDs: ${missingStoreProductIds.join(', ')}',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
             const SizedBox(height: 12),

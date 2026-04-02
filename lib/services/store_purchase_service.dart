@@ -23,6 +23,18 @@ class StoreProductSnapshot {
   final double rawPrice;
 }
 
+class StoreProductQueryResult {
+  const StoreProductQueryResult({
+    required this.products,
+    required this.notFoundIds,
+    required this.errorMessage,
+  });
+
+  final List<StoreProductSnapshot> products;
+  final List<String> notFoundIds;
+  final String? errorMessage;
+}
+
 class StorePurchaseUpdate {
   const StorePurchaseUpdate({
     required this.productId,
@@ -64,7 +76,7 @@ abstract class StorePurchaseService {
 
   Future<bool> isAvailable();
 
-  Future<List<StoreProductSnapshot>> queryProducts(Set<String> productIds);
+  Future<StoreProductQueryResult> queryProducts(Set<String> productIds);
 
   Future<void> buyProduct(String productId);
 
@@ -135,9 +147,13 @@ class InAppStorePurchaseService implements StorePurchaseService {
   }
 
   @override
-  Future<List<StoreProductSnapshot>> queryProducts(Set<String> productIds) async {
+  Future<StoreProductQueryResult> queryProducts(Set<String> productIds) async {
     if (productIds.isEmpty) {
-      return const <StoreProductSnapshot>[];
+      return const StoreProductQueryResult(
+        products: <StoreProductSnapshot>[],
+        notFoundIds: <String>[],
+        errorMessage: null,
+      );
     }
 
     final response = await _inAppPurchase.queryProductDetails(productIds);
@@ -145,18 +161,22 @@ class InAppStorePurchaseService implements StorePurchaseService {
       _productDetailsById[product.id] = product;
     }
 
-    return response.productDetails
-        .map(
-          (product) => StoreProductSnapshot(
-            id: product.id,
-            title: product.title,
-            description: product.description,
-            price: product.price,
-            currencyCode: product.currencyCode,
-            rawPrice: product.rawPrice,
-          ),
-        )
-        .toList(growable: false);
+    return StoreProductQueryResult(
+      products: response.productDetails
+          .map(
+            (product) => StoreProductSnapshot(
+              id: product.id,
+              title: product.title,
+              description: product.description,
+              price: product.price,
+              currencyCode: product.currencyCode,
+              rawPrice: product.rawPrice,
+            ),
+          )
+          .toList(growable: false),
+      notFoundIds: List<String>.unmodifiable(response.notFoundIDs),
+      errorMessage: response.error?.message,
+    );
   }
 
   @override
@@ -258,8 +278,12 @@ class NoopStorePurchaseService implements StorePurchaseService {
   Future<bool> isAvailable() async => false;
 
   @override
-  Future<List<StoreProductSnapshot>> queryProducts(Set<String> productIds) async =>
-      const <StoreProductSnapshot>[];
+  Future<StoreProductQueryResult> queryProducts(Set<String> productIds) async =>
+      const StoreProductQueryResult(
+        products: <StoreProductSnapshot>[],
+        notFoundIds: <String>[],
+        errorMessage: null,
+      );
 
   @override
   Future<void> buyProduct(String productId) async {

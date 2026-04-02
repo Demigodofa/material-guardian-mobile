@@ -70,6 +70,7 @@ The Flutter repo already has:
   - first Google Play purchase shell that maps store purchases back into backend verification
   - Samsung-safe bottom insets on the account flow so sign-in and org buttons stay above system navigation
   - client-side email-shape validation before auth start requests are sent
+  - explicit Play billing catalog diagnostics so Android internal-test builds can now tell you whether the store is unavailable, the query returned an error, or specific product IDs were not found
 
 ## Path forward from the mobile side
 
@@ -81,6 +82,7 @@ The Flutter repo already has:
 4. consume backend `GET /plans` in customer-facing pricing/paywall screens
 5. validate real Android purchase callbacks on-device and confirm successful backend verification against the live dev backend
 6. keep privacy/store wording aligned with the actual backend-backed release scope
+7. use the next internal-test Play build to confirm whether the current billing blocker is propagation, tester access, or mismatched product visibility
 
 ### After the first real backend auth pass
 
@@ -88,12 +90,27 @@ The Flutter repo already has:
 2. add entitlement-aware paywall/account state
 3. move from operator-style admin controls toward cleaner business UX
 4. keep purchase verification, privacy wording, and store disclosures in step with the real release path
+5. remove the temporary operator-style backend diagnostics from the visible account flow before release
 
 ### Deferred until later
 
 1. cloud document sync
 2. cross-device recovery for jobs/media
 3. usage-metered Pro storage/API features
+
+## Current known blocker
+
+The live backend path is now proven far enough for:
+
+- sign-in by code
+- owner/admin org membership
+- business seat assignment
+- single-user and business purchase verification on the backend
+
+The current unresolved Android release blocker is narrower:
+
+- the Play-installed app still is not receiving subscription `ProductDetails`
+- the next internal-test build now includes explicit missing-product/error messaging so the exact Play-side mismatch can be read directly from the account screen instead of inferred from disabled buy buttons
 
 ## Repo ownership reminder
 

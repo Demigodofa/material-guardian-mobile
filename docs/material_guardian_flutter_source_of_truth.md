@@ -39,6 +39,7 @@ Current reality:
 - the shared Flutter client now also has a first real backend account shell: sign-in code flow, persisted session restore, `/me` and entitlement hydration, membership visibility, org access-code redemption, and a simple org-admin control surface
 - the next backend-connected customer path is now explicit and partly wired: `6` backend-counted free jobs, then Play purchase on Android, then backend verification and refreshed entitlement/account state
 - the shared Flutter account area now has a first billing shell: typed backend plan loading, org creation before business checkout, purchase restore, and shared store-purchase handling that can forward verified purchases to the backend
+- the shared Flutter billing shell now also exposes Play catalog diagnostics in-app, so internal-test builds can report missing Play product IDs or billing query errors directly instead of only disabling buy buttons
 - shared Dart workflow should stay cross-platform by default
 - the receiving form now carries a meaningful donor-aligned field block rather than only a placeholder shell
 - saved-material editing now goes back through the same shared form and draft lifecycle rather than using a separate platform-specific edit path
@@ -122,6 +123,7 @@ Current reality:
 
 - debug and harden real Android Flutter behavior against the donor app
 - validate live Google Play purchase callbacks on-device and confirm the backend verification handoff works against the Cloud Run dev service
+- use the next Play internal-test upload to read the exact in-app Play catalog diagnostics and resolve why Google is still not returning subscription `ProductDetails`
 - keep using `MaterialGuardian_Android` as the reference for page flow, wording, back-out behavior, media layout, and field order until the Flutter screens stop producing donor-comparison misses
 - the old photo-camera bounce, camera-based scan entry, top-form `Heat Number` mismatch, core packet-report wording mismatch, quality-control approval mismatch, missing QC dates, job-creation persistence doubt, missing donor field caps, and several packet-structure mismatches are fixed; next device checks should focus on remaining page-by-page field/detail comparisons plus any scan-preview or other Samsung-only edge cases that still differ from the donor app
 - finalize suite-consistent splash/launch treatment for reuse by sibling apps

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/customization_store.dart';
 import '../data/material_guardian_snapshot_store.dart';
+import '../services/backend_api_service.dart';
 import '../services/customization_asset_service.dart';
 import '../services/job_export_service.dart';
 import '../services/material_media_service.dart';
@@ -18,6 +19,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     required MaterialGuardianSnapshotStore snapshotStore,
     required CustomizationStore customizationStore,
     required CustomizationAssetService customizationAssetService,
+    required BackendApiService backendApiService,
     required MaterialMediaService mediaService,
     required JobExportService exportService,
   }) : _jobs = jobs,
@@ -26,10 +28,13 @@ class MaterialGuardianAppState extends ChangeNotifier {
        _snapshotStore = snapshotStore,
        _customizationStore = customizationStore,
        _customizationAssetService = customizationAssetService,
+       _backendApiService = backendApiService,
        _mediaService = mediaService,
        _exportService = exportService;
 
-  factory MaterialGuardianAppState.seeded() {
+  factory MaterialGuardianAppState.seeded({
+    BackendApiService? backendApiService,
+  }) {
     final customization = CustomizationSettings(
       receiveAsmeB16Parts: true,
       surfaceFinishRequired: true,
@@ -153,43 +158,58 @@ class MaterialGuardianAppState extends ChangeNotifier {
       snapshotStore: MaterialGuardianSnapshotStore(),
       customizationStore: CustomizationStore(),
       customizationAssetService: CustomizationAssetService(),
+      backendApiService: backendApiService ?? BackendApiService(),
       mediaService: MaterialMediaService(),
       exportService: JobExportService(),
     );
   }
 
-  static Future<MaterialGuardianAppState> create() async {
+  static Future<MaterialGuardianAppState> create({
+    BackendApiService? backendApiService,
+  }) async {
     final snapshotStore = MaterialGuardianSnapshotStore();
     final customizationStore = CustomizationStore();
     final snapshot = await snapshotStore.load();
     final customization = await customizationStore.load();
-    return MaterialGuardianAppState._(
+    final appState = MaterialGuardianAppState._(
       jobs: snapshot.jobs,
       drafts: snapshot.drafts,
       customization: customization,
       snapshotStore: snapshotStore,
       customizationStore: customizationStore,
       customizationAssetService: CustomizationAssetService(),
+      backendApiService: backendApiService ?? BackendApiService(),
       mediaService: MaterialMediaService(),
       exportService: JobExportService(),
     );
+    await appState.refreshBackendHealth();
+    return appState;
   }
 
   final MaterialGuardianSnapshotStore _snapshotStore;
   final CustomizationStore _customizationStore;
   final CustomizationAssetService _customizationAssetService;
+  final BackendApiService _backendApiService;
   final MaterialMediaService _mediaService;
   final JobExportService _exportService;
 
   List<JobRecord> _jobs;
   List<MaterialDraft> _drafts;
   CustomizationSettings _customization;
+  BackendHealthSnapshot? _backendHealth;
+  String? _backendHealthError;
+  bool _isCheckingBackendHealth = false;
 
   List<JobRecord> get jobs => List.unmodifiable(_jobs);
   List<MaterialDraft> get drafts => List.unmodifiable(_drafts);
   CustomizationSettings get customization => _customization;
   CustomizationAssetService get customizationAssetService =>
       _customizationAssetService;
+  BackendApiService get backendApiService => _backendApiService;
+  String get backendBaseUrl => _backendApiService.baseUrl;
+  BackendHealthSnapshot? get backendHealth => _backendHealth;
+  String? get backendHealthError => _backendHealthError;
+  bool get isCheckingBackendHealth => _isCheckingBackendHealth;
   MaterialMediaService get mediaService => _mediaService;
 
   JobRecord jobById(String id) {
@@ -542,6 +562,21 @@ class MaterialGuardianAppState extends ChangeNotifier {
     _customization = nextSettings;
     notifyListeners();
     await _customizationStore.save(nextSettings);
+  }
+
+  Future<void> refreshBackendHealth() async {
+    _isCheckingBackendHealth = true;
+    notifyListeners();
+    try {
+      _backendHealth = await _backendApiService.fetchHealth();
+      _backendHealthError = null;
+    } catch (error) {
+      _backendHealth = null;
+      _backendHealthError = error.toString();
+    } finally {
+      _isCheckingBackendHealth = false;
+      notifyListeners();
+    }
   }
 
   Future<JobExportResult> exportJob(String jobId) async {

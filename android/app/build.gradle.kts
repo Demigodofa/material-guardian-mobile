@@ -7,10 +7,15 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val repoRootDir = rootProject.projectDir.parentFile
+val releaseSigningPropertiesFile = listOf(
+    File(repoRootDir, "release-signing.properties"),
+    rootProject.file("release-signing.properties"),
+).firstOrNull { it.exists() }
+
 val releaseSigningProperties = Properties().apply {
-    val propertiesFile = rootProject.file("release-signing.properties")
-    if (propertiesFile.exists()) {
-        propertiesFile.inputStream().use(::load)
+    if (releaseSigningPropertiesFile?.exists() == true) {
+        releaseSigningPropertiesFile.inputStream().use(::load)
     }
 }
 
@@ -19,7 +24,10 @@ fun releaseSigningValue(name: String): String? {
         ?: releaseSigningProperties.getProperty(name)?.takeIf { it.isNotBlank() }
 }
 
-val releaseStoreFile = releaseSigningValue("STORE_FILE")?.let { rootProject.file(it) }
+val releaseStoreFile = releaseSigningValue("STORE_FILE")?.let { storePath ->
+    val file = File(storePath)
+    if (file.isAbsolute) file else File(repoRootDir, storePath)
+}
 val releaseStorePassword = releaseSigningValue("STORE_PASSWORD")
 val releaseKeyAlias = releaseSigningValue("KEY_ALIAS")
 val releaseKeyPassword = releaseSigningValue("KEY_PASSWORD")

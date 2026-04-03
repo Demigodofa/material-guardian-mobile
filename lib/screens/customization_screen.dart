@@ -83,6 +83,11 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
         widget.appState.hasAdminLikeWorkspaceAccess;
     final hasLogo = _companyLogoPath.trim().isNotEmpty;
     final hasSavedSignature = _savedInspectorSignaturePath.trim().isNotEmpty;
+    final savedSignatureFile = File(_savedInspectorSignaturePath);
+    final hasSavedSignatureFile =
+        hasSavedSignature && savedSignatureFile.existsSync();
+    final companyLogoFile = File(_companyLogoPath);
+    final hasLogoFile = hasLogo && companyLogoFile.existsSync();
     final cardBackground = Theme.of(context).colorScheme.surface;
     final borderColor = Theme.of(context).colorScheme.outlineVariant;
     final deleteColor = Theme.of(context).colorScheme.error;
@@ -205,21 +210,18 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                         border: Border.all(color: borderColor),
                       ),
                       padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (hasSavedSignature &&
-                              File(
-                                _savedInspectorSignaturePath,
-                              ).existsSync()) ...[
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                          if (hasSavedSignatureFile) ...[
                             Center(
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
                                 child: Container(
-                                  color: Colors.white,
+                                  color: const Color(0xFFF8FAFC),
                                   padding: const EdgeInsets.all(8),
                                   child: Image.file(
-                                    File(_savedInspectorSignaturePath),
+                                    savedSignatureFile,
                                     height: 88,
                                     fit: BoxFit.contain,
                                   ),
@@ -230,11 +232,13 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                           ],
                           Text(
                             hasSavedSignature
-                                ? p.basename(_savedInspectorSignaturePath)
+                                ? hasSavedSignatureFile
+                                      ? p.basename(_savedInspectorSignaturePath)
+                                      : 'Saved signature file is unavailable. Capture or import it again.'
                                 : 'No reusable inspector signature has been imported yet.',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
-                                  fontWeight: hasSavedSignature
+                                  fontWeight: hasSavedSignatureFile
                                       ? FontWeight.w700
                                       : FontWeight.w400,
                                 ),
@@ -358,16 +362,15 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (hasLogo &&
-                                File(_companyLogoPath).existsSync()) ...[
+                            if (hasLogoFile) ...[
                               Center(
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
                                   child: Container(
-                                    color: Colors.white,
+                                    color: const Color(0xFFF8FAFC),
                                     padding: const EdgeInsets.all(10),
                                     child: Image.file(
-                                      File(_companyLogoPath),
+                                      companyLogoFile,
                                       height: 120,
                                       fit: BoxFit.contain,
                                     ),
@@ -378,11 +381,13 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                             ],
                             Text(
                               hasLogo
-                                  ? p.basename(_companyLogoPath)
+                                  ? hasLogoFile
+                                      ? p.basename(_companyLogoPath)
+                                      : 'Saved logo file is unavailable. Import it again.'
                                   : 'No company logo has been imported yet.',
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
-                                    fontWeight: hasLogo
+                                    fontWeight: hasLogoFile
                                         ? FontWeight.w700
                                         : FontWeight.w400,
                                   ),

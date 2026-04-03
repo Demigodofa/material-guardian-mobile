@@ -63,3 +63,11 @@ Future<String> writeBytesToDirectory({
   await File(targetPath).writeAsBytes(bytes, flush: true);
   return targetPath;
 }
+
+String pdfPreviewSiblingPath(String pdfPath) {
+  final extension = p.extension(pdfPath);
+  if (extension.isEmpty) {
+    return '${pdfPath}_preview.jpg';
+  }
+  return pdfPath.replaceFirst(RegExp('${RegExp.escape(extension)}\$'), '_preview.jpg');
+}

@@ -170,13 +170,18 @@ class MainActivity : FlutterActivity() {
         if (pdf != null) {
             val targetFile = buildScanPdfFile(jobNumber, materialLabel, nextIndex)
             copyUriToFile(pdf.uri, targetFile)
+            val firstPageUri = scanResult.pages?.firstOrNull()?.imageUri
+            if (firstPageUri != null) {
+                val previewFile = buildScanPreviewFile(jobNumber, materialLabel, nextIndex)
+                copyUriToFile(firstPageUri, previewFile)
+            }
             savedEntries += mapOf("path" to targetFile.absolutePath)
             return savedEntries
         }
 
         val firstPageUri = scanResult?.pages?.firstOrNull()?.imageUri
         if (firstPageUri != null) {
-            val fallbackPreview = buildScanPreviewFile(jobNumber, materialLabel, nextIndex)
+            val fallbackPreview = buildScanImageFile(jobNumber, materialLabel, nextIndex)
             copyUriToFile(firstPageUri, fallbackPreview)
             savedEntries += mapOf("path" to fallbackPreview.absolutePath)
         }
@@ -206,6 +211,19 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun buildScanPreviewFile(
+        jobNumber: String,
+        materialLabel: String,
+        index: Int,
+    ): File {
+        val safeJob = sanitizeFileComponent(jobNumber)
+        val safeLabel = sanitizeFileComponent(materialLabel).ifBlank { "material" }
+        val baseName = safeLabel.take(24)
+        val folder = File(filesDir, "job_media/$safeJob/scans")
+        folder.mkdirs()
+        return File(folder, "${baseName}_scan_$index_preview.jpg")
+    }
+
+    private fun buildScanImageFile(
         jobNumber: String,
         materialLabel: String,
         index: Int,

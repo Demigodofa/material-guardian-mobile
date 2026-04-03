@@ -7,6 +7,7 @@ import 'package:open_filex/open_filex.dart';
 import '../app/material_guardian_state.dart';
 import '../app/models.dart';
 import '../services/material_media_service.dart';
+import '../services/storage_utils.dart';
 import '../util/formatting.dart';
 import '../widgets/in_app_camera_capture_overlay.dart';
 import '../widgets/signature_capture_dialog.dart';
@@ -2171,6 +2172,8 @@ class _SignaturePreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final file = File(path);
+    final exists = file.existsSync();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2181,13 +2184,38 @@ class _SignaturePreviewCard extends StatelessWidget {
           height: 96,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: const Color(0xFFF8FAFC),
             border: Border.all(color: const Color(0xFFCBD5E1)),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Image.file(File(path), fit: BoxFit.contain),
+          child: exists
+              ? Image.file(
+                  file,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const _MissingSignaturePreview(),
+                )
+              : const _MissingSignaturePreview(),
         ),
       ],
+    );
+  }
+}
+
+class _MissingSignaturePreview extends StatelessWidget {
+  const _MissingSignaturePreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        'Signature file unavailable',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: const Color(0xFF6B7280),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
@@ -2246,6 +2274,9 @@ class _ThumbnailCell extends StatelessWidget {
 
     if (resolvedPath != null) {
       final previewFile = File(resolvedPath);
+      final pdfPreviewFile = resolvedPath.toLowerCase().endsWith('.pdf')
+          ? File(pdfPreviewSiblingPath(resolvedPath))
+          : null;
       Widget child;
       if (_isPreviewableImagePath(resolvedPath) && previewFile.existsSync()) {
         child = ClipRRect(
@@ -2256,6 +2287,40 @@ class _ThumbnailCell extends StatelessWidget {
             height: 64,
             fit: BoxFit.cover,
           ),
+        );
+      } else if (pdfPreviewFile != null && pdfPreviewFile.existsSync()) {
+        child = Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRRect(
+              borderRadius: borderRadius,
+              child: Image.file(
+                pdfPreviewFile,
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
+              ),
+            ),
+            Positioned(
+              right: 4,
+              bottom: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'PDF',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
       } else {
         child = Container(

@@ -1,7 +1,7 @@
 import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 
@@ -41,12 +41,11 @@ class MaterialMediaService {
       safeBaseName(jobNumber, fallback: 'job'),
       'photos',
     ]);
-    return copyFileToDirectory(
+    return _copyNormalizedImageToDirectory(
       sourcePath: pickedFile.path,
       targetDirectory: targetDirectory,
       targetBaseName:
           '${safeBaseName(materialLabel, fallback: 'material')}_photo_$nextIndex',
-      forcedExtension: '.jpg',
     );
   }
 
@@ -61,12 +60,11 @@ class MaterialMediaService {
       safeBaseName(jobNumber, fallback: 'job'),
       'photos',
     ]);
-    final savedPath = await copyFileToDirectory(
+    final savedPath = await _copyNormalizedImageToDirectory(
       sourcePath: sourcePath,
       targetDirectory: targetDirectory,
       targetBaseName:
           '${safeBaseName(materialLabel, fallback: 'material')}_photo_$nextIndex',
-      forcedExtension: '.jpg',
     );
     await deletePath(sourcePath);
     return savedPath;
@@ -83,12 +81,11 @@ class MaterialMediaService {
       safeBaseName(jobNumber, fallback: 'job'),
       'scans',
     ]);
-    final savedPath = await copyFileToDirectory(
+    final savedPath = await _copyNormalizedImageToDirectory(
       sourcePath: sourcePath,
       targetDirectory: targetDirectory,
       targetBaseName:
           '${safeBaseName(materialLabel, fallback: 'material')}_scan_$nextIndex',
-      forcedExtension: '.jpg',
     );
     await deletePath(sourcePath);
     return savedPath;
@@ -127,12 +124,19 @@ class MaterialMediaService {
       index++
     ) {
       final file = files[index];
-      final targetPath = await copyFileToDirectory(
-        sourcePath: file.path!,
-        targetDirectory: targetDirectory,
-        targetBaseName:
-            '${safeBaseName(materialLabel, fallback: 'material')}_scan_${startingIndex + index}',
-      );
+      final targetBaseName =
+          '${safeBaseName(materialLabel, fallback: 'material')}_scan_${startingIndex + index}';
+      final targetPath = isPdfPath(file.path!)
+          ? await copyFileToDirectory(
+              sourcePath: file.path!,
+              targetDirectory: targetDirectory,
+              targetBaseName: targetBaseName,
+            )
+          : await _copyNormalizedImageToDirectory(
+              sourcePath: file.path!,
+              targetDirectory: targetDirectory,
+              targetBaseName: targetBaseName,
+            );
       imported.add(targetPath);
     }
     return imported;
@@ -225,6 +229,12 @@ class MaterialMediaService {
     if (await file.exists()) {
       await file.delete();
     }
+    if (isPdfPath(normalized)) {
+      final previewFile = File(pdfPreviewSiblingPath(normalized));
+      if (await previewFile.exists()) {
+        await previewFile.delete();
+      }
+    }
   }
 
   Future<bool> openPath(String path) async {
@@ -297,5 +307,37 @@ class MaterialMediaService {
       return null;
     }
     return packetFiles.first.path;
+  }
+
+  Future<String> _copyNormalizedImageToDirectory({
+    required String sourcePath,
+    required Directory targetDirectory,
+    required String targetBaseName,
+  }) async {
+    final sourceBytes = await File(sourcePath).readAsBytes();
+    final normalizedBytes = _normalizeImageBytes(sourceBytes);
+    if (normalizedBytes == null) {
+      return copyFileToDirectory(
+        sourcePath: sourcePath,
+        targetDirectory: targetDirectory,
+        targetBaseName: targetBaseName,
+        forcedExtension: '.jpg',
+      );
+    }
+    return writeBytesToDirectory(
+      bytes: normalizedBytes,
+      targetDirectory: targetDirectory,
+      targetBaseName: targetBaseName,
+      extension: '.jpg',
+    );
+  }
+
+  Uint8List? _normalizeImageBytes(Uint8List bytes) {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) {
+      return null;
+    }
+    final baked = img.bakeOrientation(decoded);
+    return Uint8List.fromList(img.encodeJpg(baked, quality: 92));
   }
 }

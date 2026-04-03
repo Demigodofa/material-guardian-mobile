@@ -2,7 +2,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:image/image.dart' as img;
 import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
 
 import 'storage_utils.dart';
 
@@ -54,7 +56,7 @@ class CustomizationAssetService {
     }
 
     final targetDirectory = await appSupportSubdirectory(['customization']);
-    return copyFileToDirectory(
+    return _normalizeAndStoreImage(
       sourcePath: sourcePath,
       targetDirectory: targetDirectory,
       targetBaseName: targetBaseName,
@@ -72,4 +74,57 @@ class CustomizationAssetService {
       targetBaseName: targetBaseName,
     );
   }
+
+  Future<String> _normalizeAndStoreImage({
+    required String sourcePath,
+    required Directory targetDirectory,
+    required String targetBaseName,
+  }) async {
+    final sourceBytes = await File(sourcePath).readAsBytes();
+    final normalized = _normalizeImageBytes(
+      sourceBytes,
+      preferredExtension: p.extension(sourcePath).toLowerCase(),
+    );
+    if (normalized == null) {
+      return copyFileToDirectory(
+        sourcePath: sourcePath,
+        targetDirectory: targetDirectory,
+        targetBaseName: targetBaseName,
+      );
+    }
+    return writeBytesToDirectory(
+      bytes: normalized.bytes,
+      targetDirectory: targetDirectory,
+      targetBaseName: targetBaseName,
+      extension: normalized.extension,
+    );
+  }
+
+  _NormalizedAssetImage? _normalizeImageBytes(
+    Uint8List bytes, {
+    required String preferredExtension,
+  }) {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) {
+      return null;
+    }
+    final baked = img.bakeOrientation(decoded);
+    if (preferredExtension == '.png') {
+      return _NormalizedAssetImage(
+        bytes: Uint8List.fromList(img.encodePng(baked)),
+        extension: '.png',
+      );
+    }
+    return _NormalizedAssetImage(
+      bytes: Uint8List.fromList(img.encodeJpg(baked, quality: 92)),
+      extension: '.jpg',
+    );
+  }
+}
+
+class _NormalizedAssetImage {
+  const _NormalizedAssetImage({required this.bytes, required this.extension});
+
+  final Uint8List bytes;
+  final String extension;
 }

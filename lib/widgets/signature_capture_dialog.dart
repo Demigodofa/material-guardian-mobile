@@ -214,6 +214,6 @@ class _SignaturePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SignaturePainter oldDelegate) {
-    return oldDelegate.strokes != strokes || oldDelegate.color != color;
+    return true;
   }
 }

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
+import 'package:image/image.dart' as img;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
@@ -531,7 +532,16 @@ class JobExportService {
     if (!isImagePath(normalized)) {
       return null;
     }
-    return pw.MemoryImage(await file.readAsBytes());
+    final bytes = await file.readAsBytes();
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) {
+      return pw.MemoryImage(bytes);
+    }
+    final baked = img.bakeOrientation(decoded);
+    final encoded = normalized.toLowerCase().endsWith('.png')
+        ? img.encodePng(baked)
+        : img.encodeJpg(baked, quality: 92);
+    return pw.MemoryImage(Uint8List.fromList(encoded));
   }
 
   Future<String?> _copyIfPresent({

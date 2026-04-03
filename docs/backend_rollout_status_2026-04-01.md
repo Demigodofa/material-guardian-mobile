@@ -181,6 +181,14 @@ The Flutter repo already has:
 2. cross-device recovery for jobs/media
 3. usage-metered Pro storage/API features
 
+## Latest mobile hardening
+
+1. scanner-produced PDFs now keep a real first-page JPEG preview sidecar so scan thumbnails no longer fall back to a generic PDF tile when the Android ML Kit document scanner returns both PDF and JPEG output
+2. imported/captured photos and scan images now bake EXIF orientation into the stored file path, and packet export also bakes image orientation at render time so rotated phone media does not show sideways in the PDF
+3. imported customization assets now normalize orientation on ingest so logos and reusable signature images do not silently rotate on preview or export
+4. shared Flutter signature capture had a real bug where the saved PNG could contain only the blank white capture box because the painter reused a mutated stroke-list reference and reported no repaint; the painter now always repaints so new saved signatures contain the drawn strokes
+5. signature/logo preview cards now show a clearer missing-file state instead of a blank white box when an old stored path exists but the asset is gone
+
 ## Current known blocker
 
 The live backend path is now proven far enough for:

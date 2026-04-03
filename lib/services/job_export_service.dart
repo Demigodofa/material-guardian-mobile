@@ -149,7 +149,6 @@ class JobExportService {
     await SharePlus.instance.share(
       ShareParams(
         files: packetFiles.map(XFile.new).toList(growable: false),
-        text: 'Material Guardian packet PDFs',
       ),
     );
     return true;
@@ -162,7 +161,6 @@ class JobExportService {
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(zipPath)],
-        text: 'Material Guardian export ZIP',
       ),
     );
     return true;
@@ -198,16 +196,9 @@ class JobExportService {
     final inspectorSignature = await _loadImage(material.qcSignaturePath);
     final managerSignature = await _loadImage(material.qcManagerSignaturePath);
     final inlineMedia = [
-      ...material.scanPaths.where(isImagePath),
       ...material.photoPaths.where(isImagePath),
+      ...material.scanPaths.where(isImagePath),
     ];
-
-    final thicknessReadings = [
-      material.thickness1,
-      material.thickness2,
-      material.thickness3,
-      material.thickness4,
-    ].where((value) => value.trim().isNotEmpty).join(', ');
     final inspectionDateText = _formatExportDate(material.qcInspectorDate);
     final commentsText = [
       material.comments,
@@ -217,15 +208,15 @@ class JobExportService {
     document.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.letter,
-        margin: const pw.EdgeInsets.all(28),
+        margin: const pw.EdgeInsets.all(20),
         build: (context) {
           return [
             if (logo != null)
               pw.Align(
                 alignment: pw.Alignment.centerRight,
                 child: pw.Container(
-                  margin: const pw.EdgeInsets.only(bottom: 10),
-                  child: pw.Image(logo, height: 42, fit: pw.BoxFit.contain),
+                  margin: const pw.EdgeInsets.only(bottom: 6),
+                  child: pw.Image(logo, height: 30, fit: pw.BoxFit.contain),
                 ),
               ),
             _reportHeaderBand('RECEIVING INSPECTION REPORT'),
@@ -246,11 +237,16 @@ class JobExportService {
             ]),
             _reportGridRow([
               _ReportCell('Dimensions', material.dimensionUnit.label, flex: 1),
-              _ReportCell('Thickness', thicknessReadings, flex: 2),
               _ReportCell('Width', material.width, flex: 1),
               _ReportCell('Length', material.length, flex: 1),
               _ReportCell('Diameter', material.diameter, flex: 1),
               _ReportCell('ID / OD', material.diameterType, flex: 1),
+            ]),
+            _reportGridRow([
+              _ReportCell('TH 1', material.thickness1, flex: 1),
+              _ReportCell('TH 2', material.thickness2, flex: 1),
+              _ReportCell('TH 3', material.thickness3, flex: 1),
+              _ReportCell('TH 4', material.thickness4, flex: 1),
             ]),
             if (material.surfaceFinishCode.trim().isNotEmpty ||
                 material.surfaceFinishReading.trim().isNotEmpty ||
@@ -319,7 +315,7 @@ class JobExportService {
                 _formatMaterialDisposition(material.materialApproval),
               ),
             ]),
-            _reportHeaderBand('QUALITY CONTROL', topSpacing: 14),
+            _reportHeaderBand('QUALITY CONTROL SIGNOFF', topSpacing: 10),
             _reportGridRow([
               _ReportCell('QC Inspector', material.qcInspectorName, flex: 2),
               _ReportCell(
@@ -337,11 +333,11 @@ class JobExportService {
               ),
             ]),
             if (material.scanPaths.where(isPdfPath).isNotEmpty) ...[
-              pw.SizedBox(height: 12),
+              pw.SizedBox(height: 8),
               _reportHeaderBand('ATTACHED SCAN PDFS', topSpacing: 0),
               pw.Container(
                 width: double.infinity,
-                padding: const pw.EdgeInsets.all(10),
+                padding: const pw.EdgeInsets.all(6),
                 decoration: pw.BoxDecoration(border: pw.Border.all()),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -351,16 +347,16 @@ class JobExportService {
                         padding: const pw.EdgeInsets.only(bottom: 4),
                         child: pw.Text(
                           scanPath.split(Platform.pathSeparator).last,
-                          style: const pw.TextStyle(fontSize: 9),
+                          style: const pw.TextStyle(fontSize: 8),
                         ),
                       ),
                   ],
                 ),
               ),
             ],
-            pw.SizedBox(height: 16),
-            _reportHeaderBand('SIGNATURES', topSpacing: 0),
             pw.SizedBox(height: 8),
+            _reportHeaderBand('SIGNATURES', topSpacing: 0),
+            pw.SizedBox(height: 4),
             pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
@@ -372,7 +368,7 @@ class JobExportService {
                     dateText: inspectionDateText,
                   ),
                 ),
-                pw.SizedBox(width: 18),
+                pw.SizedBox(width: 10),
                 pw.Expanded(
                   child: _signatureBlock(
                     'QC Manager Signature',
@@ -388,29 +384,60 @@ class JobExportService {
       ),
     );
 
+    final inlineMediaItems = <_ExportMediaItem>[];
     for (final mediaPath in inlineMedia) {
       final image = await _loadImage(mediaPath);
       if (image == null) {
         continue;
       }
+      inlineMediaItems.add(
+        _ExportMediaItem(
+          label: mediaPath.split(Platform.pathSeparator).last,
+          image: image,
+        ),
+      );
+    }
+
+    for (final mediaChunk in _chunked(inlineMediaItems, 4)) {
       document.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.letter,
-          margin: const pw.EdgeInsets.all(28),
+          margin: const pw.EdgeInsets.all(20),
           build: (context) => pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                mediaPath.split(Platform.pathSeparator).last,
+                'PHOTO / IMAGE ATTACHMENTS',
                 style: pw.TextStyle(
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
-              pw.SizedBox(height: 12),
+              pw.SizedBox(height: 10),
               pw.Expanded(
-                child: pw.Center(
-                  child: pw.Image(image, fit: pw.BoxFit.contain),
+                child: pw.Column(
+                  children: [
+                    for (var rowIndex = 0; rowIndex < 2; rowIndex++) ...[
+                      pw.Expanded(
+                        child: pw.Row(
+                          children: [
+                            for (var columnIndex = 0; columnIndex < 2; columnIndex++) ...[
+                              pw.Expanded(
+                                child: _mediaTile(
+                                  _chunkItemAt(
+                                    mediaChunk,
+                                    rowIndex * 2 + columnIndex,
+                                  ),
+                                ),
+                              ),
+                              if (columnIndex == 0) pw.SizedBox(width: 10),
+                            ],
+                          ],
+                        ),
+                      ),
+                      if (rowIndex == 0) pw.SizedBox(height: 10),
+                    ],
+                  ],
                 ),
               ),
             ],
@@ -427,7 +454,7 @@ class JobExportService {
       padding: pw.EdgeInsets.only(top: topSpacing, bottom: 0),
       child: pw.Container(
         width: double.infinity,
-        padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+        padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         decoration: pw.BoxDecoration(
           color: PdfColors.grey300,
           border: pw.Border.all(width: 0.8, color: PdfColors.grey700),
@@ -435,7 +462,7 @@ class JobExportService {
         child: pw.Text(
           title,
           textAlign: pw.TextAlign.center,
-          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
         ),
       ),
     );
@@ -454,8 +481,8 @@ class JobExportService {
             for (final cell in cells)
               pw.Padding(
                 padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 5,
+                  horizontal: 5,
+                  vertical: 4,
                 ),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -464,13 +491,13 @@ class JobExportService {
                       cell.label,
                       style: pw.TextStyle(
                         fontWeight: pw.FontWeight.bold,
-                        fontSize: 8.4,
+                        fontSize: 7.2,
                       ),
                     ),
-                    pw.SizedBox(height: 2),
+                    pw.SizedBox(height: 1),
                     pw.Text(
                       _valueOrDash(cell.value),
-                      style: const pw.TextStyle(fontSize: 9),
+                      style: const pw.TextStyle(fontSize: 8.2),
                     ),
                   ],
                 ),
@@ -498,26 +525,70 @@ class JobExportService {
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text(title, style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-        pw.SizedBox(height: 8),
+        pw.SizedBox(height: 4),
         if (printedName.trim().isNotEmpty) ...[
-          pw.Text('Printed Name: $printedName'),
-          pw.SizedBox(height: 4),
+          pw.Text('Printed Name: $printedName', style: const pw.TextStyle(fontSize: 8)),
+          pw.SizedBox(height: 2),
         ],
-        pw.Text('Date: $dateText'),
-        pw.SizedBox(height: 8),
+        pw.Text('Date: $dateText', style: const pw.TextStyle(fontSize: 8)),
+        pw.SizedBox(height: 4),
         pw.Container(
-          height: 72,
+          height: 44,
           decoration: pw.BoxDecoration(border: pw.Border.all()),
           alignment: pw.Alignment.center,
           child: image == null
-              ? pw.Text('No signature attached')
+              ? pw.Text('No signature attached', style: const pw.TextStyle(fontSize: 8))
               : pw.Padding(
-                  padding: const pw.EdgeInsets.all(6),
+                  padding: const pw.EdgeInsets.all(4),
                   child: pw.Image(image, fit: pw.BoxFit.contain),
                 ),
         ),
       ],
     );
+  }
+
+  pw.Widget _mediaTile(_ExportMediaItem? item) {
+    if (item == null) {
+      return pw.Container(
+        decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey400)),
+      );
+    }
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(6),
+      decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey700)),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            item.label,
+            style: const pw.TextStyle(fontSize: 8),
+            maxLines: 1,
+          ),
+          pw.SizedBox(height: 4),
+          pw.Expanded(
+            child: pw.Center(
+              child: pw.Image(item.image, fit: pw.BoxFit.contain),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<List<T>> _chunked<T>(List<T> items, int size) {
+    final chunks = <List<T>>[];
+    for (var index = 0; index < items.length; index += size) {
+      final end = (index + size < items.length) ? index + size : items.length;
+      chunks.add(items.sublist(index, end));
+    }
+    return chunks;
+  }
+
+  T? _chunkItemAt<T>(List<T> items, int index) {
+    if (index < 0 || index >= items.length) {
+      return null;
+    }
+    return items[index];
   }
 
   Future<pw.MemoryImage?> _loadImage(String path) async {
@@ -564,12 +635,18 @@ class JobExportService {
   }
 
   Future<String> _buildZip(Directory exportDirectory) async {
+    final zipFileName =
+        '${exportDirectory.uri.pathSegments.where((segment) => segment.isNotEmpty).last}.zip';
     final zipPath =
-        '${exportDirectory.path}${Platform.pathSeparator}${exportDirectory.uri.pathSegments.where((segment) => segment.isNotEmpty).last}.zip';
+        '${exportDirectory.parent.path}${Platform.pathSeparator}$zipFileName';
+    final existingZip = File(zipPath);
+    if (await existingZip.exists()) {
+      await existingZip.delete();
+    }
     final encoder = ZipFileEncoder();
     encoder.create(zipPath);
-    encoder.addDirectory(exportDirectory, includeDirName: false);
-    encoder.close();
+    await encoder.addDirectory(exportDirectory, includeDirName: false);
+    await encoder.close();
     return zipPath;
   }
 
@@ -618,6 +695,13 @@ class JobExportService {
   String _valueOrDash(String value) {
     return value.trim().isEmpty ? '-' : value.trim();
   }
+}
+
+class _ExportMediaItem {
+  const _ExportMediaItem({required this.label, required this.image});
+
+  final String label;
+  final pw.MemoryImage image;
 }
 
 class _ReportCell {

@@ -364,14 +364,15 @@ class _InAppCameraCaptureOverlayState extends State<InAppCameraCaptureOverlay> {
       return Row(
         children: [
           Expanded(
-            child: OutlinedButton(
+            child: FilledButton.icon(
               onPressed: _handleRetake,
-              style: OutlinedButton.styleFrom(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF111827),
                 foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white54),
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              child: const Text('Retake'),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retake'),
             ),
           ),
           const SizedBox(width: 12),

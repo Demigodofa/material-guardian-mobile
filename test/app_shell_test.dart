@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -668,6 +669,17 @@ void main() {
 
     expect(Directory(exportResult.exportRootPath).existsSync(), isTrue);
     expect(File(exportResult.zipPath).existsSync(), isTrue);
+    final zipArchive = ZipDecoder().decodeBytes(
+      File(exportResult.zipPath).readAsBytesSync(),
+    );
+    expect(
+      zipArchive.files.any(
+        (entry) =>
+            entry.isFile &&
+            entry.name.endsWith('01_2_gate_valve_packet.pdf'),
+      ),
+      isTrue,
+    );
     expect(exportResult.packetPathsByMaterialId, contains('mat-001'));
     expect(
       File(exportResult.packetPathsByMaterialId['mat-001']!).existsSync(),

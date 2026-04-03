@@ -188,6 +188,12 @@ The Flutter repo already has:
 3. imported customization assets now normalize orientation on ingest so logos and reusable signature images do not silently rotate on preview or export
 4. shared Flutter signature capture had a real bug where the saved PNG could contain only the blank white capture box because the painter reused a mutated stroke-list reference and reported no repaint; the painter now always repaints so new saved signatures contain the drawn strokes
 5. signature/logo preview cards now show a clearer missing-file state instead of a blank white box when an old stored path exists but the asset is gone
+6. the signature capture dialog action row now wraps cleanly on narrow Samsung widths instead of throwing a yellow/black overflow stripe over `Save Signature`
+7. the in-app camera confirm state now uses a dark filled `Retake` control so the left action does not disappear into the preview background
+8. repeated Android document scanning now offers `Scan Another` immediately after a saved scan so the user does not have to back out and reopen the scanner flow each time
+9. material save now completes the current draft payload directly instead of refetching a possibly missing draft element, which removes the `Bad state: No element` crash path seen on-device
+10. packet export now keeps the main inspection data and signatures on the same first page, renders `TH 1-4` as individual boxes, and moves image attachments to 4-up photo/image sheets on later pages
+11. export ZIP generation now awaits the archive writer and stores the zip outside the source directory being archived, which fixes the prior empty-zip share artifact
 
 ## Current known blocker
 

@@ -143,7 +143,10 @@ class _SignatureCaptureDialogState extends State<_SignatureCaptureDialog> {
                 ),
               ),
               const SizedBox(height: 14),
-              Row(
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                runSpacing: 10,
+                spacing: 10,
                 children: [
                   TextButton.icon(
                     onPressed: _hasSignature
@@ -156,18 +159,22 @@ class _SignatureCaptureDialogState extends State<_SignatureCaptureDialog> {
                     icon: const Icon(Icons.cleaning_services_outlined),
                     label: const Text('Clear'),
                   ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 10),
-                  FilledButton.icon(
-                    onPressed: _save,
-                    icon: const Icon(Icons.save_outlined),
-                    label: const Text('Save Signature'),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 10),
+                      FilledButton.icon(
+                        onPressed: _save,
+                        icon: const Icon(Icons.save_outlined),
+                        label: const Text('Save Signature'),
+                      ),
+                    ],
                   ),
                 ],
               ),

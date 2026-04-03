@@ -647,6 +647,12 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
         });
       }
       await _saveDraftNow();
+      if (replaceIndex == null && mounted && _scanPaths.length < 8) {
+        final scanAnother = await _showScanAnotherDialog(context);
+        if (scanAnother == true && mounted) {
+          await _scanDocumentsWithDeviceScanner();
+        }
+      }
     } catch (_) {
       if (!mounted) {
         return;
@@ -795,10 +801,9 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
 
   Future<void> _saveMaterialReceiving() async {
     try {
-      await _saveDraftNow();
-      await widget.appState.completeDraft(
-        widget.appState.draftById(widget.draftId),
-      );
+      final currentDraft = _currentDraftPayload();
+      await widget.appState.saveDraft(currentDraft);
+      await widget.appState.completeDraft(currentDraft);
       if (!mounted) {
         return;
       }
@@ -2482,6 +2487,34 @@ Future<_ScanSource?> _showScanSourceSheet(BuildContext context) {
             ),
           ],
         ),
+      );
+    },
+  );
+}
+
+Future<bool?> _showScanAnotherDialog(BuildContext context) {
+  return showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Scan another document?'),
+        content: const Text(
+          'Keep scanning another MTR/CoC now, or stop and return to the report.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, false);
+            },
+            child: const Text('Done'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context, true);
+            },
+            child: const Text('Scan Another'),
+          ),
+        ],
       );
     },
   );

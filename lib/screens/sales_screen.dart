@@ -48,102 +48,92 @@ class _SalesScreenState extends State<SalesScreen> {
         final pendingAuth = appState.pendingBackendAuthStart;
         final conflict = appState.pendingSessionConflict;
         final entitlement =
-            appState.effectiveBackendEntitlement ?? appState.backendMe?.activeEntitlement;
+            appState.effectiveBackendEntitlement ??
+            appState.backendMe?.activeEntitlement;
         final isSignedIn = appState.isSignedIn;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Plans')),
           body: SafeArea(
-            child: ListView(
-              padding: screenListPadding(context),
-              children: [
-                const SizedBox(height: 4),
-                const _SalesLogo(),
-                const SizedBox(height: 12),
-                _HeroCard(
-                  isSignedIn: isSignedIn,
-                  trialRemaining: entitlement?.trialRemaining ?? 6,
-                  accessState: entitlement?.accessState,
-                ),
-                if (appState.backendAccountError != null &&
-                    appState.backendAccountError!.trim().isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  _ErrorText(message: appState.backendAccountError!),
-                ],
-                if (!isSignedIn) ...[
-                  const SizedBox(height: 16),
-                  _StartTrialCard(
-                    emailController: _emailController,
-                    displayNameController: _displayNameController,
-                    isBusy: appState.isAuthenticatingBackend,
-                    onStart: () async {
-                      await appState.startBackendSignIn(
-                        email: _emailController.text,
-                        displayName: _displayNameController.text,
-                      );
-                      if (!context.mounted) {
-                        return;
-                      }
-                      final challenge = appState.pendingBackendAuthStart;
-                      if (challenge != null) {
-                        _codeController.text = challenge.demoCode;
-                      }
-                    },
+            child: centeredContent(
+              child: ListView(
+                padding: screenListPadding(context),
+                children: [
+                  const SizedBox(height: 4),
+                  const _SalesLogo(),
+                  const SizedBox(height: 12),
+                  _HeroCard(
+                    isSignedIn: isSignedIn,
+                    trialRemaining: entitlement?.trialRemaining ?? 6,
+                    accessState: entitlement?.accessState,
                   ),
-                  if (pendingAuth != null) ...[
+                  const SizedBox(height: 16),
+                  const _HowPlansWorkCard(),
+                  if (appState.backendAccountError != null &&
+                      appState.backendAccountError!.trim().isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    _VerifyCodeCard(
-                      authStart: pendingAuth,
-                      codeController: _codeController,
+                    _ErrorText(message: appState.backendAccountError!),
+                  ],
+                  if (!isSignedIn) ...[
+                    const SizedBox(height: 16),
+                    _StartTrialCard(
+                      emailController: _emailController,
+                      displayNameController: _displayNameController,
                       isBusy: appState.isAuthenticatingBackend,
-                      onComplete: () async {
-                        await appState.completeBackendSignIn(
-                          code: _codeController.text,
+                      onStart: () async {
+                        await appState.startBackendSignIn(
+                          email: _emailController.text,
+                          displayName: _displayNameController.text,
                         );
+                        if (!context.mounted) {
+                          return;
+                        }
+                        final challenge = appState.pendingBackendAuthStart;
+                        if (challenge != null) {
+                          _codeController.text = challenge.demoCode;
+                        }
+                      },
+                    ),
+                    if (pendingAuth != null) ...[
+                      const SizedBox(height: 16),
+                      _VerifyCodeCard(
+                        authStart: pendingAuth,
+                        codeController: _codeController,
+                        isBusy: appState.isAuthenticatingBackend,
+                        onComplete: () async {
+                          await appState.completeBackendSignIn(
+                            code: _codeController.text,
+                          );
+                        },
+                      ),
+                    ],
+                    if (conflict != null &&
+                        appState.hasPendingSessionReplacement) ...[
+                      const SizedBox(height: 16),
+                      _ReplaceSessionCard(
+                        conflict: conflict,
+                        isBusy: appState.isAuthenticatingBackend,
+                        onReplace: () =>
+                            appState.replacePendingBackendSession(),
+                      ),
+                    ],
+                  ] else ...[
+                    const SizedBox(height: 16),
+                    _SignedInStatusCard(
+                      appState: appState,
+                      onOpenJobs: () {
+                        Navigator.popUntil(context, (route) => route.isFirst);
                       },
                     ),
                   ],
-                  if (conflict != null && appState.hasPendingSessionReplacement) ...[
+                  const SizedBox(height: 16),
+                  _PlansCard(appState: appState),
+                  if (!isSignedIn) ...[
                     const SizedBox(height: 16),
-                    _ReplaceSessionCard(
-                      conflict: conflict,
-                      isBusy: appState.isAuthenticatingBackend,
-                      onReplace: () => appState.replacePendingBackendSession(),
-                    ),
+                    const _ReturningUserCard(),
                   ],
-                ] else ...[
-                  const SizedBox(height: 16),
-                  _SignedInStatusCard(
-                    appState: appState,
-                    onOpenJobs: () {
-                      Navigator.popUntil(context, (route) => route.isFirst);
-                    },
-                  ),
                 ],
-                const SizedBox(height: 16),
-                _PlansCard(appState: appState),
-                if (!isSignedIn) ...[
-                  const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
-                            'Already signed up?',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Use the same email again. If this phone was reset or app data was cleared, the app needs a fresh email-code sign-in because the saved local session is gone.',
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
         );
@@ -185,11 +175,46 @@ class _HeroCard extends StatelessWidget {
         ? 'Pick the right plan for your shop'
         : 'Start free with 6 jobs';
     final subtitle = isSignedIn
-        ? 'Your account is already in the system. Pick the plan that fits how you work.'
-        : 'Use a verified email sign-in, run 6 jobs free, then upgrade only if the app earns a place in your workflow.';
+        ? 'Your account is already in the system. Choose the plan that matches how your shop actually runs.'
+        : 'Verify your email once, use 6 jobs free, and upgrade only if the app earns a place in your workflow.';
     final trialLine = isSignedIn && accessState == 'trial'
         ? 'You still have $trialRemaining free jobs remaining on this account.'
-        : 'Yearly pricing should read as the better value: about two free months versus paying monthly.';
+        : 'Local-first stays the default today. Cloud-backed access can be added later without changing how the core workflow feels.';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(subtitle),
+            const SizedBox(height: 8),
+            Text(
+              trialLine,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HowPlansWorkCard extends StatelessWidget {
+  const _HowPlansWorkCard();
+
+  @override
+  Widget build(BuildContext context) {
+    const bullets = [
+      'Individual gives one shop the full workspace: logo, B16, surface-finish defaults, signatures, and local report exports.',
+      'Business adds a shared company workspace with managed branding, report defaults, and up to 5 assignable report seats.',
+      'Admins can run the company without taking a report seat. Assign a seat only when that person needs to create receiving reports.',
+      'MTR capture, photos, scans, and receiving reports all happen natively on the phone instead of through a separate scanner workflow.',
+    ];
 
     return Card(
       child: Padding(
@@ -198,18 +223,23 @@ class _HeroCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge,
+              'How It Works',
+              style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            Text(subtitle),
-            const SizedBox(height: 8),
-            Text(
-              trialLine,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+            for (final bullet in bullets) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Text('- '),
+                  ),
+                  Expanded(child: Text(bullet)),
+                ],
               ),
-            ),
+              const SizedBox(height: 6),
+            ],
           ],
         ),
       ),
@@ -238,10 +268,13 @@ class _StartTrialCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Start Free Trial', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Start Free Trial',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 8),
             const Text(
-              'Enter the email you want tied to this account. The email code is the verification step.',
+              'Enter the email you want tied to this account. The email code is the verification step, so there is no password to remember.',
             ),
             const SizedBox(height: 12),
             TextField(
@@ -250,18 +283,14 @@ class _StartTrialCard extends StatelessWidget {
               autocorrect: false,
               enableSuggestions: false,
               textInputAction: TextInputAction.next,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(120),
-              ],
+              inputFormatters: [LengthLimitingTextInputFormatter(120)],
               decoration: const InputDecoration(labelText: 'Email'),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: displayNameController,
               textInputAction: TextInputAction.done,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(40),
-              ],
+              inputFormatters: [LengthLimitingTextInputFormatter(40)],
               decoration: const InputDecoration(labelText: 'Name (optional)'),
             ),
             const SizedBox(height: 12),
@@ -297,7 +326,10 @@ class _VerifyCodeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Enter Your Code', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Enter Your Code',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             Text('Sent to: ${authStart.deliveryTarget}'),
             if (authStart.demoCode.isNotEmpty) ...[
@@ -312,9 +344,7 @@ class _VerifyCodeCard extends StatelessWidget {
               controller: codeController,
               keyboardType: TextInputType.number,
               textInputAction: TextInputAction.done,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(12),
-              ],
+              inputFormatters: [LengthLimitingTextInputFormatter(12)],
               decoration: const InputDecoration(labelText: 'Code'),
             ),
             const SizedBox(height: 12),
@@ -369,10 +399,7 @@ class _ReplaceSessionCard extends StatelessWidget {
 }
 
 class _SignedInStatusCard extends StatelessWidget {
-  const _SignedInStatusCard({
-    required this.appState,
-    required this.onOpenJobs,
-  });
+  const _SignedInStatusCard({required this.appState, required this.onOpenJobs});
 
   final MaterialGuardianAppState appState;
   final VoidCallback onOpenJobs;
@@ -391,17 +418,15 @@ class _SignedInStatusCard extends StatelessWidget {
             Text('Signed In', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(me.user.email),
-            if (me.user.displayName.trim().isNotEmpty) Text(me.user.displayName),
+            if (me.user.displayName.trim().isNotEmpty)
+              Text(me.user.displayName),
             const SizedBox(height: 8),
             Text('Access: ${entitlement.accessState}'),
             Text('Plan: ${entitlement.planCode ?? 'None'}'),
             if (entitlement.accessState == 'trial')
               Text('Free jobs remaining: ${entitlement.trialRemaining}'),
             const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onOpenJobs,
-              child: const Text('Open Jobs'),
-            ),
+            FilledButton(onPressed: onOpenJobs, child: const Text('Open Jobs')),
           ],
         ),
       ),
@@ -426,11 +451,11 @@ class _PlansCard extends StatelessWidget {
             Text('Plans', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             const Text(
-              'Individual gives one shop the full workspace. Business adds shared branding, report defaults, and managed seats for the whole company.',
+              'Choose the plan that fits how many people need report access, not just how many people work at the company.',
             ),
             const SizedBox(height: 8),
             const Text(
-              'Business admins can invite people later, assign seats when someone needs report-creation access, and keep company branding/report defaults consistent across the team.',
+              'Yearly plans should read as the better value. Business admins can invite people later, keep branding consistent, and assign seats only to the people who actually need report creation.',
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -445,7 +470,8 @@ class _PlansCard extends StatelessWidget {
                 ),
                 if (appState.isSignedIn)
                   OutlinedButton(
-                    onPressed: (!appState.isStoreAvailable ||
+                    onPressed:
+                        (!appState.isStoreAvailable ||
                             appState.isPurchasing ||
                             appState.isRestoringPurchases)
                         ? null
@@ -522,8 +548,16 @@ class _SalesPlanTile extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 4),
-        Text('${plan.displayPrice}${storeProduct != null ? ' | Store: ${storeProduct.price}' : ''}'),
-        Text('Seats: ${plan.seatLimit}'),
+        Text(
+          storeProduct != null
+              ? 'Backend: ${plan.displayPrice} | Store: ${storeProduct.price}'
+              : plan.displayPrice,
+        ),
+        Text(
+          plan.isBusiness
+              ? '${plan.seatLimit} report seats included'
+              : '1 full workspace',
+        ),
         const SizedBox(height: 8),
         for (final highlight in highlights) ...[
           Row(
@@ -531,7 +565,7 @@ class _SalesPlanTile extends StatelessWidget {
             children: [
               const Padding(
                 padding: EdgeInsets.only(top: 2),
-                child: Text('• '),
+                child: Text('- '),
               ),
               Expanded(child: Text(highlight)),
             ],
@@ -542,9 +576,9 @@ class _SalesPlanTile extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             savingsLine,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
         if (helperLine != null) ...[
@@ -553,10 +587,40 @@ class _SalesPlanTile extends StatelessWidget {
         ],
         const SizedBox(height: 10),
         FilledButton(
-          onPressed: canPurchase ? () => appState.purchasePlan(planCode: plan.planCode) : null,
-          child: Text(appState.isSignedIn ? 'Choose Plan' : 'Sign In First'),
+          onPressed: canPurchase
+              ? () => appState.purchasePlan(planCode: plan.planCode)
+              : null,
+          child: Text(
+            appState.isSignedIn ? 'Choose This Plan' : 'Sign In First',
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _ReturningUserCard extends StatelessWidget {
+  const _ReturningUserCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'Already signed up?',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Use the same email again. If this phone was reset, replaced, or had app data cleared, the app needs a fresh email-code sign-in because the saved local session is gone.',
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

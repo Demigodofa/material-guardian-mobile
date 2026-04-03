@@ -98,10 +98,7 @@ ThemeData buildMaterialGuardianTheme() {
     ),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
     textTheme: const TextTheme(
-      headlineSmall: TextStyle(
-        color: textPrimary,
-        fontWeight: FontWeight.w700,
-      ),
+      headlineSmall: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
       titleLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
       titleMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
       bodyLarge: TextStyle(color: textPrimary),

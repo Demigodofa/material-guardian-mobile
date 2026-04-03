@@ -206,14 +206,11 @@ class JobExportService {
       [
         'Thickness Readings',
         [
-                  material.thickness1,
-                  material.thickness2,
-                  material.thickness3,
-                  material.thickness4,
-                ]
-                .where((value) => value.trim().isNotEmpty)
-                .join(', ')
-                .isEmpty
+              material.thickness1,
+              material.thickness2,
+              material.thickness3,
+              material.thickness4,
+            ].where((value) => value.trim().isNotEmpty).join(', ').isEmpty
             ? 'N/A'
             : [
                 material.thickness1,
@@ -306,9 +303,10 @@ class JobExportService {
             _fieldTable(<List<String>>[
               [
                 'Comments',
-                [material.comments, material.description]
-                    .where((value) => value.trim().isNotEmpty)
-                    .join(' | '),
+                [
+                  material.comments,
+                  material.description,
+                ].where((value) => value.trim().isNotEmpty).join(' | '),
               ],
             ]),
             pw.SizedBox(height: 12),
@@ -319,7 +317,10 @@ class JobExportService {
                 _formatMaterialDisposition(material.materialApproval),
               ],
               ['QC Inspector', material.qcInspectorName],
-              ['QC Inspector Date', _formatExportDate(material.qcInspectorDate)],
+              [
+                'QC Inspector Date',
+                _formatExportDate(material.qcInspectorDate),
+              ],
               ['QC Manager', material.qcManagerName],
               ['QC Manager Date', _formatExportDate(material.qcManagerDate)],
             ]),

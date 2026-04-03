@@ -17,3 +17,12 @@ EdgeInsets screenListPadding(BuildContext context) {
     24 + MediaQuery.viewPaddingOf(context).bottom,
   );
 }
+
+Widget centeredContent({required Widget child, double maxWidth = 860}) {
+  return Center(
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: child,
+    ),
+  );
+}

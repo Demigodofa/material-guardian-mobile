@@ -60,6 +60,10 @@ Current reality:
     - business admins can manage seats/settings without occupying a production seat
     - an admin can also occupy a seat when they need receiving-report creation access
   - seated non-admin users keep their own printed-name/signature customization but should not see the account/admin entry point
+  - account/recovery messaging should stay simple and explicit:
+    - same email on a new device means request a fresh code, not recover a password
+    - account summaries should explain local remembered-session behavior plainly instead of exposing raw session detail by default
+    - business-facing account/admin UI should recommend keeping at least one trusted admin active for recovery/continuity
 - shared Dart workflow should stay cross-platform by default
 - the receiving form now carries a meaningful donor-aligned field block rather than only a placeholder shell
 - saved-material editing now goes back through the same shared form and draft lifecycle rather than using a separate platform-specific edit path
@@ -87,6 +91,16 @@ Current reality:
 - the current project stage is debugging/hardening, not first-pass scaffolding; active attention is on real-device Android behavior and preserving a clean path for later iOS validation
 - iOS-specific fit and validation still need to be completed on the Mac through the Apple handoff queue
 - privacy/store wording must now be tracked as part of migration because the current shipped Android privacy language is intentionally local-only and will become inaccurate once backend account features are released
+- the in-app privacy screen has now been partially updated to match the real product direction:
+  - backend-managed account, organization, seat, and subscription state are acknowledged
+  - report/job/media content is still described as local-first in the current release
+  - customer cloud-storage workspace language is still intentionally deferred until that feature really exists
+- large-screen shell layout is now intentionally constrained instead of stretching full width:
+  - plans, account, customization, drafts, job detail, the receiving form, and privacy all use the same centered-content pattern
+  - Pixel Tablet landscape validation confirmed that the signed-out sales CTA remains inside the first viewport with the new centered layout
+  - Pixel Tablet portrait kept the trial-entry stack readable without clipping under Android system chrome
+  - smaller Android phone-emulator validation still kept the signed-out sales stack readable on a tighter vertical viewport
+  - Android emulator billing is not treated as purchase truth because the Pixel Tablet emulator reported unsupported billing API access
 
 ## Suite identity
 

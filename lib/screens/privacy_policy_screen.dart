@@ -9,7 +9,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
     (
       title: 'Overview',
       body:
-          'Material Guardian is an offline-first receiving inspection app. The app stores jobs, receiving reports, material photos, scanned PDFs, signatures, and exported packet files on your device.',
+          'Material Guardian is an offline-first receiving inspection app. Jobs, receiving reports, photos, scans, signatures, and exported packet files stay on your device in the current release.',
     ),
     (
       title: 'Camera and document scanning',
@@ -17,9 +17,19 @@ class PrivacyPolicyScreen extends StatelessWidget {
           'If you choose to capture material photos or scan MTR/CoC documents, the app uses the device camera and document scanner only for that workflow.',
     ),
     (
-      title: 'Data handling',
+      title: 'Accounts and sign-in',
       body:
-          'Material Guardian does not require an account. The current release does not upload your jobs, reports, photos, scans, or signatures to a cloud service operated by the developer.',
+          'Material Guardian can use an email-code account for sign-in, subscriptions, organization membership, and seat access. The app remembers the signed-in session on this device until you sign out or clear app data.',
+    ),
+    (
+      title: 'Local job data and cloud status',
+      body:
+          'Report content still stays local-first in this release. The developer service tracks account identity, organization membership, seats, and subscription state, but your jobs, reports, photos, scans, and signatures are not yet synced into a customer cloud workspace.',
+    ),
+    (
+      title: 'Organizations and billing',
+      body:
+          'Business plans can include organization membership, admin controls, and seat assignment. Subscription and entitlement state may be verified against the app store and the Material Guardian backend service.',
     ),
     (
       title: 'Sharing and exports',
@@ -42,52 +52,52 @@ class PrivacyPolicyScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Privacy Policy')),
-      body: ListView(
-        padding: screenListPadding(context),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Privacy Policy',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'This mirrors the current Android donor policy wording so the shared Flutter app keeps the same product promises while platform-specific permissions are finished on each OS.',
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          for (final section in _sections) ...[
+      body: centeredContent(
+        child: ListView(
+          padding: screenListPadding(context),
+          children: [
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      section.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      'Privacy Policy',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
-                    Text(section.body),
+                    const Text(
+                      'This screen should match the real product behavior: local-first report data, backend-managed account access, and no customer cloud-storage workspace yet.',
+                    ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            for (final section in _sections) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        section.title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(section.body),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

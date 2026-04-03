@@ -88,10 +88,10 @@ abstract class StorePurchaseService {
 }
 
 class InAppStorePurchaseService implements StorePurchaseService {
-  InAppStorePurchaseService({
-    InAppPurchase? inAppPurchase,
-  }) : _inAppPurchase = inAppPurchase ?? InAppPurchase.instance {
-    _purchaseUpdatesController = StreamController<List<StorePurchaseUpdate>>.broadcast();
+  InAppStorePurchaseService({InAppPurchase? inAppPurchase})
+    : _inAppPurchase = inAppPurchase ?? InAppPurchase.instance {
+    _purchaseUpdatesController =
+        StreamController<List<StorePurchaseUpdate>>.broadcast();
     _purchaseSubscription = _inAppPurchase.purchaseStream.listen(
       _onPurchaseDetails,
       onError: (Object error, StackTrace stackTrace) {
@@ -226,8 +226,9 @@ class InAppStorePurchaseService implements StorePurchaseService {
           _latestPurchaseDetailsByProductId[purchaseDetails.productID] =
               purchaseDetails;
 
-          final provider =
-              purchaseDetails is GooglePlayPurchaseDetails ? 'google' : 'apple';
+          final provider = purchaseDetails is GooglePlayPurchaseDetails
+              ? 'google'
+              : 'apple';
           final providerTransactionRef =
               purchaseDetails is GooglePlayPurchaseDetails
               ? purchaseDetails.billingClientPurchase.orderId
@@ -250,9 +251,7 @@ class InAppStorePurchaseService implements StorePurchaseService {
             verificationSource: purchaseDetails.verificationData.source,
             transactionDate: purchaseDetails.transactionDate == null
                 ? null
-                : DateTime.tryParse(
-                    purchaseDetails.transactionDate!,
-                  ) ??
+                : DateTime.tryParse(purchaseDetails.transactionDate!) ??
                       DateTime.fromMillisecondsSinceEpoch(
                         int.tryParse(purchaseDetails.transactionDate!) ?? 0,
                       ),

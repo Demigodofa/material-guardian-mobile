@@ -23,113 +23,118 @@ class DraftsScreen extends StatelessWidget {
           appBar: AppBar(
             title: Text(jobId == null ? 'Material Drafts' : 'Job Drafts'),
           ),
-          body: ListView(
-            padding: screenListPadding(context),
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(
-                    'Drafts stay explicit. Add Material always opens blank, and interrupted work is resumed from here instead of silently hijacking the create action.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyLarge?.copyWith(height: 1.35),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (drafts.isEmpty)
+          body: centeredContent(
+            child: ListView(
+              padding: screenListPadding(context),
+              children: [
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: Text(
-                      'No drafts are waiting in this view yet.',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      'Drafts stay explicit. Add Material always opens blank, and interrupted work is resumed from here instead of silently hijacking the create action.',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyLarge?.copyWith(height: 1.35),
                     ),
                   ),
-                )
-              else
-                for (final draft in drafts) ...[
+                ),
+                const SizedBox(height: 16),
+                if (drafts.isEmpty)
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            draft.description.trim().isEmpty
-                                ? draft.sourceMaterialId.trim().isEmpty
-                                      ? 'Blank receiving draft'
-                                      : 'Material edit draft'
-                                : draft.description,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${appState.jobById(draft.jobId).jobNumber} - ${draft.sourceMaterialId.trim().isEmpty ? 'new material' : 'editing saved material'} - updated ${formatCompactDateTime(draft.updatedAt)}',
-                          ),
-                          const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              FilledButton.icon(
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.materialForm,
-                                    arguments: MaterialFormRouteArgs(
-                                      jobId: draft.jobId,
-                                      draftId: draft.id,
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.play_arrow_rounded),
-                                label: Text(
-                                  draft.sourceMaterialId.trim().isEmpty
-                                      ? 'Resume Draft'
-                                      : 'Resume Edit',
-                                ),
-                              ),
-                              OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.error,
-                                ),
-                                onPressed: () async {
-                                  final confirmed = await _showDeleteDraftDialog(
-                                    context,
-                                    draft.description.trim().isEmpty
-                                        ? 'this draft'
-                                        : draft.description,
-                                  );
-                                  if (confirmed != true) {
-                                    return;
-                                  }
-                                  await appState.deleteDraft(draft.id);
-                                  if (!context.mounted) {
-                                    return;
-                                  }
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Draft deleted.'),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.delete_outline_rounded),
-                                label: const Text('Delete Draft'),
-                              ),
-                            ],
-                          ),
-                        ],
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        'No drafts are waiting in this view yet.',
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-            ],
+                  )
+                else
+                  for (final draft in drafts) ...[
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              draft.description.trim().isEmpty
+                                  ? draft.sourceMaterialId.trim().isEmpty
+                                        ? 'Blank receiving draft'
+                                        : 'Material edit draft'
+                                  : draft.description,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${appState.jobById(draft.jobId).jobNumber} - ${draft.sourceMaterialId.trim().isEmpty ? 'new material' : 'editing saved material'} - updated ${formatCompactDateTime(draft.updatedAt)}',
+                            ),
+                            const SizedBox(height: 16),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                FilledButton.icon(
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.materialForm,
+                                      arguments: MaterialFormRouteArgs(
+                                        jobId: draft.jobId,
+                                        draftId: draft.id,
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.play_arrow_rounded),
+                                  label: Text(
+                                    draft.sourceMaterialId.trim().isEmpty
+                                        ? 'Resume Draft'
+                                        : 'Resume Edit',
+                                  ),
+                                ),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.error,
+                                  ),
+                                  onPressed: () async {
+                                    final confirmed =
+                                        await _showDeleteDraftDialog(
+                                          context,
+                                          draft.description.trim().isEmpty
+                                              ? 'this draft'
+                                              : draft.description,
+                                        );
+                                    if (confirmed != true) {
+                                      return;
+                                    }
+                                    await appState.deleteDraft(draft.id);
+                                    if (!context.mounted) {
+                                      return;
+                                    }
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Draft deleted.'),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                  ),
+                                  label: const Text('Delete Draft'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+              ],
+            ),
           ),
         );
       },
@@ -137,10 +142,7 @@ class DraftsScreen extends StatelessWidget {
   }
 }
 
-Future<bool?> _showDeleteDraftDialog(
-  BuildContext context,
-  String draftLabel,
-) {
+Future<bool?> _showDeleteDraftDialog(BuildContext context, String draftLabel) {
   return showDialog<bool>(
     context: context,
     builder: (context) {

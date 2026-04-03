@@ -102,10 +102,7 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
   var _allowImmediatePop = false;
 
   static const List<String> _acceptanceOptions = ['accept', 'reject'];
-  static const List<String> _materialApprovalOptions = [
-    'approved',
-    'rejected',
-  ];
+  static const List<String> _materialApprovalOptions = ['approved', 'rejected'];
   static final List<TextInputFormatter> _surfaceFinishReadingInputFormatters = [
     FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,4}')),
   ];
@@ -825,808 +822,847 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
           top: false,
           bottom: true,
           minimum: const EdgeInsets.only(bottom: 16),
-          child: ListView(
-            padding: listPadding,
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                    Text(
-                      'RECEIVING INSPECTION\nREPORT',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                        height: 1.15,
-                      ),
-                    ),
-                    if (_isEditingExistingMaterial) ...[
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Text(
-                          'Editing saved material',
+          child: centeredContent(
+            child: ListView(
+              padding: listPadding,
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'RECEIVING INSPECTION\nREPORT',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1,
+                                height: 1.15,
+                              ),
+                        ),
+                        if (_isEditingExistingMaterial) ...[
+                          const SizedBox(height: 8),
+                          Center(
+                            child: Text(
+                              'Editing saved material',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 18),
+                        TextField(
+                          controller: _descriptionController,
+                          inputFormatters: _maxLengthFormatters(
+                            _descriptionMaxLength,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Material Description',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _poNumberController,
+                                inputFormatters: _maxLengthFormatters(
+                                  _poNumberMaxLength,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: 'PO #',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: _vendorController,
+                                inputFormatters: _maxLengthFormatters(
+                                  _vendorMaxLength,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: 'Vendor',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                controller: _quantityController,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: _maxLengthFormatters(
+                                  _quantityMaxLength,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: 'Qty',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 4,
+                              child: _LabeledDropdownField(
+                                value: _productTypeController.text,
+                                labelText: 'Product',
+                                options: _optionsWithCurrent(
+                                  _productTypeController.text,
+                                  _productTypeOptions,
+                                ),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _productTypeController.text = value ?? '';
+                                  });
+                                  _saveDraftSilently();
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: _LabeledDropdownField(
+                                value: _specificationPrefixController.text,
+                                labelText: 'A/SA',
+                                options: _optionsWithCurrent(
+                                  _specificationPrefixController.text,
+                                  _specificationPrefixOptions,
+                                ),
+                                labelBuilder: (value) =>
+                                    value.isEmpty ? 'Blank' : value,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _specificationPrefixController.text =
+                                        value ?? '';
+                                  });
+                                  _saveDraftSilently();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _gradeTypeController,
+                          inputFormatters: _maxLengthFormatters(
+                            _gradeTypeMaxLength,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Spec/Grade',
+                          ),
+                        ),
+                        if (showB16) ...[
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _LabeledDropdownField(
+                                  value: _fittingStandardController.text,
+                                  labelText: 'Fitting',
+                                  options: _optionsWithCurrent(
+                                    _fittingStandardController.text,
+                                    _fittingStandardOptions,
+                                  ),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _fittingStandardController.text =
+                                          value ?? 'N/A';
+                                      if (_fittingStandardController.text !=
+                                          'B16') {
+                                        _fittingSuffixController.text = '';
+                                      }
+                                    });
+                                    _saveDraftSilently();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _LabeledDropdownField(
+                                  value: _fittingSuffixController.text,
+                                  labelText: 'B16 Type',
+                                  options: _optionsWithCurrent(
+                                    _fittingSuffixController.text,
+                                    _fittingSuffixOptions,
+                                  ),
+                                  enabled:
+                                      _fittingStandardController.text == 'B16',
+                                  labelBuilder: (value) =>
+                                      value.isEmpty ? 'N/A' : value,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _fittingSuffixController.text =
+                                          value ?? '';
+                                    });
+                                    _saveDraftSilently();
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        const _SectionHeader(title: 'Dimensions'),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: UnitSystem.values
+                              .map(
+                                (unitSystem) => ChoiceChip(
+                                  label: Text(unitSystem.label),
+                                  selected: _unitSystem == unitSystem,
+                                  onSelected: (_) {
+                                    setState(() {
+                                      _unitSystem = unitSystem;
+                                    });
+                                    _saveDraftSilently();
+                                  },
+                                ),
+                              )
+                              .toList(growable: false),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _thickness1Controller,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: _maxLengthFormatters(
+                                  _dimensionValueMaxLength,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: 'TH 1',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: _thickness2Controller,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: _maxLengthFormatters(
+                                  _dimensionValueMaxLength,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: 'TH 2',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: _thickness3Controller,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: _maxLengthFormatters(
+                                  _dimensionValueMaxLength,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: 'TH 3',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: _thickness4Controller,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: _maxLengthFormatters(
+                                  _dimensionValueMaxLength,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: 'TH 4',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _widthController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: _maxLengthFormatters(
+                                  _dimensionValueMaxLength,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: 'Width',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: _lengthController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: _maxLengthFormatters(
+                                  _dimensionValueMaxLength,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: 'Length',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: _diameterController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: _maxLengthFormatters(
+                                  _dimensionValueMaxLength,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: 'Diameter',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _LabeledDropdownField(
+                                value: _diameterTypeController.text,
+                                labelText: 'ID/OD',
+                                options: _optionsWithCurrent(
+                                  _diameterTypeController.text,
+                                  _diameterTypeOptions,
+                                ),
+                                labelBuilder: (value) =>
+                                    value.isEmpty ? 'None' : value,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _diameterTypeController.text = value ?? '';
+                                  });
+                                  _saveDraftSilently();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _BinaryChoiceRow(
+                          label: 'Visual inspection acceptable',
+                          yesSelected: _visualInspectionAcceptable,
+                          onYes: () {
+                            setState(() {
+                              _visualInspectionAcceptable = true;
+                            });
+                            _saveDraftSilently();
+                          },
+                          onNo: () {
+                            setState(() {
+                              _visualInspectionAcceptable = false;
+                            });
+                            _saveDraftSilently();
+                          },
+                        ),
+                        if (showB16) ...[
+                          const SizedBox(height: 12),
+                          _LabeledDropdownField(
+                            value: _b16SizeController.text,
+                            labelText: 'B16 Dimensions',
+                            options: _optionsWithCurrent(
+                              _b16SizeController.text,
+                              const ['', 'Yes', 'No'],
+                            ),
+                            labelBuilder: (value) =>
+                                value.isEmpty ? 'N/A' : value,
+                            onChanged: (value) {
+                              setState(() {
+                                _b16SizeController.text = value ?? '';
+                              });
+                              _saveDraftSilently();
+                            },
+                          ),
+                        ],
+                        if (showSurfaceFinish) ...[
+                          const SizedBox(height: 12),
+                          _LabeledDropdownField(
+                            value: _surfaceFinishController.text,
+                            labelText: 'Surface Finish',
+                            options: _optionsWithCurrent(
+                              _surfaceFinishController.text,
+                              _surfaceFinishOptions,
+                            ),
+                            labelBuilder: (value) =>
+                                value.isEmpty ? 'N/A' : value,
+                            onChanged: (value) {
+                              setState(() {
+                                _surfaceFinishController.text = value ?? '';
+                              });
+                              _saveDraftSilently();
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _surfaceFinishReadingController,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters:
+                                      _surfaceFinishReadingInputFormatters,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Actual Surface Finish Reading',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                _customization.surfaceFinishUnit,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
+                        ],
+                        TextField(
+                          controller: _markingsController,
+                          maxLines: 5,
+                          decoration: const InputDecoration(
+                            labelText: 'Actual Markings',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _TriStateChoiceRow(
+                          label: 'Marking acceptable to Code/Standard',
+                          hasSelection: _markingSelected,
+                          yesSelected:
+                              _markingSelected &&
+                              _markingAcceptable &&
+                              !_markingAcceptableNa,
+                          noSelected:
+                              _markingSelected &&
+                              !_markingAcceptable &&
+                              !_markingAcceptableNa,
+                          naSelected: _markingSelected && _markingAcceptableNa,
+                          onYes: () {
+                            setState(() {
+                              _markingAcceptable = true;
+                              _markingAcceptableNa = false;
+                              _markingSelected = true;
+                            });
+                            _saveDraftSilently();
+                          },
+                          onNo: () {
+                            setState(() {
+                              _markingAcceptable = false;
+                              _markingAcceptableNa = false;
+                              _markingSelected = true;
+                            });
+                            _saveDraftSilently();
+                          },
+                          onNa: () {
+                            setState(() {
+                              _markingAcceptable = false;
+                              _markingAcceptableNa = true;
+                              _markingSelected = true;
+                            });
+                            _saveDraftSilently();
+                          },
+                          onClear: () {
+                            setState(() {
+                              _markingAcceptable = false;
+                              _markingAcceptableNa = false;
+                              _markingSelected = false;
+                            });
+                            _saveDraftSilently();
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _TriStateChoiceRow(
+                          label: 'MTR/CoC acceptable to specification',
+                          hasSelection: _mtrSelected,
+                          yesSelected:
+                              _mtrSelected &&
+                              _mtrAcceptable &&
+                              !_mtrAcceptableNa,
+                          noSelected:
+                              _mtrSelected &&
+                              !_mtrAcceptable &&
+                              !_mtrAcceptableNa,
+                          naSelected: _mtrSelected && _mtrAcceptableNa,
+                          onYes: () {
+                            setState(() {
+                              _mtrAcceptable = true;
+                              _mtrAcceptableNa = false;
+                              _mtrSelected = true;
+                            });
+                            _saveDraftSilently();
+                          },
+                          onNo: () {
+                            setState(() {
+                              _mtrAcceptable = false;
+                              _mtrAcceptableNa = false;
+                              _mtrSelected = true;
+                            });
+                            _saveDraftSilently();
+                          },
+                          onNa: () {
+                            setState(() {
+                              _mtrAcceptable = false;
+                              _mtrAcceptableNa = true;
+                              _mtrSelected = true;
+                            });
+                            _saveDraftSilently();
+                          },
+                          onClear: () {
+                            setState(() {
+                              _mtrAcceptable = false;
+                              _mtrAcceptableNa = false;
+                              _mtrSelected = false;
+                            });
+                            _saveDraftSilently();
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Disposition',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: _acceptanceOptions
+                              .map(
+                                (status) => ChoiceChip(
+                                  label: Text(
+                                    status == 'accept' ? 'Accept' : 'Reject',
+                                  ),
+                                  selected: _acceptanceStatus == status,
+                                  onSelected: (_) {
+                                    setState(() {
+                                      _acceptanceStatus = status;
+                                    });
+                                    _saveDraftSilently();
+                                  },
+                                ),
+                              )
+                              .toList(growable: false),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _commentsController,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Comments',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const _SectionHeader(title: 'Quality Control'),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _qcInspectorController,
+                                inputFormatters: _maxLengthFormatters(
+                                  _qcNameMaxLength,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: 'QC Inspector',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            _DateFieldButton(
+                              label: 'Date',
+                              value: _formatDateForField(_qcInspectorDate),
+                              onPressed: () => _pickQcDate(forManager: false),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            if (_customization.hasSavedInspectorSignature &&
+                                _customization.savedInspectorSignaturePath
+                                    .trim()
+                                    .isNotEmpty)
+                              OutlinedButton.icon(
+                                onPressed: _applySavedInspectorSignature,
+                                icon: const Icon(Icons.draw_outlined),
+                                label: Text(
+                                  _qcInspectorController.text.trim().isEmpty
+                                      ? 'Apply Saved Signature'
+                                      : 'Apply Saved Signature for ${_qcInspectorController.text.trim()}',
+                                ),
+                              ),
+                            OutlinedButton.icon(
+                              onPressed: () =>
+                                  _captureSignature(forManager: false),
+                              icon: const Icon(Icons.draw_outlined),
+                              label: Text(
+                                _qcSignaturePath.trim().isEmpty
+                                    ? 'Capture Inspector Signature'
+                                    : 'Re-sign Inspector',
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () =>
+                                  _importSignature(forManager: false),
+                              icon: const Icon(Icons.upload_file_outlined),
+                              label: const Text('Import Inspector Signature'),
+                            ),
+                            if (_qcSignaturePath.trim().isNotEmpty)
+                              OutlinedButton.icon(
+                                onPressed: () => _openFile(_qcSignaturePath),
+                                icon: const Icon(Icons.visibility_outlined),
+                                label: const Text(
+                                  'Preview Inspector Signature',
+                                ),
+                              ),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.error,
+                              ),
+                              onPressed: () =>
+                                  _clearSignature(forManager: false),
+                              icon: const Icon(Icons.delete_sweep_outlined),
+                              label: const Text('Clear Inspector Signature'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _qcSignaturePath.trim().isNotEmpty
+                              ? 'Inspector signature attached.'
+                              : 'No inspector signature attached to this draft yet.',
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _qcManagerSignaturePath.trim().isNotEmpty
+                              ? 'Manager signature attached.'
+                              : 'No manager signature attached yet.',
+                        ),
+                        if (_qcSignaturePath.trim().isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _SignaturePreviewCard(
+                            label: 'QC inspector signature',
+                            path: _qcSignaturePath,
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        Text(
+                          'Material approval',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: _materialApprovalOptions
+                              .map(
+                                (status) => ChoiceChip(
+                                  label: Text(
+                                    status == 'approved'
+                                        ? 'Approved'
+                                        : 'Rejected',
+                                  ),
+                                  selected: _materialApproval == status,
+                                  onSelected: (_) {
+                                    setState(() {
+                                      _materialApproval = status;
+                                    });
+                                    _saveDraftSilently();
+                                  },
+                                ),
+                              )
+                              .toList(growable: false),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _qcManagerController,
+                                inputFormatters: _maxLengthFormatters(
+                                  _qcNameMaxLength,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: 'QC Manager',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            _DateFieldButton(
+                              label: 'Date',
+                              value: _formatDateForField(_qcManagerDate),
+                              onPressed: () => _pickQcDate(forManager: true),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () =>
+                                  _captureSignature(forManager: true),
+                              icon: const Icon(Icons.draw_outlined),
+                              label: Text(
+                                _qcManagerSignaturePath.trim().isEmpty
+                                    ? 'Capture Manager Signature'
+                                    : 'Re-sign Manager',
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () =>
+                                  _importSignature(forManager: true),
+                              icon: const Icon(Icons.upload_file_outlined),
+                              label: const Text('Import Manager Signature'),
+                            ),
+                            if (_qcManagerSignaturePath.trim().isNotEmpty)
+                              OutlinedButton.icon(
+                                onPressed: () =>
+                                    _openFile(_qcManagerSignaturePath),
+                                icon: const Icon(Icons.visibility_outlined),
+                                label: const Text('Preview Manager Signature'),
+                              ),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.error,
+                              ),
+                              onPressed: () =>
+                                  _clearSignature(forManager: true),
+                              icon: const Icon(Icons.delete_outline_rounded),
+                              label: const Text('Clear Manager Signature'),
+                            ),
+                          ],
+                        ),
+                        if (_qcManagerSignaturePath.trim().isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _SignaturePreviewCard(
+                            label: 'QC manager signature',
+                            path: _qcManagerSignaturePath,
+                          ),
+                        ],
+                        const SizedBox(height: 18),
+                        const _SectionHeader(title: 'Material photos'),
+                        OutlinedButton.icon(
+                          onPressed: _handlePhotoAction,
+                          icon: const Icon(Icons.add_a_photo_outlined),
+                          label: Text(
+                            'Add material photos (${_photoPaths.length}/4)',
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Use these for arrival condition, markings, and visible damage.',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
-                      ),
-                    ],
-                    const SizedBox(height: 18),
-                    TextField(
-                      controller: _descriptionController,
-                      inputFormatters: _maxLengthFormatters(
-                        _descriptionMaxLength,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Material Description',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _poNumberController,
-                            inputFormatters: _maxLengthFormatters(
-                              _poNumberMaxLength,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'PO #',
-                            ),
-                          ),
+                        const SizedBox(height: 10),
+                        _ThumbnailRow(
+                          paths: _photoPaths,
+                          maxCount: 4,
+                          itemLabel: 'photo',
+                          onTap: (index) {
+                            _handleExistingMediaTap(
+                              isPhoto: true,
+                              index: index,
+                            );
+                          },
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _vendorController,
-                            inputFormatters: _maxLengthFormatters(
-                              _vendorMaxLength,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'Vendor',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: TextField(
-                            controller: _quantityController,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: _maxLengthFormatters(
-                              _quantityMaxLength,
-                            ),
-                            decoration: const InputDecoration(labelText: 'Qty'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 4,
-                          child: _LabeledDropdownField(
-                            value: _productTypeController.text,
-                            labelText: 'Product',
-                            options: _optionsWithCurrent(
-                              _productTypeController.text,
-                              _productTypeOptions,
-                            ),
-                            onChanged: (value) {
-                              setState(() {
-                                _productTypeController.text = value ?? '';
-                              });
-                              _saveDraftSilently();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: _LabeledDropdownField(
-                            value: _specificationPrefixController.text,
-                            labelText: 'A/SA',
-                            options: _optionsWithCurrent(
-                              _specificationPrefixController.text,
-                              _specificationPrefixOptions,
-                            ),
-                            labelBuilder: (value) =>
-                                value.isEmpty ? 'Blank' : value,
-                            onChanged: (value) {
-                              setState(() {
-                                _specificationPrefixController.text =
-                                    value ?? '';
-                              });
-                              _saveDraftSilently();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _gradeTypeController,
-                      inputFormatters: _maxLengthFormatters(
-                        _gradeTypeMaxLength,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Spec/Grade',
-                      ),
-                    ),
-                    if (showB16) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _LabeledDropdownField(
-                              value: _fittingStandardController.text,
-                              labelText: 'Fitting',
-                              options: _optionsWithCurrent(
-                                _fittingStandardController.text,
-                                _fittingStandardOptions,
-                              ),
-                              onChanged: (value) {
-                                setState(() {
-                                  _fittingStandardController.text =
-                                      value ?? 'N/A';
-                                  if (_fittingStandardController.text !=
-                                      'B16') {
-                                    _fittingSuffixController.text = '';
-                                  }
-                                });
-                                _saveDraftSilently();
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _LabeledDropdownField(
-                              value: _fittingSuffixController.text,
-                              labelText: 'B16 Type',
-                              options: _optionsWithCurrent(
-                                _fittingSuffixController.text,
-                                _fittingSuffixOptions,
-                              ),
-                              enabled: _fittingStandardController.text == 'B16',
-                              labelBuilder: (value) =>
-                                  value.isEmpty ? 'N/A' : value,
-                              onChanged: (value) {
-                                setState(() {
-                                  _fittingSuffixController.text = value ?? '';
-                                });
-                                _saveDraftSilently();
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    const _SectionHeader(title: 'Dimensions'),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: UnitSystem.values
-                          .map(
-                            (unitSystem) => ChoiceChip(
-                              label: Text(unitSystem.label),
-                              selected: _unitSystem == unitSystem,
-                              onSelected: (_) {
-                                setState(() {
-                                  _unitSystem = unitSystem;
-                                });
-                                _saveDraftSilently();
-                              },
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _thickness1Controller,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: _maxLengthFormatters(
-                              _dimensionValueMaxLength,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'TH 1',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _thickness2Controller,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: _maxLengthFormatters(
-                              _dimensionValueMaxLength,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'TH 2',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _thickness3Controller,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: _maxLengthFormatters(
-                              _dimensionValueMaxLength,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'TH 3',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _thickness4Controller,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: _maxLengthFormatters(
-                              _dimensionValueMaxLength,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'TH 4',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _widthController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: _maxLengthFormatters(
-                              _dimensionValueMaxLength,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'Width',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _lengthController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: _maxLengthFormatters(
-                              _dimensionValueMaxLength,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'Length',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _diameterController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: _maxLengthFormatters(
-                              _dimensionValueMaxLength,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'Diameter',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _LabeledDropdownField(
-                            value: _diameterTypeController.text,
-                            labelText: 'ID/OD',
-                            options: _optionsWithCurrent(
-                              _diameterTypeController.text,
-                              _diameterTypeOptions,
-                            ),
-                            labelBuilder: (value) =>
-                                value.isEmpty ? 'None' : value,
-                            onChanged: (value) {
-                              setState(() {
-                                _diameterTypeController.text = value ?? '';
-                              });
-                              _saveDraftSilently();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _BinaryChoiceRow(
-                      label: 'Visual inspection acceptable',
-                      yesSelected: _visualInspectionAcceptable,
-                      onYes: () {
-                        setState(() {
-                          _visualInspectionAcceptable = true;
-                        });
-                        _saveDraftSilently();
-                      },
-                      onNo: () {
-                        setState(() {
-                          _visualInspectionAcceptable = false;
-                        });
-                        _saveDraftSilently();
-                      },
-                    ),
-                    if (showB16) ...[
-                      const SizedBox(height: 12),
-                      _LabeledDropdownField(
-                        value: _b16SizeController.text,
-                        labelText: 'B16 Dimensions',
-                        options: _optionsWithCurrent(
-                          _b16SizeController.text,
-                          const ['', 'Yes', 'No'],
-                        ),
-                        labelBuilder: (value) => value.isEmpty ? 'N/A' : value,
-                        onChanged: (value) {
-                          setState(() {
-                            _b16SizeController.text = value ?? '';
-                          });
-                          _saveDraftSilently();
-                        },
-                      ),
-                    ],
-                    if (showSurfaceFinish) ...[
-                      const SizedBox(height: 12),
-                      _LabeledDropdownField(
-                        value: _surfaceFinishController.text,
-                        labelText: 'Surface Finish',
-                        options: _optionsWithCurrent(
-                          _surfaceFinishController.text,
-                          _surfaceFinishOptions,
-                        ),
-                        labelBuilder: (value) => value.isEmpty ? 'N/A' : value,
-                        onChanged: (value) {
-                          setState(() {
-                            _surfaceFinishController.text = value ?? '';
-                          });
-                          _saveDraftSilently();
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _surfaceFinishReadingController,
-                              keyboardType: TextInputType.number,
-                              inputFormatters:
-                                  _surfaceFinishReadingInputFormatters,
-                              decoration: const InputDecoration(
-                                labelText: 'Actual Surface Finish Reading',
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
+                        if (_photoPaths.isNotEmpty) ...[
+                          const SizedBox(height: 6),
                           Text(
-                            _customization.surfaceFinishUnit,
-                            style: Theme.of(context).textTheme.bodyMedium,
+                            'Tap a thumbnail to retake or delete it.',
+                            style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
-                      ),
-                    ],
-                    TextField(
-                      controller: _markingsController,
-                      maxLines: 5,
-                      decoration: const InputDecoration(
-                        labelText: 'Actual Markings',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _TriStateChoiceRow(
-                      label: 'Marking acceptable to Code/Standard',
-                      hasSelection: _markingSelected,
-                      yesSelected:
-                          _markingSelected &&
-                          _markingAcceptable &&
-                          !_markingAcceptableNa,
-                      noSelected:
-                          _markingSelected &&
-                          !_markingAcceptable &&
-                          !_markingAcceptableNa,
-                      naSelected: _markingSelected && _markingAcceptableNa,
-                      onYes: () {
-                        setState(() {
-                          _markingAcceptable = true;
-                          _markingAcceptableNa = false;
-                          _markingSelected = true;
-                        });
-                        _saveDraftSilently();
-                      },
-                      onNo: () {
-                        setState(() {
-                          _markingAcceptable = false;
-                          _markingAcceptableNa = false;
-                          _markingSelected = true;
-                        });
-                        _saveDraftSilently();
-                      },
-                      onNa: () {
-                        setState(() {
-                          _markingAcceptable = false;
-                          _markingAcceptableNa = true;
-                          _markingSelected = true;
-                        });
-                        _saveDraftSilently();
-                      },
-                      onClear: () {
-                        setState(() {
-                          _markingAcceptable = false;
-                          _markingAcceptableNa = false;
-                          _markingSelected = false;
-                        });
-                        _saveDraftSilently();
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _TriStateChoiceRow(
-                      label: 'MTR/CoC acceptable to specification',
-                      hasSelection: _mtrSelected,
-                      yesSelected:
-                          _mtrSelected && _mtrAcceptable && !_mtrAcceptableNa,
-                      noSelected:
-                          _mtrSelected && !_mtrAcceptable && !_mtrAcceptableNa,
-                      naSelected: _mtrSelected && _mtrAcceptableNa,
-                      onYes: () {
-                        setState(() {
-                          _mtrAcceptable = true;
-                          _mtrAcceptableNa = false;
-                          _mtrSelected = true;
-                        });
-                        _saveDraftSilently();
-                      },
-                      onNo: () {
-                        setState(() {
-                          _mtrAcceptable = false;
-                          _mtrAcceptableNa = false;
-                          _mtrSelected = true;
-                        });
-                        _saveDraftSilently();
-                      },
-                      onNa: () {
-                        setState(() {
-                          _mtrAcceptable = false;
-                          _mtrAcceptableNa = true;
-                          _mtrSelected = true;
-                        });
-                        _saveDraftSilently();
-                      },
-                      onClear: () {
-                        setState(() {
-                          _mtrAcceptable = false;
-                          _mtrAcceptableNa = false;
-                          _mtrSelected = false;
-                        });
-                        _saveDraftSilently();
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Disposition',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: _acceptanceOptions
-                          .map(
-                            (status) => ChoiceChip(
-                              label: Text(
-                                status == 'accept' ? 'Accept' : 'Reject',
-                              ),
-                              selected: _acceptanceStatus == status,
-                              onSelected: (_) {
-                                setState(() {
-                                  _acceptanceStatus = status;
-                                });
-                                _saveDraftSilently();
-                              },
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _commentsController,
-                      maxLines: 2,
-                      decoration: const InputDecoration(labelText: 'Comments'),
-                    ),
-                    const SizedBox(height: 12),
-                    const _SectionHeader(title: 'Quality Control'),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _qcInspectorController,
-                            inputFormatters: _maxLengthFormatters(
-                              _qcNameMaxLength,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'QC Inspector',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        _DateFieldButton(
-                          label: 'Date',
-                          value: _formatDateForField(_qcInspectorDate),
-                          onPressed: () => _pickQcDate(forManager: false),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        if (_customization.hasSavedInspectorSignature &&
-                            _customization.savedInspectorSignaturePath
-                                .trim()
-                                .isNotEmpty)
-                          OutlinedButton.icon(
-                            onPressed: _applySavedInspectorSignature,
-                            icon: const Icon(Icons.draw_outlined),
-                            label: Text(
-                              _qcInspectorController.text.trim().isEmpty
-                                  ? 'Apply Saved Signature'
-                                  : 'Apply Saved Signature for ${_qcInspectorController.text.trim()}',
-                            ),
-                          ),
+                        const SizedBox(height: 18),
+                        const _SectionHeader(title: 'MTR/CoC scans'),
                         OutlinedButton.icon(
-                          onPressed: () => _captureSignature(forManager: false),
-                          icon: const Icon(Icons.draw_outlined),
+                          onPressed: _handleScanAction,
+                          icon: const Icon(Icons.picture_as_pdf_outlined),
                           label: Text(
-                            _qcSignaturePath.trim().isEmpty
-                                ? 'Capture Inspector Signature'
-                                : 'Re-sign Inspector',
+                            'Scan MTR/CoC PDFs (${_scanPaths.length}/8)',
                           ),
                         ),
-                        OutlinedButton.icon(
-                          onPressed: () => _importSignature(forManager: false),
-                          icon: const Icon(Icons.upload_file_outlined),
-                          label: const Text('Import Inspector Signature'),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Preferred: document scanner. Camera fallback still exports cleanly into the combined MTR PDF.',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
-                        if (_qcSignaturePath.trim().isNotEmpty)
-                          OutlinedButton.icon(
-                            onPressed: () => _openFile(_qcSignaturePath),
-                            icon: const Icon(Icons.visibility_outlined),
-                            label: const Text('Preview Inspector Signature'),
-                          ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Theme.of(
-                              context,
-                            ).colorScheme.error,
-                          ),
-                          onPressed: () => _clearSignature(forManager: false),
-                          icon: const Icon(Icons.delete_sweep_outlined),
-                          label: const Text('Clear Inspector Signature'),
+                        const SizedBox(height: 10),
+                        _ThumbnailRow(
+                          paths: _scanPaths,
+                          maxCount: 8,
+                          itemLabel: 'scan',
+                          onTap: (index) {
+                            _handleExistingMediaTap(
+                              isPhoto: false,
+                              index: index,
+                            );
+                          },
                         ),
+                        if (_scanPaths.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Tap a thumbnail to retake or delete it.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _qcSignaturePath.trim().isNotEmpty
-                          ? 'Inspector signature attached.'
-                          : 'No inspector signature attached to this draft yet.',
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _qcManagerSignaturePath.trim().isNotEmpty
-                          ? 'Manager signature attached.'
-                          : 'No manager signature attached yet.',
-                    ),
-                    if (_qcSignaturePath.trim().isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      _SignaturePreviewCard(
-                        label: 'QC inspector signature',
-                        path: _qcSignaturePath,
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Text(
-                      'Material approval',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: _materialApprovalOptions
-                          .map(
-                            (status) => ChoiceChip(
-                              label: Text(
-                                status == 'approved' ? 'Approved' : 'Rejected',
-                              ),
-                              selected: _materialApproval == status,
-                              onSelected: (_) {
-                                setState(() {
-                                  _materialApproval = status;
-                                });
-                                _saveDraftSilently();
-                              },
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _qcManagerController,
-                            inputFormatters: _maxLengthFormatters(
-                              _qcNameMaxLength,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'QC Manager',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        _DateFieldButton(
-                          label: 'Date',
-                          value: _formatDateForField(_qcManagerDate),
-                          onPressed: () => _pickQcDate(forManager: true),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () => _captureSignature(forManager: true),
-                          icon: const Icon(Icons.draw_outlined),
-                          label: Text(
-                            _qcManagerSignaturePath.trim().isEmpty
-                                ? 'Capture Manager Signature'
-                                : 'Re-sign Manager',
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () => _importSignature(forManager: true),
-                          icon: const Icon(Icons.upload_file_outlined),
-                          label: const Text('Import Manager Signature'),
-                        ),
-                        if (_qcManagerSignaturePath.trim().isNotEmpty)
-                          OutlinedButton.icon(
-                            onPressed: () => _openFile(_qcManagerSignaturePath),
-                            icon: const Icon(Icons.visibility_outlined),
-                            label: const Text('Preview Manager Signature'),
-                          ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Theme.of(
-                              context,
-                            ).colorScheme.error,
-                          ),
-                          onPressed: () => _clearSignature(forManager: true),
-                          icon: const Icon(Icons.delete_outline_rounded),
-                          label: const Text('Clear Manager Signature'),
-                        ),
-                      ],
-                    ),
-                    if (_qcManagerSignaturePath.trim().isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      _SignaturePreviewCard(
-                        label: 'QC manager signature',
-                        path: _qcManagerSignaturePath,
-                      ),
-                    ],
-                    const SizedBox(height: 18),
-                    const _SectionHeader(title: 'Material photos'),
-                    OutlinedButton.icon(
-                      onPressed: _handlePhotoAction,
-                      icon: const Icon(Icons.add_a_photo_outlined),
-                      label: Text(
-                        'Add material photos (${_photoPaths.length}/4)',
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Use these for arrival condition, markings, and visible damage.',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 10),
-                    _ThumbnailRow(
-                      paths: _photoPaths,
-                      maxCount: 4,
-                      itemLabel: 'photo',
-                      onTap: (index) {
-                        _handleExistingMediaTap(isPhoto: true, index: index);
-                      },
-                    ),
-                    if (_photoPaths.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Tap a thumbnail to retake or delete it.',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                    const SizedBox(height: 18),
-                    const _SectionHeader(title: 'MTR/CoC scans'),
-                    OutlinedButton.icon(
-                      onPressed: _handleScanAction,
-                      icon: const Icon(Icons.picture_as_pdf_outlined),
-                      label: Text(
-                        'Scan MTR/CoC PDFs (${_scanPaths.length}/8)',
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Preferred: document scanner. Camera fallback still exports cleanly into the combined MTR PDF.',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 10),
-                    _ThumbnailRow(
-                      paths: _scanPaths,
-                      maxCount: 8,
-                      itemLabel: 'scan',
-                      onTap: (index) {
-                        _handleExistingMediaTap(isPhoto: false, index: index);
-                      },
-                    ),
-                    if (_scanPaths.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Tap a thumbnail to retake or delete it.',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 18),
-              FilledButton.icon(
-                onPressed: _saveMaterialReceiving,
-                icon: const Icon(Icons.check_circle_outline_rounded),
-                label: const Text('Save Material'),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  await _saveDraftNow();
-                  if (!context.mounted) {
-                    return;
-                  }
-                  setState(() {
-                    _allowImmediatePop = true;
-                  });
-                  Navigator.pop(context);
-                },
-                icon: const Icon(Icons.save_as_outlined),
-                label: const Text('Save Draft and Close'),
-              ),
-            ],
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: _saveMaterialReceiving,
+                  icon: const Icon(Icons.check_circle_outline_rounded),
+                  label: const Text('Save Material'),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    await _saveDraftNow();
+                    if (!context.mounted) {
+                      return;
+                    }
+                    setState(() {
+                      _allowImmediatePop = true;
+                    });
+                    Navigator.pop(context);
+                  },
+                  icon: const Icon(Icons.save_as_outlined),
+                  label: const Text('Save Draft and Close'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

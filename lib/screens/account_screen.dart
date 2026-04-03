@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../app/material_guardian_state.dart';
 import '../app/routes.dart';
 import '../services/backend_api_service.dart';
+import '../util/formatting.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({required this.appState, super.key});
@@ -69,161 +70,169 @@ class _AccountScreenState extends State<AccountScreen> {
           body: SafeArea(
             top: false,
             minimum: const EdgeInsets.only(bottom: 12),
-            child: ListView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-              children: [
-                if (!kReleaseMode) ...[
-                  _BackendStatusCard(appState: appState),
-                  const SizedBox(height: 16),
-                ],
-                if (appState.backendAccountError != null &&
-                    appState.backendAccountError!.trim().isNotEmpty) ...[
-                  _ErrorCard(message: appState.backendAccountError!),
-                  const SizedBox(height: 16),
-                ],
-                if (!appState.isSignedIn) ...[
-                  _SignInCard(
-                    emailController: _emailController,
-                    displayNameController: _displayNameController,
-                    onStartSignIn: () async {
-                      await appState.startBackendSignIn(
-                        email: _emailController.text,
-                        displayName: _displayNameController.text,
-                      );
-                      if (!context.mounted) {
-                        return;
-                      }
-                      final challenge = appState.pendingBackendAuthStart;
-                      if (challenge != null) {
-                        _codeController.text = challenge.demoCode;
-                      }
-                    },
-                    isBusy: appState.isAuthenticatingBackend,
-                  ),
-                  if (pendingAuth != null) ...[
+            child: centeredContent(
+              child: ListView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                children: [
+                  if (!kReleaseMode) ...[
+                    _BackendStatusCard(appState: appState),
                     const SizedBox(height: 16),
-                    _CodeVerificationCard(
-                      authStart: pendingAuth,
-                      codeController: _codeController,
-                      isBusy: appState.isAuthenticatingBackend,
-                      onComplete: () async {
-                        await appState.completeBackendSignIn(
-                          code: _codeController.text,
-                        );
-                      },
-                    ),
                   ],
-                  if (conflict != null &&
-                      appState.hasPendingSessionReplacement) ...[
+                  if (appState.backendAccountError != null &&
+                      appState.backendAccountError!.trim().isNotEmpty) ...[
+                    _ErrorCard(message: appState.backendAccountError!),
                     const SizedBox(height: 16),
-                    _SessionReplacementCard(
-                      conflict: conflict,
-                      isBusy: appState.isAuthenticatingBackend,
-                      onReplace: () => appState.replacePendingBackendSession(),
-                    ),
                   ],
-                ] else ...[
-                  _AccountSummaryCard(
-                    me: me!,
-                    entitlement: entitlement,
-                    isRefreshing: appState.isRefreshingBackendAccount,
-                    onRefresh: () => appState.refreshBackendAccount(),
-                    onLogout: () => appState.logoutBackend(),
-                    onOpenPlans: () {
-                      Navigator.pushNamed(context, AppRoutes.sales);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _MembershipsCard(
-                    memberships: me.memberships,
-                    activeOrganization: organization,
-                    organizationNameController: _organizationNameController,
-                    organizationIdController: _redeemOrganizationIdController,
-                    codeController: _redeemCodeController,
-                    isBusy: appState.isAuthenticatingBackend,
-                    onCreateOrganization: () async {
-                      await appState.createOrganization(
-                        name: _organizationNameController.text,
-                      );
-                      if (!context.mounted ||
-                          appState.backendAccountError != null) {
-                        return;
-                      }
-                      _organizationNameController.clear();
-                    },
-                    onRedeem: () async {
-                      await appState.redeemOrganizationAccess(
-                        organizationId: _redeemOrganizationIdController.text,
-                        code: _redeemCodeController.text,
-                      );
-                      if (!context.mounted ||
-                          appState.backendAccountError != null) {
-                        return;
-                      }
-                      _redeemOrganizationIdController.clear();
-                      _redeemCodeController.clear();
-                    },
-                  ),
-                  if (organization != null) ...[
-                    const SizedBox(height: 16),
-                    _OrganizationCard(
-                      organization: organization,
-                      inviteEmailController: _inviteEmailController,
-                      inviteDisplayNameController: _inviteDisplayNameController,
-                      inviteRole: _inviteRole,
-                      isBusy: appState.isAuthenticatingBackend,
-                      onInviteRoleChanged: (value) {
-                        setState(() {
-                          _inviteRole = value;
-                        });
-                      },
-                      onInvite: () async {
-                        final result = await appState.inviteOrganizationMember(
-                          organizationId: organization.id,
-                          email: _inviteEmailController.text,
-                          displayName: _inviteDisplayNameController.text,
-                          role: _inviteRole,
+                  if (!appState.isSignedIn) ...[
+                    _SignInCard(
+                      emailController: _emailController,
+                      displayNameController: _displayNameController,
+                      onStartSignIn: () async {
+                        await appState.startBackendSignIn(
+                          email: _emailController.text,
+                          displayName: _displayNameController.text,
                         );
-                        if (!context.mounted || result == null) {
+                        if (!context.mounted) {
                           return;
                         }
-                        _inviteEmailController.clear();
-                        _inviteDisplayNameController.clear();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              result.accessGrant.demoAccessCode == null ||
-                                      result
-                                          .accessGrant
-                                          .demoAccessCode!
-                                          .isEmpty
-                                  ? 'Invite sent to ${result.member.email}.'
-                                  : 'Invite created for ${result.member.email}. Demo code: ${result.accessGrant.demoAccessCode}',
-                            ),
-                          ),
-                        );
+                        final challenge = appState.pendingBackendAuthStart;
+                        if (challenge != null) {
+                          _codeController.text = challenge.demoCode;
+                        }
                       },
-                      onResend: (membershipId) =>
-                          appState.resendOrganizationMemberAccess(
-                            organizationId: organization.id,
-                            membershipId: membershipId,
-                          ),
-                      onToggleSeat: (membership) =>
-                          appState.updateOrganizationMemberSeat(
-                            organizationId: organization.id,
-                            membershipId: membership.membershipId,
-                            assignSeat: !membership.seatAssigned,
-                          ),
-                      onRemove: (membershipId) =>
-                          appState.removeOrganizationMember(
-                            organizationId: organization.id,
-                            membershipId: membershipId,
-                          ),
+                      isBusy: appState.isAuthenticatingBackend,
                     ),
+                    if (pendingAuth != null) ...[
+                      const SizedBox(height: 16),
+                      _CodeVerificationCard(
+                        authStart: pendingAuth,
+                        codeController: _codeController,
+                        isBusy: appState.isAuthenticatingBackend,
+                        onComplete: () async {
+                          await appState.completeBackendSignIn(
+                            code: _codeController.text,
+                          );
+                        },
+                      ),
+                    ],
+                    if (conflict != null &&
+                        appState.hasPendingSessionReplacement) ...[
+                      const SizedBox(height: 16),
+                      _SessionReplacementCard(
+                        conflict: conflict,
+                        isBusy: appState.isAuthenticatingBackend,
+                        onReplace: () =>
+                            appState.replacePendingBackendSession(),
+                      ),
+                    ],
+                  ] else ...[
+                    _AccountSummaryCard(
+                      me: me!,
+                      entitlement: entitlement,
+                      isRefreshing: appState.isRefreshingBackendAccount,
+                      onRefresh: () => appState.refreshBackendAccount(),
+                      onLogout: () => appState.logoutBackend(),
+                      onOpenPlans: () {
+                        Navigator.pushNamed(context, AppRoutes.sales);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const _RecoveryHelpCard(),
+                    const SizedBox(height: 16),
+                    _MembershipsCard(
+                      memberships: me.memberships,
+                      activeOrganization: organization,
+                      organizationNameController: _organizationNameController,
+                      organizationIdController: _redeemOrganizationIdController,
+                      codeController: _redeemCodeController,
+                      isBusy: appState.isAuthenticatingBackend,
+                      onCreateOrganization: () async {
+                        await appState.createOrganization(
+                          name: _organizationNameController.text,
+                        );
+                        if (!context.mounted ||
+                            appState.backendAccountError != null) {
+                          return;
+                        }
+                        _organizationNameController.clear();
+                      },
+                      onRedeem: () async {
+                        await appState.redeemOrganizationAccess(
+                          organizationId: _redeemOrganizationIdController.text,
+                          code: _redeemCodeController.text,
+                        );
+                        if (!context.mounted ||
+                            appState.backendAccountError != null) {
+                          return;
+                        }
+                        _redeemOrganizationIdController.clear();
+                        _redeemCodeController.clear();
+                      },
+                    ),
+                    if (organization != null) ...[
+                      const SizedBox(height: 16),
+                      _OrganizationCard(
+                        organization: organization,
+                        inviteEmailController: _inviteEmailController,
+                        inviteDisplayNameController:
+                            _inviteDisplayNameController,
+                        inviteRole: _inviteRole,
+                        isBusy: appState.isAuthenticatingBackend,
+                        onInviteRoleChanged: (value) {
+                          setState(() {
+                            _inviteRole = value;
+                          });
+                        },
+                        onInvite: () async {
+                          final result = await appState
+                              .inviteOrganizationMember(
+                                organizationId: organization.id,
+                                email: _inviteEmailController.text,
+                                displayName: _inviteDisplayNameController.text,
+                                role: _inviteRole,
+                              );
+                          if (!context.mounted || result == null) {
+                            return;
+                          }
+                          _inviteEmailController.clear();
+                          _inviteDisplayNameController.clear();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                result.accessGrant.demoAccessCode == null ||
+                                        result
+                                            .accessGrant
+                                            .demoAccessCode!
+                                            .isEmpty
+                                    ? 'Invite sent to ${result.member.email}.'
+                                    : 'Invite created for ${result.member.email}. Demo code: ${result.accessGrant.demoAccessCode}',
+                              ),
+                            ),
+                          );
+                        },
+                        onResend: (membershipId) =>
+                            appState.resendOrganizationMemberAccess(
+                              organizationId: organization.id,
+                              membershipId: membershipId,
+                            ),
+                        onToggleSeat: (membership) =>
+                            appState.updateOrganizationMemberSeat(
+                              organizationId: organization.id,
+                              membershipId: membership.membershipId,
+                              assignSeat: !membership.seatAssigned,
+                            ),
+                        onRemove: (membershipId) =>
+                            appState.removeOrganizationMember(
+                              organizationId: organization.id,
+                              membershipId: membershipId,
+                            ),
+                      ),
+                    ],
                   ],
                 ],
-              ],
+              ),
             ),
           ),
         );
@@ -294,24 +303,24 @@ class _SignInCard extends StatelessWidget {
           children: [
             Text('Sign In', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
+            const Text(
+              'Use the same email on every device. A new device or cleared app data just means you request a fresh email code.',
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: emailController,
               keyboardType: TextInputType.emailAddress,
               autocorrect: false,
               enableSuggestions: false,
               textInputAction: TextInputAction.next,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(120),
-              ],
+              inputFormatters: [LengthLimitingTextInputFormatter(120)],
               decoration: const InputDecoration(labelText: 'Email'),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: displayNameController,
               textInputAction: TextInputAction.done,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(40),
-              ],
+              inputFormatters: [LengthLimitingTextInputFormatter(40)],
               decoration: const InputDecoration(
                 labelText: 'Display Name (optional)',
               ),
@@ -369,9 +378,7 @@ class _CodeVerificationCard extends StatelessWidget {
               controller: codeController,
               keyboardType: TextInputType.number,
               textInputAction: TextInputAction.done,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(12),
-              ],
+              inputFormatters: [LengthLimitingTextInputFormatter(12)],
               decoration: const InputDecoration(labelText: 'Code'),
             ),
             const SizedBox(height: 12),
@@ -462,8 +469,9 @@ class _AccountSummaryCard extends StatelessWidget {
             Text(
               'Plan: ${entitlement?.planCode ?? me.activeEntitlement.planCode ?? 'None'}',
             ),
+            const SizedBox(height: 4),
             Text(
-              'Session: ${me.activeSession?.deviceLabel ?? 'Unknown'} / ${me.activeSession?.platform ?? 'unknown'}',
+              'This device stays signed in until you sign out or clear app data.',
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -483,6 +491,32 @@ class _AccountSummaryCard extends StatelessWidget {
                   child: const Text('Plans'),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecoveryHelpCard extends StatelessWidget {
+  const _RecoveryHelpCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Sign-In And Recovery',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'If this phone is replaced, reset, or loses app data, sign back in with the same email and a fresh code. Business teams should keep at least one trusted admin active so the company can keep running if one person loses access.',
             ),
           ],
         ),
@@ -540,9 +574,7 @@ class _MembershipsCard extends StatelessWidget {
             if (!hasMemberships)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('No organization memberships yet.'),
-                ],
+                children: [const Text('No organization memberships yet.')],
               )
             else
               for (final membership in memberships) ...[
@@ -550,7 +582,7 @@ class _MembershipsCard extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   title: Text(membership.organizationName),
                   subtitle: Text(
-                    '${membership.role} | seat: ${membership.seatStatus} | ${membership.isAccepted ? 'accepted' : 'pending'}',
+                    '${_titleCase(membership.role)} | Seat: ${_titleCase(membership.seatStatus)} | ${membership.isAccepted ? 'Accepted' : 'Pending'}',
                   ),
                 ),
                 if (membership != memberships.last) const Divider(),
@@ -581,12 +613,8 @@ class _MembershipsCard extends StatelessWidget {
             TextField(
               controller: organizationNameController,
               textInputAction: TextInputAction.done,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(60),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Organization Name',
-              ),
+              inputFormatters: [LengthLimitingTextInputFormatter(60)],
+              decoration: const InputDecoration(labelText: 'Organization Name'),
             ),
             const SizedBox(height: 12),
             FilledButton(
@@ -608,18 +636,14 @@ class _MembershipsCard extends StatelessWidget {
               TextField(
                 controller: organizationIdController,
                 textInputAction: TextInputAction.next,
-                inputFormatters: [
-                  LengthLimitingTextInputFormatter(64),
-                ],
+                inputFormatters: [LengthLimitingTextInputFormatter(64)],
                 decoration: const InputDecoration(labelText: 'Organization ID'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: codeController,
                 textInputAction: TextInputAction.done,
-                inputFormatters: [
-                  LengthLimitingTextInputFormatter(24),
-                ],
+                inputFormatters: [LengthLimitingTextInputFormatter(24)],
                 decoration: const InputDecoration(labelText: 'Access Code'),
               ),
               const SizedBox(height: 12),
@@ -679,6 +703,10 @@ class _OrganizationCard extends StatelessWidget {
               'Plan: ${organization.planCode ?? 'None'} | Seats: ${organization.seatsAssigned}/${organization.seatLimit} assigned',
             ),
             Text('Members: ${organization.userCount}'),
+            const SizedBox(height: 8),
+            const Text(
+              'Admins can manage the company without using a report seat. Assign seats only to the people who should create receiving reports.',
+            ),
             const SizedBox(height: 16),
             Text(
               'Invite Member',
@@ -689,18 +717,14 @@ class _OrganizationCard extends StatelessWidget {
               controller: inviteEmailController,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(120),
-              ],
+              inputFormatters: [LengthLimitingTextInputFormatter(120)],
               decoration: const InputDecoration(labelText: 'Invite Email'),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: inviteDisplayNameController,
               textInputAction: TextInputAction.next,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(40),
-              ],
+              inputFormatters: [LengthLimitingTextInputFormatter(40)],
               decoration: const InputDecoration(
                 labelText: 'Display Name (optional)',
               ),
@@ -737,7 +761,7 @@ class _OrganizationCard extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 title: Text(member.name.isEmpty ? member.email : member.name),
                 subtitle: Text(
-                  '${member.role} | seat: ${member.seatAssigned ? 'assigned' : 'unassigned'} | ${member.acceptedAt == null ? 'pending' : 'accepted'}',
+                  '${_titleCase(member.role)} | Seat: ${member.seatAssigned ? 'Assigned' : 'Unassigned'} | ${member.acceptedAt == null ? 'Pending' : 'Accepted'}',
                 ),
               ),
               Wrap(
@@ -796,4 +820,11 @@ class _ErrorCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _titleCase(String value) {
+  if (value.isEmpty) {
+    return value;
+  }
+  return '${value[0].toUpperCase()}${value.substring(1)}';
 }

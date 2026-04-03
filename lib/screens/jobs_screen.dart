@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/brand_assets.dart';
 import '../app/material_guardian_state.dart';
@@ -19,98 +20,100 @@ class JobsScreen extends StatelessWidget {
         final hasUsableJobAccess = appState.hasUsableJobAccess;
         return Scaffold(
           body: SafeArea(
-            child: ListView(
-              padding: screenListPadding(context).copyWith(top: 24),
-              children: [
-                const _LandingLogo(),
-                const SizedBox(height: 20),
-                if (entitlement != null &&
-                    (appState.isTrialAccess ||
-                        appState.isLockedFromSubscription ||
-                        appState.isSeatBlocked)) ...[
-                  _AccessBanner(
-                    appState: appState,
-                    onViewPlans: () {
-                      Navigator.pushNamed(context, AppRoutes.sales);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 360),
-                    child: FilledButton(
-                      onPressed: () async {
-                        if (!hasUsableJobAccess) {
-                          Navigator.pushNamed(context, AppRoutes.sales);
-                          return;
-                        }
-                        await _showCreateJobDialog(context, appState);
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 2),
-                        child: Text('Create Job'),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _LandingLinkButton(
-                      label: 'Plans',
-                      onPressed: () {
+            child: centeredContent(
+              child: ListView(
+                padding: screenListPadding(context).copyWith(top: 24),
+                children: [
+                  const _LandingLogo(),
+                  const SizedBox(height: 20),
+                  if (entitlement != null &&
+                      (appState.isTrialAccess ||
+                          appState.isLockedFromSubscription ||
+                          appState.isSeatBlocked)) ...[
+                    _AccessBanner(
+                      appState: appState,
+                      onViewPlans: () {
                         Navigator.pushNamed(context, AppRoutes.sales);
                       },
                     ),
-                    if (appState.shouldShowAccountEntry)
+                    const SizedBox(height: 16),
+                  ],
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 360),
+                      child: FilledButton(
+                        onPressed: () async {
+                          if (!hasUsableJobAccess) {
+                            Navigator.pushNamed(context, AppRoutes.sales);
+                            return;
+                          }
+                          await _showCreateJobDialog(context, appState);
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 2),
+                          child: Text('Create Job'),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
                       _LandingLinkButton(
-                        label: 'Account',
+                        label: 'Plans',
                         onPressed: () {
-                          Navigator.pushNamed(context, AppRoutes.account);
+                          Navigator.pushNamed(context, AppRoutes.sales);
                         },
                       ),
-                    _LandingLinkButton(
-                      label: 'Customization',
-                      onPressed: () {
-                        Navigator.pushNamed(context, AppRoutes.customization);
-                      },
-                    ),
-                    _LandingLinkButton(
-                      label: 'Privacy Policy',
-                      onPressed: () {
-                        Navigator.pushNamed(context, AppRoutes.privacyPolicy);
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const Divider(),
-                const SizedBox(height: 14),
-                Text(
-                  'Current Jobs',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                if (appState.jobs.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 32),
-                    child: Center(
-                      child: Text(
-                        'No jobs yet. Create your first job above.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFF7B8794)),
+                      if (appState.shouldShowAccountEntry)
+                        _LandingLinkButton(
+                          label: 'Account',
+                          onPressed: () {
+                            Navigator.pushNamed(context, AppRoutes.account);
+                          },
+                        ),
+                      _LandingLinkButton(
+                        label: 'Customization',
+                        onPressed: () {
+                          Navigator.pushNamed(context, AppRoutes.customization);
+                        },
                       ),
-                    ),
-                  )
-                else
-                  for (final job in appState.jobs) ...[
-                    _JobLinkRow(appState: appState, jobId: job.id),
-                    const SizedBox(height: 10),
-                  ],
-              ],
+                      _LandingLinkButton(
+                        label: 'Privacy Policy',
+                        onPressed: () {
+                          Navigator.pushNamed(context, AppRoutes.privacyPolicy);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Current Jobs',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  if (appState.jobs.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: Text(
+                          'No jobs yet. Create your first job above.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Color(0xFF7B8794)),
+                        ),
+                      ),
+                    )
+                  else
+                    for (final job in appState.jobs) ...[
+                      _JobLinkRow(appState: appState, jobId: job.id),
+                      const SizedBox(height: 10),
+                    ],
+                ],
+              ),
             ),
           ),
         );
@@ -120,10 +123,7 @@ class JobsScreen extends StatelessWidget {
 }
 
 class _AccessBanner extends StatelessWidget {
-  const _AccessBanner({
-    required this.appState,
-    required this.onViewPlans,
-  });
+  const _AccessBanner({required this.appState, required this.onViewPlans});
 
   final MaterialGuardianAppState appState;
   final VoidCallback onViewPlans;
@@ -143,7 +143,7 @@ class _AccessBanner extends StatelessWidget {
     };
     final message = switch (entitlement.accessState) {
       'trial' =>
-        'You have ${entitlement.trialRemaining} free jobs remaining. When the trial runs out, come back here to pick a plan.',
+        'You have ${entitlement.trialRemaining} free jobs remaining. When the trial runs out, come back here to pick a plan and keep the same workflow.',
       'no_seat' =>
         'Your business account is in the system, but this user does not have a seat assigned yet. Contact your admin.',
       'locked' =>
@@ -160,9 +160,9 @@ class _AccessBanner extends StatelessWidget {
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(message),
@@ -202,18 +202,21 @@ Future<void> _showCreateJobDialog(
               TextField(
                 controller: jobNumberController,
                 textInputAction: TextInputAction.next,
+                inputFormatters: [LengthLimitingTextInputFormatter(24)],
                 decoration: const InputDecoration(labelText: 'Job Number'),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: descriptionController,
                 textInputAction: TextInputAction.next,
+                inputFormatters: [LengthLimitingTextInputFormatter(60)],
                 decoration: const InputDecoration(labelText: 'Description'),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: notesController,
                 textInputAction: TextInputAction.done,
+                inputFormatters: [LengthLimitingTextInputFormatter(120)],
                 decoration: const InputDecoration(labelText: 'Notes'),
               ),
             ],

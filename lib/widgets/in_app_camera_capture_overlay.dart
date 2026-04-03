@@ -42,7 +42,8 @@ class _InAppCameraCaptureOverlayState extends State<InAppCameraCaptureOverlay> {
   bool get _isReplacement => widget.replaceIndex != null;
 
   int get _activeIndex =>
-      widget.replaceIndex ?? (widget.currentCount + _acceptedCaptures.length + 1);
+      widget.replaceIndex ??
+      (widget.currentCount + _acceptedCaptures.length + 1);
 
   int get _displayCount => _isReplacement ? _activeIndex : _activeIndex;
 
@@ -329,7 +330,9 @@ class _InAppCameraCaptureOverlayState extends State<InAppCameraCaptureOverlay> {
     }
 
     final controller = _controller;
-    if (_initializing || controller == null || !controller.value.isInitialized) {
+    if (_initializing ||
+        controller == null ||
+        !controller.value.isInitialized) {
       return const Center(child: CircularProgressIndicator());
     }
 

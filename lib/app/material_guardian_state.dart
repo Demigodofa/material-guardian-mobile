@@ -283,7 +283,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
   BackendMeSnapshot? get backendMe => _backendMe;
   BackendEntitlementSnapshot? get backendEntitlement => _backendEntitlement;
   BackendOrganizationSummary? get backendOrganization => _backendOrganization;
-  List<BackendPlanSnapshot> get backendPlans => List.unmodifiable(_backendPlans);
+  List<BackendPlanSnapshot> get backendPlans =>
+      List.unmodifiable(_backendPlans);
   Map<String, StoreProductSnapshot> get storeProductsById =>
       Map.unmodifiable(_storeProductsById);
   List<String> get lastMissingStoreProductIds =>
@@ -315,6 +316,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     final accessState = effectiveBackendEntitlement?.accessState;
     return accessState == 'paid' || accessState == 'trial';
   }
+
   bool get isTrialAccess => effectiveBackendEntitlement?.accessState == 'trial';
   bool get isLockedFromSubscription =>
       effectiveBackendEntitlement?.accessState == 'locked';
@@ -880,9 +882,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     }
   }
 
-  Future<void> createOrganization({
-    required String name,
-  }) async {
+  Future<void> createOrganization({required String name}) async {
     final session = _backendAuthSession;
     if (session == null) {
       _backendAccountError = 'Sign in before creating an organization.';
@@ -961,7 +961,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
       }
     }
     if (plan == null) {
-      _purchaseError = 'Plan $planCode is not available in the billing catalog.';
+      _purchaseError =
+          'Plan $planCode is not available in the billing catalog.';
       notifyListeners();
       return;
     }
@@ -1337,8 +1338,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
               update.providerTransactionRef ??
               update.purchaseId ??
               '${update.productId}-${DateTime.now().millisecondsSinceEpoch}',
-          providerOriginalRef:
-              update.providerOriginalRef ?? update.purchaseId,
+          providerOriginalRef: update.providerOriginalRef ?? update.purchaseId,
           rawStatus: update.status,
         );
         await _hydrateBackendAccount(accessToken: session.accessToken);
@@ -1413,12 +1413,15 @@ class MaterialGuardianAppState extends ChangeNotifier {
       return _backendOrganization!.id;
     }
 
-    final membership = _firstAdminMembership(_backendMe?.memberships ?? const []);
+    final membership = _firstAdminMembership(
+      _backendMe?.memberships ?? const [],
+    );
     return membership?.organizationId;
   }
 
   BackendMembershipSummary? _membershipForCurrentEntitlement() {
-    final memberships = _backendMe?.memberships ?? const <BackendMembershipSummary>[];
+    final memberships =
+        _backendMe?.memberships ?? const <BackendMembershipSummary>[];
     if (memberships.isEmpty) {
       return null;
     }

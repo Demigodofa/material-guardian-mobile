@@ -79,6 +79,28 @@ The Flutter repo already has:
     - stronger plan-value copy
     - explicit explanation that business admins can manage seats/settings without occupying a production seat
     - explicit explanation that an admin can also choose to occupy a seat when they need report-creation access
+  - centered/constrained large-screen layout for the main shell surfaces so tablets and desktop-width previews do not sprawl edge to edge:
+    - plans
+    - account/admin
+    - customization
+    - drafts
+    - job detail
+    - receiving form
+    - privacy policy
+  - account/recovery wording cleanup:
+    - same-email sign-in on a new device is now explained directly in-app
+    - the account summary now says this device stays signed in until sign-out or app-data loss
+    - the admin/account surface now explicitly recommends keeping at least one trusted admin active for business continuity
+  - local-first privacy wording cleanup in-app:
+    - the privacy screen no longer claims the app is account-free
+    - it now distinguishes backend-managed account/org/subscription state from local report/job/media data
+  - field caps extended to create-job dialog inputs so long job-number/description/notes entry no longer becomes an unbounded layout/input path
+  - wider-form-factor validation now includes a real Android tablet emulator pass:
+    - Pixel Tablet landscape kept the sales first CTA in the initial viewport
+    - Pixel Tablet portrait also kept the trial stack readable without system-bar clipping
+    - the centered large-screen layout held the shell content together correctly
+  - smaller Android phone-emulator validation now also confirms the signed-out `Plans` stack still reads cleanly on a tighter vertical viewport without clipping the first CTA or the start-trial card
+  - Google Play billing is not a valid truth source on that emulator because BillingClient reported unsupported API access, so real billing remains phone/internal-test only
 
 ## Path forward from the mobile side
 

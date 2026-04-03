@@ -102,6 +102,10 @@ The Flutter repo already has:
   - signed-out sales/trial flow tightened again after fresh device/emulator validation:
     - the actual `Start Free Trial` form now sits above the long plan-explanation block instead of being buried below it
     - small-phone and tablet first-viewports now show the real account-entry action much earlier
+  - signed-in account/admin wording cleanup:
+    - recovery copy is shorter and less repetitive
+    - organization summaries now read with cleaner status separators instead of dense pipe-delimited strings
+    - the active organization is no longer redundantly repeated in the memberships card
   - wider-form-factor validation now includes a real Android tablet emulator pass:
     - Pixel Tablet landscape kept the sales first CTA in the initial viewport
     - Pixel Tablet portrait also kept the trial stack readable without system-bar clipping

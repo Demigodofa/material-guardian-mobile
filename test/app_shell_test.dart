@@ -251,8 +251,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Sign-In And Recovery'), findsOneWidget);
-    expect(find.text('Organization Admin'), findsOneWidget);
+    expect(find.text('Recovery'), findsOneWidget);
+    expect(find.text('Acme Fabrication'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 

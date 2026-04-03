@@ -511,12 +511,12 @@ class _RecoveryHelpCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Sign-In And Recovery',
+              'Recovery',
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 8),
             const Text(
-              'If this phone is replaced, reset, or loses app data, sign back in with the same email and a fresh code. Business teams should keep at least one trusted admin active so the company can keep running if one person loses access.',
+              'If this phone is replaced, reset, or loses app data, sign back in with the same email and a fresh code. Business teams should keep at least one trusted admin active.',
             ),
           ],
         ),
@@ -550,14 +550,7 @@ class _MembershipsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final pendingMemberships = memberships.where((item) => !item.isAccepted);
     final hasMemberships = memberships.isNotEmpty;
-    final shouldRepeatActiveOrganization =
-        activeOrganization != null &&
-        (memberships.length != 1 ||
-            memberships.first.organizationName != activeOrganization!.name);
     final createOrganizationHeading = hasMemberships
-        ? 'Create Another Organization'
-        : 'Create Your Business Organization';
-    final createOrganizationButtonLabel = hasMemberships
         ? 'Create Another Organization'
         : 'Create Organization';
     final createOrganizationHelp = hasMemberships
@@ -569,7 +562,10 @@ class _MembershipsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Memberships', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Organizations',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             if (!hasMemberships)
               Column(
@@ -582,23 +578,11 @@ class _MembershipsCard extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   title: Text(membership.organizationName),
                   subtitle: Text(
-                    '${_titleCase(membership.role)} | Seat: ${_titleCase(membership.seatStatus)} | ${membership.isAccepted ? 'Accepted' : 'Pending'}',
+                    '${_titleCase(membership.role)} · ${_titleCase(membership.seatStatus)} seat · ${membership.isAccepted ? 'Accepted' : 'Pending'}',
                   ),
                 ),
                 if (membership != memberships.last) const Divider(),
               ],
-            if (shouldRepeatActiveOrganization) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Active organization: ${activeOrganization!.name}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 4),
-              SelectableText(
-                'Organization ID: ${activeOrganization!.id}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
             const SizedBox(height: 12),
             Text(
               createOrganizationHeading,
@@ -619,7 +603,7 @@ class _MembershipsCard extends StatelessWidget {
             const SizedBox(height: 12),
             FilledButton(
               onPressed: isBusy ? null : onCreateOrganization,
-              child: Text(createOrganizationButtonLabel),
+              child: Text(createOrganizationHeading),
             ),
             if (pendingMemberships.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -694,18 +678,19 @@ class _OrganizationCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Organization Admin',
+              organization.name,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            Text(organization.name),
             Text(
-              'Plan: ${organization.planCode ?? 'None'} | Seats: ${organization.seatsAssigned}/${organization.seatLimit} assigned',
+              'Plan: ${organization.planCode ?? 'None'}',
             ),
-            Text('Members: ${organization.userCount}'),
+            Text(
+              'Seats: ${organization.seatsAssigned}/${organization.seatLimit} assigned · Members: ${organization.userCount}',
+            ),
             const SizedBox(height: 8),
             const Text(
-              'Admins can manage the company without using a report seat. Assign seats only to the people who should create receiving reports.',
+              'Admins can manage the company without using a report seat. Assign seats only to people who should create receiving reports.',
             ),
             const SizedBox(height: 16),
             Text(
@@ -761,7 +746,7 @@ class _OrganizationCard extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 title: Text(member.name.isEmpty ? member.email : member.name),
                 subtitle: Text(
-                  '${_titleCase(member.role)} | Seat: ${member.seatAssigned ? 'Assigned' : 'Unassigned'} | ${member.acceptedAt == null ? 'Pending' : 'Accepted'}',
+                  '${_titleCase(member.role)} · ${member.seatAssigned ? 'Seat assigned' : 'No seat'} · ${member.acceptedAt == null ? 'Pending' : 'Accepted'}',
                 ),
               ),
               Wrap(

@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/material_guardian_state.dart';
+import '../app/routes.dart';
 import '../services/backend_api_service.dart';
-import '../services/store_purchase_service.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({required this.appState, super.key});
@@ -49,7 +50,6 @@ class _AccountScreenState extends State<AccountScreen> {
         final me = appState.backendMe;
         final entitlement = appState.backendEntitlement;
         final organization = appState.backendOrganization;
-        final plans = appState.backendPlans;
         final pendingAuth = appState.pendingBackendAuthStart;
         final conflict = appState.pendingSessionConflict;
 
@@ -130,6 +130,9 @@ class _AccountScreenState extends State<AccountScreen> {
                     isRefreshing: appState.isRefreshingBackendAccount,
                     onRefresh: () => appState.refreshBackendAccount(),
                     onLogout: () => appState.logoutBackend(),
+                    onOpenPlans: () {
+                      Navigator.pushNamed(context, AppRoutes.sales);
+                    },
                   ),
                   const SizedBox(height: 16),
                   _MembershipsCard(
@@ -161,25 +164,6 @@ class _AccountScreenState extends State<AccountScreen> {
                       _redeemOrganizationIdController.clear();
                       _redeemCodeController.clear();
                     },
-                  ),
-                  const SizedBox(height: 16),
-                  _BillingCard(
-                    plans: plans,
-                    storeProductsById: appState.storeProductsById,
-                    missingStoreProductIds: appState.lastMissingStoreProductIds,
-                    storeCatalogError: appState.lastStoreCatalogError,
-                    activeEntitlement: entitlement ?? me.activeEntitlement,
-                    activeOrganization: organization,
-                    isLoadingCatalog: appState.isLoadingPurchaseCatalog,
-                    isPurchasing: appState.isPurchasing,
-                    isRestoringPurchases: appState.isRestoringPurchases,
-                    isStoreAvailable: appState.isStoreAvailable,
-                    purchaseStatusMessage: appState.purchaseStatusMessage,
-                    purchaseError: appState.purchaseError,
-                    onLoadCatalog: () => appState.loadPurchaseCatalog(),
-                    onRestorePurchases: () => appState.restorePurchases(),
-                    onPurchasePlan: (planCode) =>
-                        appState.purchasePlan(planCode: planCode),
                   ),
                   if (organization != null) ...[
                     const SizedBox(height: 16),
@@ -315,11 +299,19 @@ class _SignInCard extends StatelessWidget {
               keyboardType: TextInputType.emailAddress,
               autocorrect: false,
               enableSuggestions: false,
+              textInputAction: TextInputAction.next,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(120),
+              ],
               decoration: const InputDecoration(labelText: 'Email'),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: displayNameController,
+              textInputAction: TextInputAction.done,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(40),
+              ],
               decoration: const InputDecoration(
                 labelText: 'Display Name (optional)',
               ),
@@ -375,6 +367,11 @@ class _CodeVerificationCard extends StatelessWidget {
             const SizedBox(height: 12),
             TextField(
               controller: codeController,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(12),
+              ],
               decoration: const InputDecoration(labelText: 'Code'),
             ),
             const SizedBox(height: 12),
@@ -435,6 +432,7 @@ class _AccountSummaryCard extends StatelessWidget {
     required this.isRefreshing,
     required this.onRefresh,
     required this.onLogout,
+    required this.onOpenPlans,
   });
 
   final BackendMeSnapshot me;
@@ -442,6 +440,7 @@ class _AccountSummaryCard extends StatelessWidget {
   final bool isRefreshing;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onLogout;
+  final VoidCallback onOpenPlans;
 
   @override
   Widget build(BuildContext context) {
@@ -479,6 +478,10 @@ class _AccountSummaryCard extends StatelessWidget {
                   onPressed: isRefreshing ? null : onLogout,
                   child: const Text('Sign Out'),
                 ),
+                OutlinedButton(
+                  onPressed: isRefreshing ? null : onOpenPlans,
+                  child: const Text('Plans'),
+                ),
               ],
             ),
           ],
@@ -513,6 +516,10 @@ class _MembershipsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final pendingMemberships = memberships.where((item) => !item.isAccepted);
     final hasMemberships = memberships.isNotEmpty;
+    final shouldRepeatActiveOrganization =
+        activeOrganization != null &&
+        (memberships.length != 1 ||
+            memberships.first.organizationName != activeOrganization!.name);
     final createOrganizationHeading = hasMemberships
         ? 'Create Another Organization'
         : 'Create Your Business Organization';
@@ -548,7 +555,7 @@ class _MembershipsCard extends StatelessWidget {
                 ),
                 if (membership != memberships.last) const Divider(),
               ],
-            if (activeOrganization != null) ...[
+            if (shouldRepeatActiveOrganization) ...[
               const SizedBox(height: 12),
               Text(
                 'Active organization: ${activeOrganization!.name}',
@@ -573,6 +580,10 @@ class _MembershipsCard extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: organizationNameController,
+              textInputAction: TextInputAction.done,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(60),
+              ],
               decoration: const InputDecoration(
                 labelText: 'Organization Name',
               ),
@@ -596,11 +607,19 @@ class _MembershipsCard extends StatelessWidget {
               const SizedBox(height: 8),
               TextField(
                 controller: organizationIdController,
+                textInputAction: TextInputAction.next,
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(64),
+                ],
                 decoration: const InputDecoration(labelText: 'Organization ID'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: codeController,
+                textInputAction: TextInputAction.done,
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(24),
+                ],
                 decoration: const InputDecoration(labelText: 'Access Code'),
               ),
               const SizedBox(height: 12),
@@ -611,181 +630,6 @@ class _MembershipsCard extends StatelessWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _BillingCard extends StatelessWidget {
-  const _BillingCard({
-    required this.plans,
-    required this.storeProductsById,
-    required this.missingStoreProductIds,
-    required this.storeCatalogError,
-    required this.activeEntitlement,
-    required this.activeOrganization,
-    required this.isLoadingCatalog,
-    required this.isPurchasing,
-    required this.isRestoringPurchases,
-    required this.isStoreAvailable,
-    required this.purchaseStatusMessage,
-    required this.purchaseError,
-    required this.onLoadCatalog,
-    required this.onRestorePurchases,
-    required this.onPurchasePlan,
-  });
-
-  final List<BackendPlanSnapshot> plans;
-  final Map<String, StoreProductSnapshot> storeProductsById;
-  final List<String> missingStoreProductIds;
-  final String? storeCatalogError;
-  final BackendEntitlementSnapshot activeEntitlement;
-  final BackendOrganizationSummary? activeOrganization;
-  final bool isLoadingCatalog;
-  final bool isPurchasing;
-  final bool isRestoringPurchases;
-  final bool isStoreAvailable;
-  final String? purchaseStatusMessage;
-  final String? purchaseError;
-  final Future<void> Function() onLoadCatalog;
-  final Future<void> Function() onRestorePurchases;
-  final Future<void> Function(String planCode) onPurchasePlan;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Plans & Billing', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              'Current access: ${activeEntitlement.accessState} | Plan: ${activeEntitlement.planCode ?? 'None'}',
-            ),
-            if (activeEntitlement.accessState == 'trial')
-              Text('Free jobs remaining: ${activeEntitlement.trialRemaining}'),
-            if (activeOrganization != null)
-              Text(
-                'Business org: ${activeOrganization!.name} | Seats: ${activeOrganization!.seatsAssigned}/${activeOrganization!.seatLimit}',
-              ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                FilledButton(
-                  onPressed: isLoadingCatalog ? null : onLoadCatalog,
-                  child: const Text('Load Plans'),
-                ),
-                OutlinedButton(
-                  onPressed: (!isStoreAvailable ||
-                          isPurchasing ||
-                          isRestoringPurchases)
-                      ? null
-                      : onRestorePurchases,
-                  child: Text(
-                    isRestoringPurchases
-                        ? 'Checking Purchases...'
-                        : 'Restore Purchases',
-                  ),
-                ),
-              ],
-            ),
-            if (purchaseStatusMessage != null &&
-                purchaseStatusMessage!.trim().isNotEmpty) ...[
-              const SizedBox(height: 10),
-              _StatusCard(message: purchaseStatusMessage!),
-            ],
-            if (purchaseError != null && purchaseError!.trim().isNotEmpty) ...[
-              const SizedBox(height: 10),
-              _InlineErrorMessage(message: purchaseError!),
-            ],
-            if (storeCatalogError != null &&
-                storeCatalogError!.trim().isNotEmpty) ...[
-              const SizedBox(height: 10),
-              _InlineErrorMessage(message: 'Store error: $storeCatalogError'),
-            ],
-            if (missingStoreProductIds.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              SelectableText(
-                'Missing Play product IDs: ${missingStoreProductIds.join(', ')}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-            const SizedBox(height: 12),
-            if (plans.isEmpty)
-              const Text('Load the billing catalog to see available plans.')
-            else
-              for (final plan in plans) ...[
-                _PlanTile(
-                  plan: plan,
-                  storeProduct: storeProductsById[
-                    Theme.of(context).platform == TargetPlatform.iOS
-                        ? (plan.appleStoreProductId ?? '')
-                        : (plan.googleStoreProductId ?? '')
-                  ],
-                  isBusy: isPurchasing,
-                  isStoreAvailable: isStoreAvailable,
-                  activeOrganization: activeOrganization,
-                  onPurchase: () => onPurchasePlan(plan.planCode),
-                ),
-                if (plan != plans.last) const Divider(),
-              ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PlanTile extends StatelessWidget {
-  const _PlanTile({
-    required this.plan,
-    required this.storeProduct,
-    required this.isBusy,
-    required this.isStoreAvailable,
-    required this.activeOrganization,
-    required this.onPurchase,
-  });
-
-  final BackendPlanSnapshot plan;
-  final StoreProductSnapshot? storeProduct;
-  final bool isBusy;
-  final bool isStoreAvailable;
-  final BackendOrganizationSummary? activeOrganization;
-  final Future<void> Function() onPurchase;
-
-  @override
-  Widget build(BuildContext context) {
-    final requiresOrganization = plan.isBusiness;
-    final canPurchase =
-        storeProduct != null &&
-        (!requiresOrganization || activeOrganization != null) &&
-        !isBusy;
-    final disabledReason = switch ((storeProduct != null, requiresOrganization, activeOrganization != null, isStoreAvailable, isBusy)) {
-      (_, _, _, _, true) => 'Purchase in progress',
-      (_, true, false, _, _) => 'Create an organization first for business checkout',
-      (false, _, _, false, _) => 'Store is unavailable on this build/device',
-      (false, _, _, true, _) => 'Tap Load Plans to pull the current Play product details',
-      _ => null,
-    };
-
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text('${plan.audienceType} ${plan.billingInterval}'),
-      subtitle: Text(
-        [
-          'Backend: ${plan.displayPrice}',
-          if (storeProduct != null) 'Store: ${storeProduct!.price}',
-          'Seats: ${plan.seatLimit}',
-          if (disabledReason case final message) message,
-        ].join(' | '),
-      ),
-      trailing: FilledButton(
-        onPressed: canPurchase ? onPurchase : null,
-        child: const Text('Buy'),
       ),
     );
   }
@@ -843,11 +687,20 @@ class _OrganizationCard extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: inviteEmailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(120),
+              ],
               decoration: const InputDecoration(labelText: 'Invite Email'),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: inviteDisplayNameController,
+              textInputAction: TextInputAction.next,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(40),
+              ],
               decoration: const InputDecoration(
                 labelText: 'Display Name (optional)',
               ),
@@ -941,43 +794,6 @@ class _ErrorCard extends StatelessWidget {
           style: TextStyle(color: colorScheme.onErrorContainer),
         ),
       ),
-    );
-  }
-}
-
-class _StatusCard extends StatelessWidget {
-  const _StatusCard({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      color: colorScheme.secondaryContainer,
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(
-          message,
-          style: TextStyle(color: colorScheme.onSecondaryContainer),
-        ),
-      ),
-    );
-  }
-}
-
-class _InlineErrorMessage extends StatelessWidget {
-  const _InlineErrorMessage({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Text(
-      message,
-      style: TextStyle(color: colorScheme.error),
     );
   }
 }

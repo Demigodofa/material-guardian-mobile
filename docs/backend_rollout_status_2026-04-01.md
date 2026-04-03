@@ -74,6 +74,11 @@ The Flutter repo already has:
   - explicit Play billing catalog diagnostics so Android internal-test builds can now tell you whether the store is unavailable, the query returned an error, or specific product IDs were not found
   - release gating for the raw backend diagnostics card so the active service URL is no longer shown in customer-facing release builds
   - account UX cleanup so organization creation stays available after the first organization exists and billing status/errors read more clearly
+  - a dedicated sales/trial screen that is now being hardened as a real buying surface instead of a backend test page:
+    - tighter first-viewport phone layout
+    - stronger plan-value copy
+    - explicit explanation that business admins can manage seats/settings without occupying a production seat
+    - explicit explanation that an admin can also choose to occupy a seat when they need report-creation access
 
 ## Path forward from the mobile side
 
@@ -90,10 +95,15 @@ The Flutter repo already has:
 6. keep solo users on the same customization/report-settings surface as admins, with seats/invites only appearing for business admins
 7. hide the account/admin entry point for seated non-admin users while still leaving them access to their own printed-name/signature customization
 8. keep local jobs/drafts working while backend account work lands
-9. consume backend `GET /plans` in customer-facing pricing/paywall screens
-10. validate real Android purchase callbacks on-device and confirm successful backend verification against the live dev backend
-11. keep privacy/store wording aligned with the actual backend-backed release scope
-12. use the next internal-test Play build to confirm whether the current billing blocker is propagation, tester access, or mismatched product visibility
+9. keep sales/trial copy explicit about what each plan unlocks:
+   - single-user full workspace
+   - business branding/report-default control
+   - seat assignment
+   - admin-vs-seat behavior
+10. consume backend `GET /plans` in customer-facing pricing/paywall screens
+11. validate real Android purchase callbacks on-device and confirm successful backend verification against the live dev backend
+12. keep privacy/store wording aligned with the actual backend-backed release scope
+13. use the next internal-test Play build to confirm whether the current billing blocker is propagation, tester access, or mismatched product visibility
 
 ### After the first real backend auth pass
 

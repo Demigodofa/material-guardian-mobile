@@ -45,7 +45,14 @@ Current reality:
   - persisted signed-in users go straight to the normal jobs landing instead of seeing the sales surface every launch
   - if app data/session storage is cleared, the user must complete the email-code sign-in flow again because the backend session is no longer cached on-device
   - sales/paywall and account/admin should be separate surfaces
+  - the sales/paywall screen should explain plan value plainly, not just show prices:
+    - individual = one full workspace for one shop
+    - business = company branding/report defaults plus managed seats
+    - yearly plans should call out the annual savings as roughly two free months
   - customization is the shared settings surface, with solo users getting the same logo/report-setting powers as business admins except for seats
+  - admin role and seat assignment are separate:
+    - business admins can manage seats/settings without occupying a production seat
+    - an admin can also occupy a seat when they need receiving-report creation access
   - seated non-admin users keep their own printed-name/signature customization but should not see the account/admin entry point
 - shared Dart workflow should stay cross-platform by default
 - the receiving form now carries a meaningful donor-aligned field block rather than only a placeholder shell
@@ -113,6 +120,7 @@ Current reality:
 - split launch into a signed-out sales/trial path versus a signed-in jobs landing path
 - move returning-user sign-in to the sales entry flow instead of mixing it into account/admin
 - separate account/admin from the sales/paywall screen
+- make the sales/paywall screen describe actual plan value, seat behavior, admin behavior, and annual savings before treating it as release-ready
 - gate account visibility by role so only solo users and business admins see it
 - keep customization visible to every seated user, but restrict org-level report settings to solo/admin paths
 

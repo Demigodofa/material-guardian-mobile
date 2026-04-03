@@ -10,9 +10,11 @@ import 'package:material_guardian_mobile/app/material_guardian_app.dart';
 import 'package:material_guardian_mobile/app/material_guardian_state.dart';
 import 'package:material_guardian_mobile/app/routes.dart';
 import 'package:material_guardian_mobile/data/backend_auth_session_store.dart';
+import 'package:material_guardian_mobile/screens/account_screen.dart';
 import 'package:material_guardian_mobile/screens/job_detail_screen.dart';
 import 'package:material_guardian_mobile/screens/jobs_screen.dart';
 import 'package:material_guardian_mobile/screens/material_form_screen.dart';
+import 'package:material_guardian_mobile/screens/sales_screen.dart';
 import 'package:material_guardian_mobile/services/backend_api_service.dart';
 import 'package:material_guardian_mobile/services/store_purchase_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -95,6 +97,76 @@ void main() {
 
     expect(find.text('Start Free Trial'), findsWidgets);
     expect(find.text('Create Job'), findsNothing);
+  });
+
+  testWidgets('sales screen clamps long email, name, and code input', (
+    tester,
+  ) async {
+    final service = BackendApiService(
+      baseUrl:
+          'https://app-platforms-backend-dev-293518443128.us-east4.run.app',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/auth/start')) {
+          return http.Response(
+            '{"flowId":"flow_sales","deliveryTarget":"trial@materialguardian.test","expiresAt":"2026-04-03T18:30:00.000Z","demoCode":"246810"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        return http.Response(
+          '{"status":"ok","service":"app-platforms-backend","mode":"postgres"}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final appState = MaterialGuardianAppState.seeded(
+      backendApiService: service,
+      authSessionStore: InMemoryBackendAuthSessionStore(),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SalesScreen(appState: appState)));
+    await tester.pumpAndSettle();
+
+    Finder textFieldByLabel(String label) {
+      return find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == label,
+      );
+    }
+
+    final emailField = textFieldByLabel('Email');
+    final nameField = textFieldByLabel('Name (optional)');
+
+    await tester.enterText(emailField, 'a' * 150);
+    await tester.enterText(nameField, 'b' * 60);
+    await tester.pump();
+
+    expect(tester.widget<TextField>(emailField).controller?.text.length, 120);
+    expect(tester.widget<TextField>(nameField).controller?.text.length, 40);
+
+    await tester.enterText(emailField, 'trial@materialguardian.test');
+    await tester.enterText(nameField, 'Trial User');
+    await tester.pump();
+
+    await appState.startBackendSignIn(
+      email: 'trial@materialguardian.test',
+      displayName: 'Trial User',
+    );
+    await tester.pumpAndSettle();
+
+    final codeField = textFieldByLabel('Code');
+    await tester.scrollUntilVisible(
+      find.text('Enter Your Code'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(codeField, '12345678901234567890');
+    await tester.pump();
+
+    expect(tester.widget<TextField>(codeField).controller?.text.length, 12);
   });
 
   testWidgets('material form keeps donor field caps for report alignment', (
@@ -595,6 +667,115 @@ void main() {
     expect(find.text('Plans'), findsOneWidget);
     expect(find.text('Customization'), findsOneWidget);
     expect(find.text('Account'), findsNothing);
+  });
+
+  testWidgets('signed-in admin account screen is account admin only and clamps org inputs', (
+    tester,
+  ) async {
+    final sessionStore = InMemoryBackendAuthSessionStore();
+    final service = BackendApiService(
+      baseUrl:
+          'https://app-platforms-backend-dev-293518443128.us-east4.run.app',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/auth/start')) {
+          return http.Response(
+            '{"flowId":"flow_admin","deliveryTarget":"owner@materialguardian.test","expiresAt":"2026-04-02T18:30:00.000Z","demoCode":"246810"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        if (request.url.path.endsWith('/auth/complete')) {
+          return http.Response(
+            '{"status":"authenticated","accessToken":"access-admin","refreshToken":"refresh-admin","user":{"id":"user_admin","email":"owner@materialguardian.test","displayName":"Owner","status":"active","createdAt":"2026-04-02T12:00:00.000Z","lastLoginAt":"2026-04-02T12:05:00.000Z"},"memberships":[{"id":"membership_owner","organizationId":"org_acme","organizationName":"Acme Fabrication","role":"owner","seatStatus":"assigned","invitedAt":"2026-04-02T12:00:00.000Z","acceptedAt":"2026-04-02T12:01:00.000Z"}],"activeEntitlement":{"productCode":"material_guardian","planCode":"material_guardian_business_5_monthly","accessState":"paid","seatAvailability":"assigned","subscriptionState":"active","trialRemaining":0,"organizationId":"org_acme","startsAt":"2026-04-02T12:00:00.000Z","endsAt":null},"session":{"id":"session_admin","deviceLabel":"Kevin PowerShell","platform":"web","status":"active","issuedAt":"2026-04-02T12:05:00.000Z","lastSeenAt":"2026-04-02T12:05:00.000Z","revokedAt":null}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        if (request.url.path.endsWith('/me')) {
+          return http.Response(
+            '{"user":{"id":"user_admin","email":"owner@materialguardian.test","displayName":"Owner","status":"active","createdAt":"2026-04-02T12:00:00.000Z","lastLoginAt":"2026-04-02T12:05:00.000Z"},"memberships":[{"id":"membership_owner","organizationId":"org_acme","organizationName":"Acme Fabrication","role":"owner","seatStatus":"assigned","invitedAt":"2026-04-02T12:00:00.000Z","acceptedAt":"2026-04-02T12:01:00.000Z"}],"currentSeatAssignment":{"organizationId":"org_acme","status":"assigned"},"trialState":null,"activeEntitlement":{"productCode":"material_guardian","planCode":"material_guardian_business_5_monthly","accessState":"paid","seatAvailability":"assigned","subscriptionState":"active","trialRemaining":0,"organizationId":"org_acme","startsAt":"2026-04-02T12:00:00.000Z","endsAt":null},"activeSession":{"id":"session_admin","deviceLabel":"Kevin PowerShell","platform":"web","status":"active","issuedAt":"2026-04-02T12:05:00.000Z","lastSeenAt":"2026-04-02T12:05:00.000Z","revokedAt":null}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        if (request.url.path.endsWith('/entitlements/current')) {
+          return http.Response(
+            '{"productCode":"material_guardian","planCode":"material_guardian_business_5_monthly","accessState":"paid","seatAvailability":"assigned","subscriptionState":"active","trialRemaining":0,"organizationId":"org_acme","startsAt":"2026-04-02T12:00:00.000Z","endsAt":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        if (request.url.path.endsWith('/organizations/org_acme')) {
+          return http.Response(
+            '{"id":"org_acme","name":"Acme Fabrication","status":"active","planCode":"material_guardian_business_5_monthly","seatLimit":5,"seatsAssigned":2,"seatsRemaining":3,"userCount":3,"members":[]}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        return http.Response(
+          '{"status":"ok","service":"app-platforms-backend","mode":"postgres"}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final appState = MaterialGuardianAppState.seeded(
+      backendApiService: service,
+      authSessionStore: sessionStore,
+    );
+
+    await appState.startBackendSignIn(
+      email: 'owner@materialguardian.test',
+      displayName: 'Owner',
+    );
+    await appState.completeBackendSignIn(code: '246810');
+
+    await tester.pumpWidget(MaterialApp(home: AccountScreen(appState: appState)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Plans & Billing'), findsNothing);
+    expect(find.text('Plans'), findsOneWidget);
+    expect(find.text('Create Another Organization'), findsAtLeastNWidgets(1));
+
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.widgetWithText(FilledButton, 'Invite Member'),
+      200,
+      scrollable: scrollable,
+    );
+    await tester.pumpAndSettle();
+
+    Finder textFieldByLabel(String label) {
+      return find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == label,
+      );
+    }
+
+    final orgField = textFieldByLabel('Organization Name');
+    final inviteEmailField = textFieldByLabel('Invite Email');
+    final inviteNameField = textFieldByLabel('Display Name (optional)');
+
+    await tester.enterText(orgField, 'O' * 90);
+    await tester.enterText(inviteEmailField, 'e' * 150);
+    await tester.enterText(inviteNameField, 'n' * 60);
+    await tester.pump();
+
+    expect(tester.widget<TextField>(orgField).controller?.text.length, 60);
+    expect(
+      tester.widget<TextField>(inviteEmailField).controller?.text.length,
+      120,
+    );
+    expect(
+      tester.widget<TextField>(inviteNameField).controller?.text.length,
+      40,
+    );
   });
 }
 

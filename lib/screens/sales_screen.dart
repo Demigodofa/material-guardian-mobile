@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/brand_assets.dart';
 import '../app/material_guardian_state.dart';
@@ -56,9 +57,9 @@ class _SalesScreenState extends State<SalesScreen> {
             child: ListView(
               padding: screenListPadding(context),
               children: [
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 const _SalesLogo(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _HeroCard(
                   isSignedIn: isSignedIn,
                   trialRemaining: entitlement?.trialRemaining ?? 6,
@@ -112,7 +113,12 @@ class _SalesScreenState extends State<SalesScreen> {
                   ],
                 ] else ...[
                   const SizedBox(height: 16),
-                  _SignedInStatusCard(appState: appState),
+                  _SignedInStatusCard(
+                    appState: appState,
+                    onOpenJobs: () {
+                      Navigator.popUntil(context, (route) => route.isFirst);
+                    },
+                  ),
                 ],
                 const SizedBox(height: 16),
                 _PlansCard(appState: appState),
@@ -154,8 +160,8 @@ class _SalesLogo extends StatelessWidget {
     return Center(
       child: Image.asset(
         BrandAssets.materialGuardianLogo512,
-        width: 124,
-        height: 124,
+        width: 96,
+        height: 96,
         fit: BoxFit.contain,
       ),
     );
@@ -177,27 +183,27 @@ class _HeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = isSignedIn
         ? 'Pick the right plan for your shop'
-        : 'Start with 6 free jobs';
+        : 'Start free with 6 jobs';
     final subtitle = isSignedIn
         ? 'Your account is already in the system. Pick the plan that fits how you work.'
-        : 'Sign in with your email code to start the free trial, then upgrade when you are ready.';
+        : 'Use a verified email sign-in, run 6 jobs free, then upgrade only if the app earns a place in your workflow.';
     final trialLine = isSignedIn && accessState == 'trial'
         ? 'You still have $trialRemaining free jobs remaining on this account.'
-        : 'Yearly plans should read like a real value: save money annually, basically 2 free months.';
+        : 'Yearly pricing should read as the better value: about two free months versus paying monthly.';
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(subtitle),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               trialLine,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -235,7 +241,7 @@ class _StartTrialCard extends StatelessWidget {
             Text('Start Free Trial', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             const Text(
-              'Enter your email. The backend sends a code, and that email-code step is the account verification.',
+              'Enter the email you want tied to this account. The email code is the verification step.',
             ),
             const SizedBox(height: 12),
             TextField(
@@ -243,17 +249,25 @@ class _StartTrialCard extends StatelessWidget {
               keyboardType: TextInputType.emailAddress,
               autocorrect: false,
               enableSuggestions: false,
+              textInputAction: TextInputAction.next,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(120),
+              ],
               decoration: const InputDecoration(labelText: 'Email'),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: displayNameController,
+              textInputAction: TextInputAction.done,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(40),
+              ],
               decoration: const InputDecoration(labelText: 'Name (optional)'),
             ),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: isBusy ? null : onStart,
-              child: const Text('Start Free Trial'),
+              child: const Text('Send Email Code'),
             ),
           ],
         ),
@@ -296,6 +310,11 @@ class _VerifyCodeCard extends StatelessWidget {
             const SizedBox(height: 12),
             TextField(
               controller: codeController,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(12),
+              ],
               decoration: const InputDecoration(labelText: 'Code'),
             ),
             const SizedBox(height: 12),
@@ -350,9 +369,13 @@ class _ReplaceSessionCard extends StatelessWidget {
 }
 
 class _SignedInStatusCard extends StatelessWidget {
-  const _SignedInStatusCard({required this.appState});
+  const _SignedInStatusCard({
+    required this.appState,
+    required this.onOpenJobs,
+  });
 
   final MaterialGuardianAppState appState;
+  final VoidCallback onOpenJobs;
 
   @override
   Widget build(BuildContext context) {
@@ -374,6 +397,11 @@ class _SignedInStatusCard extends StatelessWidget {
             Text('Plan: ${entitlement.planCode ?? 'None'}'),
             if (entitlement.accessState == 'trial')
               Text('Free jobs remaining: ${entitlement.trialRemaining}'),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: onOpenJobs,
+              child: const Text('Open Jobs'),
+            ),
           ],
         ),
       ),
@@ -398,7 +426,11 @@ class _PlansCard extends StatelessWidget {
             Text('Plans', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             const Text(
-              'Individual keeps one shop in one seat. Business adds the organization, logo/report defaults, and seat management.',
+              'Individual gives one shop the full workspace. Business adds shared branding, report defaults, and managed seats for the whole company.',
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Business admins can invite people later, assign seats when someone needs report-creation access, and keep company branding/report defaults consistent across the team.',
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -472,14 +504,15 @@ class _SalesPlanTile extends StatelessWidget {
         plan.savingsCopy ??
         (plan.annualSavingsDisplay == null
             ? null
-            : 'Save ${plan.annualSavingsDisplay} each year.');
+            : 'Save ${plan.annualSavingsDisplay} per year, basically 2 free months.');
     final helperLine = !appState.isSignedIn
-        ? 'Sign in first to start the trial or buy this plan.'
+        ? 'Verify your email first to start the 6-job trial or buy a plan.'
         : needsOrganization && !hasOrganization
-        ? 'Create your organization in Account before business checkout.'
+        ? 'Create the company organization in Account first, then this purchase becomes that company workspace.'
         : storeProduct == null
         ? 'Store pricing has not loaded for this plan yet.'
         : null;
+    final highlights = _planHighlights(plan);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,8 +524,22 @@ class _SalesPlanTile extends StatelessWidget {
         const SizedBox(height: 4),
         Text('${plan.displayPrice}${storeProduct != null ? ' | Store: ${storeProduct.price}' : ''}'),
         Text('Seats: ${plan.seatLimit}'),
-        if (savingsLine != null && savingsLine.trim().isNotEmpty) ...[
+        const SizedBox(height: 8),
+        for (final highlight in highlights) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Text('• '),
+              ),
+              Expanded(child: Text(highlight)),
+            ],
+          ),
           const SizedBox(height: 4),
+        ],
+        if (savingsLine != null && savingsLine.trim().isNotEmpty) ...[
+          const SizedBox(height: 6),
           Text(
             savingsLine,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -533,4 +580,26 @@ String _titleCase(String value) {
     return value;
   }
   return '${value[0].toUpperCase()}${value.substring(1)}';
+}
+
+List<String> _planHighlights(BackendPlanSnapshot plan) {
+  if (plan.isBusiness) {
+    final adminLimit = plan.adminPolicy?.includedAdminLimit;
+    final adminLine = adminLimit == null
+        ? 'Company admins can manage seats, branding, and report defaults.'
+        : 'Up to $adminLimit admins can manage seats, branding, and report defaults.';
+    return [
+      'Includes up to ${plan.seatLimit} assignable seats for report creators.',
+      adminLine,
+      'Admins can also occupy a seat when they need to create receiving reports themselves.',
+      'Shared logo, B16, and surface-finish defaults stay under admin control.',
+      'MTRs and receiving reports are captured natively on the phone, not through a separate scanner workflow.',
+    ];
+  }
+
+  return [
+    'One full workspace for one shop or owner-operator.',
+    'Logo, B16, surface-finish defaults, and saved signatures stay available to the person paying for the plan.',
+    'Use the same phone workflow for MTR scans and receiving reports without needing shared seats.',
+  ];
 }

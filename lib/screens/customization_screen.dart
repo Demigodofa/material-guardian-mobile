@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
 import '../app/material_guardian_state.dart';
@@ -145,6 +146,9 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _qcInspectorController,
+                    inputFormatters: [
+                      LengthLimitingTextInputFormatter(20),
+                    ],
                     decoration: InputDecoration(
                       labelText: canManageWorkspaceSettings
                           ? 'Default QC inspector printed name'
@@ -155,6 +159,9 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _qcManagerController,
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(20),
+                      ],
                       decoration: const InputDecoration(
                         labelText: 'Default QC manager printed name',
                       ),

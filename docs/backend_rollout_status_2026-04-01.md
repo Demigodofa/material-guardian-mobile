@@ -81,11 +81,19 @@ The Flutter repo already has:
 
 1. validate the new shared sign-in/account shell against the live backend on-device
 2. switch trial UX assumptions to the launch target of `6` backend-counted free jobs
-3. keep local jobs/drafts working while backend account work lands
-4. consume backend `GET /plans` in customer-facing pricing/paywall screens
-5. validate real Android purchase callbacks on-device and confirm successful backend verification against the live dev backend
-6. keep privacy/store wording aligned with the actual backend-backed release scope
-7. use the next internal-test Play build to confirm whether the current billing blocker is propagation, tester access, or mismatched product visibility
+3. split the signed-out launch path from the signed-in jobs landing so the paywall/sales surface is not the same screen as account/admin
+4. keep persisted backend sessions going straight to the jobs landing; if app data is cleared, require email-code sign-in again because the cached local session is gone
+5. move the current mixed account/sales/admin surface toward:
+   - signed-out sales/trial screen
+   - signed-in account/admin screen
+   - customization screen
+6. keep solo users on the same customization/report-settings surface as admins, with seats/invites only appearing for business admins
+7. hide the account/admin entry point for seated non-admin users while still leaving them access to their own printed-name/signature customization
+8. keep local jobs/drafts working while backend account work lands
+9. consume backend `GET /plans` in customer-facing pricing/paywall screens
+10. validate real Android purchase callbacks on-device and confirm successful backend verification against the live dev backend
+11. keep privacy/store wording aligned with the actual backend-backed release scope
+12. use the next internal-test Play build to confirm whether the current billing blocker is propagation, tester access, or mismatched product visibility
 
 ### After the first real backend auth pass
 

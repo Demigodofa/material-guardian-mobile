@@ -40,6 +40,13 @@ Current reality:
 - the next backend-connected customer path is now explicit and partly wired: `6` backend-counted free jobs, then Play purchase on Android, then backend verification and refreshed entitlement/account state
 - the shared Flutter account area now has a first billing shell: typed backend plan loading, org creation before business checkout, purchase restore, and shared store-purchase handling that can forward verified purchases to the backend
 - the shared Flutter billing shell now also exposes Play catalog diagnostics in-app, so internal-test builds can report missing Play product IDs or billing query errors directly instead of only disabling buy buttons
+- the agreed launch UX direction is now:
+  - signed-out users land on a dedicated sales/trial entry screen, not the jobs landing
+  - persisted signed-in users go straight to the normal jobs landing instead of seeing the sales surface every launch
+  - if app data/session storage is cleared, the user must complete the email-code sign-in flow again because the backend session is no longer cached on-device
+  - sales/paywall and account/admin should be separate surfaces
+  - customization is the shared settings surface, with solo users getting the same logo/report-setting powers as business admins except for seats
+  - seated non-admin users keep their own printed-name/signature customization but should not see the account/admin entry point
 - shared Dart workflow should stay cross-platform by default
 - the receiving form now carries a meaningful donor-aligned field block rather than only a placeholder shell
 - saved-material editing now goes back through the same shared form and draft lifecycle rather than using a separate platform-specific edit path
@@ -103,6 +110,11 @@ Current reality:
 - define state-management and service pattern
 - build the paywall/plan-selection structure with monthly versus yearly pricing and savings display
 - keep local jobs, drafts, and customization persistent while backend work is still incomplete
+- split launch into a signed-out sales/trial path versus a signed-in jobs landing path
+- move returning-user sign-in to the sales entry flow instead of mixing it into account/admin
+- separate account/admin from the sales/paywall screen
+- gate account visibility by role so only solo users and business admins see it
+- keep customization visible to every seated user, but restrict org-level report settings to solo/admin paths
 
 ### Phase 3
 

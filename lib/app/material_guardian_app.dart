@@ -7,6 +7,7 @@ import '../screens/job_detail_screen.dart';
 import '../screens/jobs_screen.dart';
 import '../screens/material_form_screen.dart';
 import '../screens/privacy_policy_screen.dart';
+import '../screens/sales_screen.dart';
 import '../screens/splash_screen.dart';
 import 'material_guardian_state.dart';
 import 'routes.dart';
@@ -32,6 +33,11 @@ class MaterialGuardianApp extends StatelessWidget {
               case AppRoutes.jobs:
                 return MaterialPageRoute<void>(
                   builder: (_) => JobsScreen(appState: appState),
+                  settings: settings,
+                );
+              case AppRoutes.sales:
+                return MaterialPageRoute<void>(
+                  builder: (_) => SalesScreen(appState: appState),
                   settings: settings,
                 );
               case AppRoutes.jobDetail:
@@ -62,7 +68,11 @@ class MaterialGuardianApp extends StatelessWidget {
                 );
               case AppRoutes.account:
                 return MaterialPageRoute<void>(
-                  builder: (_) => AccountScreen(appState: appState),
+                  builder: (_) => appState.shouldShowAccountEntry
+                      ? AccountScreen(appState: appState)
+                      : appState.isSignedIn
+                      ? CustomizationScreen(appState: appState)
+                      : SalesScreen(appState: appState),
                   settings: settings,
                 );
               case AppRoutes.customization:
@@ -115,6 +125,8 @@ class _LaunchGateState extends State<_LaunchGate> {
       );
     }
 
-    return JobsScreen(appState: widget.appState);
+    return widget.appState.shouldUseSalesLaunch
+        ? SalesScreen(appState: widget.appState)
+        : JobsScreen(appState: widget.appState);
   }
 }

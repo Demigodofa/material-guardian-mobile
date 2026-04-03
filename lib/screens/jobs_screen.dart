@@ -15,6 +15,8 @@ class JobsScreen extends StatelessWidget {
     return AnimatedBuilder(
       animation: appState,
       builder: (context, _) {
+        final entitlement = appState.effectiveBackendEntitlement;
+        final hasUsableJobAccess = appState.hasUsableJobAccess;
         return Scaffold(
           body: SafeArea(
             child: ListView(
@@ -22,11 +24,27 @@ class JobsScreen extends StatelessWidget {
               children: [
                 const _LandingLogo(),
                 const SizedBox(height: 20),
+                if (entitlement != null &&
+                    (appState.isTrialAccess ||
+                        appState.isLockedFromSubscription ||
+                        appState.isSeatBlocked)) ...[
+                  _AccessBanner(
+                    appState: appState,
+                    onViewPlans: () {
+                      Navigator.pushNamed(context, AppRoutes.sales);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 360),
                     child: FilledButton(
                       onPressed: () async {
+                        if (!hasUsableJobAccess) {
+                          Navigator.pushNamed(context, AppRoutes.sales);
+                          return;
+                        }
                         await _showCreateJobDialog(context, appState);
                       },
                       child: const Padding(
@@ -42,11 +60,18 @@ class JobsScreen extends StatelessWidget {
                   runSpacing: 10,
                   children: [
                     _LandingLinkButton(
-                      label: 'Account',
+                      label: 'Plans',
                       onPressed: () {
-                        Navigator.pushNamed(context, AppRoutes.account);
+                        Navigator.pushNamed(context, AppRoutes.sales);
                       },
                     ),
+                    if (appState.shouldShowAccountEntry)
+                      _LandingLinkButton(
+                        label: 'Account',
+                        onPressed: () {
+                          Navigator.pushNamed(context, AppRoutes.account);
+                        },
+                      ),
                     _LandingLinkButton(
                       label: 'Customization',
                       onPressed: () {
@@ -90,6 +115,67 @@ class JobsScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _AccessBanner extends StatelessWidget {
+  const _AccessBanner({
+    required this.appState,
+    required this.onViewPlans,
+  });
+
+  final MaterialGuardianAppState appState;
+  final VoidCallback onViewPlans;
+
+  @override
+  Widget build(BuildContext context) {
+    final entitlement = appState.effectiveBackendEntitlement;
+    if (entitlement == null) {
+      return const SizedBox.shrink();
+    }
+
+    final title = switch (entitlement.accessState) {
+      'trial' => 'Free trial active',
+      'no_seat' => 'No seat assigned yet',
+      'locked' => 'Choose a plan to keep going',
+      _ => 'Account update',
+    };
+    final message = switch (entitlement.accessState) {
+      'trial' =>
+        'You have ${entitlement.trialRemaining} free jobs remaining. When the trial runs out, come back here to pick a plan.',
+      'no_seat' =>
+        'Your business account is in the system, but this user does not have a seat assigned yet. Contact your admin.',
+      'locked' =>
+        'Your free jobs are used up. Pick the plan that fits your shop and come right back to work.',
+      _ => '',
+    };
+
+    return Card(
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(message),
+            if (entitlement.accessState != 'no_seat') ...[
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: onViewPlans,
+                child: const Text('View Plans'),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

@@ -8,7 +8,10 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:material_guardian_mobile/app/material_guardian_app.dart';
 import 'package:material_guardian_mobile/app/material_guardian_state.dart';
+import 'package:material_guardian_mobile/app/routes.dart';
 import 'package:material_guardian_mobile/data/backend_auth_session_store.dart';
+import 'package:material_guardian_mobile/screens/job_detail_screen.dart';
+import 'package:material_guardian_mobile/screens/jobs_screen.dart';
 import 'package:material_guardian_mobile/screens/material_form_screen.dart';
 import 'package:material_guardian_mobile/services/backend_api_service.dart';
 import 'package:material_guardian_mobile/services/store_purchase_service.dart';
@@ -49,9 +52,23 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialGuardianApp(appState: MaterialGuardianAppState.seeded()),
+      MaterialApp(
+        home: JobsScreen(appState: MaterialGuardianAppState.seeded()),
+        onGenerateRoute: (settings) {
+          if (settings.name == AppRoutes.jobDetail) {
+            final args = settings.arguments! as JobDetailRouteArgs;
+            return MaterialPageRoute<void>(
+              builder: (_) => JobDetailScreen(
+                appState: MaterialGuardianAppState.seeded(),
+                jobId: args.jobId,
+              ),
+              settings: settings,
+            );
+          }
+          return null;
+        },
+      ),
     );
-    await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
 
     expect(find.text('Create Job'), findsOneWidget);
@@ -65,6 +82,19 @@ void main() {
 
     expect(find.text('JOB DETAILS'), findsOneWidget);
     expect(find.text('Resume Draft'), findsOneWidget);
+  });
+
+  testWidgets('signed-out launch gate lands on sales instead of jobs', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialGuardianApp(appState: MaterialGuardianAppState.seeded()),
+    );
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Start Free Trial'), findsWidgets);
+    expect(find.text('Create Job'), findsNothing);
   });
 
   testWidgets('material form keeps donor field caps for report alignment', (
@@ -498,6 +528,73 @@ void main() {
     expect(appState.isRestoringPurchases, isFalse);
     expect(appState.isPurchasing, isFalse);
     expect(appState.purchaseStatusMessage, isNull);
+  });
+
+  testWidgets('signed-in seated non-admin sees plans and customization but not account', (
+    tester,
+  ) async {
+    final sessionStore = InMemoryBackendAuthSessionStore();
+    final service = BackendApiService(
+      baseUrl:
+          'https://app-platforms-backend-dev-293518443128.us-east4.run.app',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/auth/start')) {
+          return http.Response(
+            '{"flowId":"flow_member","deliveryTarget":"member@materialguardian.test","expiresAt":"2026-04-02T18:30:00.000Z","demoCode":"246810"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        if (request.url.path.endsWith('/auth/complete')) {
+          return http.Response(
+            '{"status":"authenticated","accessToken":"access-member","refreshToken":"refresh-member","user":{"id":"user_member","email":"member@materialguardian.test","displayName":"Field User","status":"active","createdAt":"2026-04-02T12:00:00.000Z","lastLoginAt":"2026-04-02T12:05:00.000Z"},"memberships":[{"id":"membership_member","organizationId":"org_acme","organizationName":"Acme Fabrication","role":"member","seatStatus":"assigned","invitedAt":"2026-04-02T12:00:00.000Z","acceptedAt":"2026-04-02T12:01:00.000Z"}],"activeEntitlement":{"productCode":"material_guardian","planCode":"material_guardian_business_5_monthly","accessState":"paid","seatAvailability":"assigned","subscriptionState":"active","trialRemaining":0,"organizationId":"org_acme","startsAt":"2026-04-02T12:00:00.000Z","endsAt":null},"session":{"id":"session_member","deviceLabel":"Kevin PowerShell","platform":"web","status":"active","issuedAt":"2026-04-02T12:05:00.000Z","lastSeenAt":"2026-04-02T12:05:00.000Z","revokedAt":null}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        if (request.url.path.endsWith('/me')) {
+          return http.Response(
+            '{"user":{"id":"user_member","email":"member@materialguardian.test","displayName":"Field User","status":"active","createdAt":"2026-04-02T12:00:00.000Z","lastLoginAt":"2026-04-02T12:05:00.000Z"},"memberships":[{"id":"membership_member","organizationId":"org_acme","organizationName":"Acme Fabrication","role":"member","seatStatus":"assigned","invitedAt":"2026-04-02T12:00:00.000Z","acceptedAt":"2026-04-02T12:01:00.000Z"}],"currentSeatAssignment":{"organizationId":"org_acme","status":"assigned"},"trialState":null,"activeEntitlement":{"productCode":"material_guardian","planCode":"material_guardian_business_5_monthly","accessState":"paid","seatAvailability":"assigned","subscriptionState":"active","trialRemaining":0,"organizationId":"org_acme","startsAt":"2026-04-02T12:00:00.000Z","endsAt":null},"activeSession":{"id":"session_member","deviceLabel":"Kevin PowerShell","platform":"web","status":"active","issuedAt":"2026-04-02T12:05:00.000Z","lastSeenAt":"2026-04-02T12:05:00.000Z","revokedAt":null}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        if (request.url.path.endsWith('/entitlements/current')) {
+          return http.Response(
+            '{"productCode":"material_guardian","planCode":"material_guardian_business_5_monthly","accessState":"paid","seatAvailability":"assigned","subscriptionState":"active","trialRemaining":0,"organizationId":"org_acme","startsAt":"2026-04-02T12:00:00.000Z","endsAt":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        return http.Response(
+          '{"status":"ok","service":"app-platforms-backend","mode":"postgres"}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final appState = MaterialGuardianAppState.seeded(
+      backendApiService: service,
+      authSessionStore: sessionStore,
+    );
+
+    await appState.startBackendSignIn(
+      email: 'member@materialguardian.test',
+      displayName: 'Field User',
+    );
+    await appState.completeBackendSignIn(code: '246810');
+
+    await tester.pumpWidget(MaterialApp(home: JobsScreen(appState: appState)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Plans'), findsOneWidget);
+    expect(find.text('Customization'), findsOneWidget);
+    expect(find.text('Account'), findsNothing);
   });
 }
 

@@ -54,6 +54,8 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canManageWorkspaceSettings =
+        widget.appState.hasAdminLikeWorkspaceAccess;
     final hasLogo = _companyLogoPath.trim().isNotEmpty;
     final hasSavedSignature = _savedInspectorSignaturePath.trim().isNotEmpty;
     final cardBackground = Theme.of(context).colorScheme.surface;
@@ -72,37 +74,43 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'App-level receiving defaults',
+                    canManageWorkspaceSettings
+                        ? 'Workspace receiving defaults'
+                        : 'Your receiving defaults',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'These defaults drive what the receiving form shows and what new drafts inherit. Material-level Imperial or Metric remains a live choice on each report.',
+                  Text(
+                    canManageWorkspaceSettings
+                        ? 'These defaults drive what the receiving form shows and what new drafts inherit. Material-level Imperial or Metric remains a live choice on each report.'
+                        : 'Your printed inspector name and saved signature stay personal. Logo and report-setting choices stay under the solo/admin workspace controls.',
                   ),
                   const SizedBox(height: 20),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _receiveAsmeB16Parts,
-                    onChanged: (value) {
-                      setState(() {
-                        _receiveAsmeB16Parts = value;
-                      });
-                    },
-                    title: const Text('Receive ASME B16 parts'),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _surfaceFinishRequired,
-                    onChanged: (value) {
-                      setState(() {
-                        _surfaceFinishRequired = value;
-                      });
-                    },
-                    title: const Text('Surface finish required'),
-                  ),
-                  if (_surfaceFinishRequired) ...[
+                  if (canManageWorkspaceSettings) ...[
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _receiveAsmeB16Parts,
+                      onChanged: (value) {
+                        setState(() {
+                          _receiveAsmeB16Parts = value;
+                        });
+                      },
+                      title: const Text('Receive ASME B16 parts'),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _surfaceFinishRequired,
+                      onChanged: (value) {
+                        setState(() {
+                          _surfaceFinishRequired = value;
+                        });
+                      },
+                      title: const Text('Surface finish required'),
+                    ),
+                  ],
+                  if (canManageWorkspaceSettings && _surfaceFinishRequired) ...[
                     const SizedBox(height: 12),
                     Text(
                       'Surface finish unit',
@@ -137,20 +145,26 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _qcInspectorController,
-                    decoration: const InputDecoration(
-                      labelText: 'Default QC inspector printed name',
+                    decoration: InputDecoration(
+                      labelText: canManageWorkspaceSettings
+                          ? 'Default QC inspector printed name'
+                          : 'Your QC inspector printed name',
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _qcManagerController,
-                    decoration: const InputDecoration(
-                      labelText: 'Default QC manager printed name',
+                  if (canManageWorkspaceSettings) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _qcManagerController,
+                      decoration: const InputDecoration(
+                        labelText: 'Default QC manager printed name',
+                      ),
                     ),
-                  ),
+                  ],
                   const SizedBox(height: 12),
                   Text(
-                    'Saved QC inspector signature',
+                    canManageWorkspaceSettings
+                        ? 'Saved QC inspector signature'
+                        : 'Your saved inspector signature',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
@@ -286,127 +300,129 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Company logo',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: cardBackground,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: borderColor),
+                  if (canManageWorkspaceSettings) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'Company logo',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (hasLogo && File(_companyLogoPath).existsSync()) ...[
-                          Center(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                color: Colors.white,
-                                padding: const EdgeInsets.all(10),
-                                child: Image.file(
-                                  File(_companyLogoPath),
-                                  height: 120,
-                                  fit: BoxFit.contain,
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: cardBackground,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: borderColor),
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (hasLogo && File(_companyLogoPath).existsSync()) ...[
+                            Center(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  color: Colors.white,
+                                  padding: const EdgeInsets.all(10),
+                                  child: Image.file(
+                                    File(_companyLogoPath),
+                                    height: 120,
+                                    fit: BoxFit.contain,
+                                  ),
                                 ),
                               ),
                             ),
+                            const SizedBox(height: 12),
+                          ],
+                          Text(
+                            hasLogo
+                                ? p.basename(_companyLogoPath)
+                                : 'No company logo has been imported yet.',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  fontWeight: hasLogo
+                                      ? FontWeight.w700
+                                      : FontWeight.w400,
+                                ),
                           ),
-                          const SizedBox(height: 12),
                         ],
-                        Text(
-                          hasLogo
-                              ? p.basename(_companyLogoPath)
-                              : 'No company logo has been imported yet.',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                fontWeight: hasLogo
-                                    ? FontWeight.w700
-                                    : FontWeight.w400,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final nextPath = await widget
-                              .appState
-                              .customizationAssetService
-                              .importCompanyLogo();
-                          if (nextPath == null || !context.mounted) {
-                            return;
-                          }
-                          setState(() {
-                            _companyLogoPath = nextPath;
-                          });
-                        },
-                        icon: const Icon(Icons.image_outlined),
-                        label: Text(hasLogo ? 'Replace Logo' : 'Import Logo'),
                       ),
-                      if (hasLogo)
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
                         OutlinedButton.icon(
                           onPressed: () async {
-                            final opened = await widget
+                            final nextPath = await widget
                                 .appState
                                 .customizationAssetService
-                                .openAsset(_companyLogoPath);
-                            if (opened || !context.mounted) {
-                              return;
-                            }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Could not open the imported logo preview.',
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.visibility_outlined),
-                          label: const Text('Preview Logo'),
-                        ),
-                      if (hasLogo)
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: deleteColor,
-                          ),
-                          onPressed: () async {
-                            await widget.appState.customizationAssetService
-                                .clearAssetPath(_companyLogoPath);
-                            if (!context.mounted) {
+                                .importCompanyLogo();
+                            if (nextPath == null || !context.mounted) {
                               return;
                             }
                             setState(() {
-                              _companyLogoPath = '';
+                              _companyLogoPath = nextPath;
                             });
                           },
-                          icon: const Icon(Icons.delete_outline_rounded),
-                          label: const Text('Remove Logo'),
+                          icon: const Icon(Icons.image_outlined),
+                          label: Text(hasLogo ? 'Replace Logo' : 'Import Logo'),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _includeCompanyLogoOnReports,
-                    onChanged: (value) {
-                      setState(() {
-                        _includeCompanyLogoOnReports = value;
-                      });
-                    },
-                    title: const Text('Include company logo on reports'),
-                  ),
+                        if (hasLogo)
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              final opened = await widget
+                                  .appState
+                                  .customizationAssetService
+                                  .openAsset(_companyLogoPath);
+                              if (opened || !context.mounted) {
+                                return;
+                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Could not open the imported logo preview.',
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.visibility_outlined),
+                            label: const Text('Preview Logo'),
+                          ),
+                        if (hasLogo)
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: deleteColor,
+                            ),
+                            onPressed: () async {
+                              await widget.appState.customizationAssetService
+                                  .clearAssetPath(_companyLogoPath);
+                              if (!context.mounted) {
+                                return;
+                              }
+                              setState(() {
+                                _companyLogoPath = '';
+                              });
+                            },
+                            icon: const Icon(Icons.delete_outline_rounded),
+                            label: const Text('Remove Logo'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _includeCompanyLogoOnReports,
+                      onChanged: (value) {
+                        setState(() {
+                          _includeCompanyLogoOnReports = value;
+                        });
+                      },
+                      title: const Text('Include company logo on reports'),
+                    ),
+                  ],
                 ],
               ),
             ),

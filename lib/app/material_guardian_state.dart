@@ -300,6 +300,27 @@ class MaterialGuardianAppState extends ChangeNotifier {
   bool get isStoreAvailable => _isStoreAvailable;
   bool get isSignedIn => _backendAuthSession != null && _backendMe != null;
   bool get hasPendingSessionReplacement => _pendingSessionReplacementId != null;
+  BackendEntitlementSnapshot? get effectiveBackendEntitlement =>
+      _backendEntitlement ?? _backendMe?.activeEntitlement;
+  BackendMembershipSummary? get activeOrganizationMembership =>
+      _membershipForCurrentEntitlement();
+  bool get hasBusinessMembership => activeOrganizationMembership != null;
+  bool get isBusinessAdmin => activeOrganizationMembership?.isAdmin ?? false;
+  bool get hasAdminLikeWorkspaceAccess =>
+      !hasBusinessMembership || isBusinessAdmin;
+  bool get shouldShowAccountEntry => isSignedIn && hasAdminLikeWorkspaceAccess;
+  bool get shouldShowCustomizationEntry => isSignedIn;
+  bool get shouldUseSalesLaunch => !isSignedIn;
+  bool get hasUsableJobAccess {
+    final accessState = effectiveBackendEntitlement?.accessState;
+    return accessState == 'paid' || accessState == 'trial';
+  }
+  bool get isTrialAccess => effectiveBackendEntitlement?.accessState == 'trial';
+  bool get isLockedFromSubscription =>
+      effectiveBackendEntitlement?.accessState == 'locked';
+  bool get isSeatBlocked =>
+      effectiveBackendEntitlement?.accessState == 'no_seat' ||
+      effectiveBackendEntitlement?.seatAvailability == 'unassigned';
   MaterialMediaService get mediaService => _mediaService;
 
   JobRecord jobById(String id) {
@@ -1394,6 +1415,33 @@ class MaterialGuardianAppState extends ChangeNotifier {
 
     final membership = _firstAdminMembership(_backendMe?.memberships ?? const []);
     return membership?.organizationId;
+  }
+
+  BackendMembershipSummary? _membershipForCurrentEntitlement() {
+    final memberships = _backendMe?.memberships ?? const <BackendMembershipSummary>[];
+    if (memberships.isEmpty) {
+      return null;
+    }
+
+    final organizationId =
+        _backendOrganization?.id ??
+        effectiveBackendEntitlement?.organizationId ??
+        _backendMe?.currentSeatOrganizationId;
+    if (organizationId != null && organizationId.trim().isNotEmpty) {
+      for (final membership in memberships) {
+        if (membership.organizationId == organizationId) {
+          return membership;
+        }
+      }
+    }
+
+    for (final membership in memberships) {
+      if (membership.isAccepted) {
+        return membership;
+      }
+    }
+
+    return memberships.first;
   }
 
   String _storePlatform() {

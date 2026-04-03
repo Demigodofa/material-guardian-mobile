@@ -68,9 +68,12 @@ The Flutter repo already has:
   - backend-typed plan loading
   - signed-in organization creation for business checkout
   - first Google Play purchase shell that maps store purchases back into backend verification
+  - live Google Play internal-test validation of business yearly purchase restore and backend verification
   - Samsung-safe bottom insets on the account flow so sign-in and org buttons stay above system navigation
   - client-side email-shape validation before auth start requests are sent
   - explicit Play billing catalog diagnostics so Android internal-test builds can now tell you whether the store is unavailable, the query returned an error, or specific product IDs were not found
+  - release gating for the raw backend diagnostics card so the active service URL is no longer shown in customer-facing release builds
+  - account UX cleanup so organization creation stays available after the first organization exists and billing status/errors read more clearly
 
 ## Path forward from the mobile side
 

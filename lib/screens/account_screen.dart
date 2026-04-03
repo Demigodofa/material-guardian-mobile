@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app/material_guardian_state.dart';
@@ -72,8 +73,10 @@ class _AccountScreenState extends State<AccountScreen> {
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
               children: [
-                _BackendStatusCard(appState: appState),
-                const SizedBox(height: 16),
+                if (!kReleaseMode) ...[
+                  _BackendStatusCard(appState: appState),
+                  const SizedBox(height: 16),
+                ],
                 if (appState.backendAccountError != null &&
                     appState.backendAccountError!.trim().isNotEmpty) ...[
                   _ErrorCard(message: appState.backendAccountError!),
@@ -136,14 +139,28 @@ class _AccountScreenState extends State<AccountScreen> {
                     organizationIdController: _redeemOrganizationIdController,
                     codeController: _redeemCodeController,
                     isBusy: appState.isAuthenticatingBackend,
-                    onCreateOrganization: () =>
-                        appState.createOrganization(
-                          name: _organizationNameController.text,
-                        ),
-                    onRedeem: () => appState.redeemOrganizationAccess(
-                      organizationId: _redeemOrganizationIdController.text,
-                      code: _redeemCodeController.text,
-                    ),
+                    onCreateOrganization: () async {
+                      await appState.createOrganization(
+                        name: _organizationNameController.text,
+                      );
+                      if (!context.mounted ||
+                          appState.backendAccountError != null) {
+                        return;
+                      }
+                      _organizationNameController.clear();
+                    },
+                    onRedeem: () async {
+                      await appState.redeemOrganizationAccess(
+                        organizationId: _redeemOrganizationIdController.text,
+                        code: _redeemCodeController.text,
+                      );
+                      if (!context.mounted ||
+                          appState.backendAccountError != null) {
+                        return;
+                      }
+                      _redeemOrganizationIdController.clear();
+                      _redeemCodeController.clear();
+                    },
                   ),
                   const SizedBox(height: 16),
                   _BillingCard(
@@ -495,6 +512,16 @@ class _MembershipsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pendingMemberships = memberships.where((item) => !item.isAccepted);
+    final hasMemberships = memberships.isNotEmpty;
+    final createOrganizationHeading = hasMemberships
+        ? 'Create Another Organization'
+        : 'Create Your Business Organization';
+    final createOrganizationButtonLabel = hasMemberships
+        ? 'Create Another Organization'
+        : 'Create Organization';
+    final createOrganizationHelp = hasMemberships
+        ? 'Use another organization if you need a separate company workspace or a different business subscription.'
+        : 'Create an organization before buying a business plan.';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -503,28 +530,11 @@ class _MembershipsCard extends StatelessWidget {
           children: [
             Text('Memberships', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            if (memberships.isEmpty)
+            if (!hasMemberships)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('No organization memberships yet.'),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Create an organization before buying a business plan.',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: organizationNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Organization Name',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: isBusy ? null : onCreateOrganization,
-                    child: const Text('Create Organization'),
-                  ),
                 ],
               )
             else
@@ -541,15 +551,47 @@ class _MembershipsCard extends StatelessWidget {
             if (activeOrganization != null) ...[
               const SizedBox(height: 12),
               Text(
-                'Active organization: ${activeOrganization!.name} (${activeOrganization!.id})',
+                'Active organization: ${activeOrganization!.name}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 4),
+              SelectableText(
+                'Organization ID: ${activeOrganization!.id}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
+            const SizedBox(height: 12),
+            Text(
+              createOrganizationHeading,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              createOrganizationHelp,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: organizationNameController,
+              decoration: const InputDecoration(
+                labelText: 'Organization Name',
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: isBusy ? null : onCreateOrganization,
+              child: Text(createOrganizationButtonLabel),
+            ),
             if (pendingMemberships.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
                 'Redeem Organization Access Code',
                 style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Use the organization ID and access code from the invite email.',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
               TextField(
@@ -654,19 +696,16 @@ class _BillingCard extends StatelessWidget {
             if (purchaseStatusMessage != null &&
                 purchaseStatusMessage!.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
-              Text(purchaseStatusMessage!),
+              _StatusCard(message: purchaseStatusMessage!),
             ],
             if (purchaseError != null && purchaseError!.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
-              Text(
-                purchaseError!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
+              _InlineErrorMessage(message: purchaseError!),
             ],
             if (storeCatalogError != null &&
                 storeCatalogError!.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
-              Text('Store error: $storeCatalogError'),
+              _InlineErrorMessage(message: 'Store error: $storeCatalogError'),
             ],
             if (missingStoreProductIds.isNotEmpty) ...[
               const SizedBox(height: 10),
@@ -729,7 +768,7 @@ class _PlanTile extends StatelessWidget {
       (_, _, _, _, true) => 'Purchase in progress',
       (_, true, false, _, _) => 'Create an organization first for business checkout',
       (false, _, _, false, _) => 'Store is unavailable on this build/device',
-      (false, _, _, true, _) => 'Play product details have not loaded yet',
+      (false, _, _, true, _) => 'Tap Load Plans to pull the current Play product details',
       _ => null,
     };
 
@@ -902,6 +941,43 @@ class _ErrorCard extends StatelessWidget {
           style: TextStyle(color: colorScheme.onErrorContainer),
         ),
       ),
+    );
+  }
+}
+
+class _StatusCard extends StatelessWidget {
+  const _StatusCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      color: colorScheme.secondaryContainer,
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Text(
+          message,
+          style: TextStyle(color: colorScheme.onSecondaryContainer),
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineErrorMessage extends StatelessWidget {
+  const _InlineErrorMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Text(
+      message,
+      style: TextStyle(color: colorScheme.error),
     );
   }
 }

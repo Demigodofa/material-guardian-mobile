@@ -49,6 +49,12 @@ Current reality:
     - individual = one full workspace for one shop
     - business = company branding/report defaults plus managed seats
     - yearly plans should call out the annual savings as roughly two free months
+  - business organization permissions should move toward a clean capability model:
+    - `Admin`
+    - `Uses report seat`
+    - `Billing owner`
+    - `Billing recovery admin`
+    - treat those as capability flags rather than inventing multiple muddy pseudo-roles
   - customization is the shared settings surface, with solo users getting the same logo/report-setting powers as business admins except for seats
   - admin role and seat assignment are separate:
     - business admins can manage seats/settings without occupying a production seat

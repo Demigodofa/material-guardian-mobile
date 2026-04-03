@@ -29,6 +29,16 @@ At that point, Material Guardian will need wording that says, in substance:
 - local exports/share actions still only go where the user chooses
 - users must have a path to request account deletion and associated backend data deletion where store rules require it
 
+### Future cloud-storage truth
+
+If Material Guardian later adds cloud recovery or cloud document storage, product wording should say clearly:
+
+- current launch behavior keeps jobs, reports, photos, scans, signatures, and exports on the device unless cloud storage is explicitly enabled in a later release
+- cloud storage is a later upgrade path whose value is cross-device availability and loss recovery if a phone is damaged, replaced, or reset
+- cloud-enabled customers can access their own stored data from other signed-in devices that are authorized for that account or organization
+- business admins should be able to retrieve company files and folders for their organization, but that does not automatically mean they can alter every teammate's stored files
+- org-admin visibility and file-retrieval rules must be stated clearly in privacy/help wording before cloud storage goes live
+
 ## App/privacy wording buckets to keep separate
 
 Use separate wording for these categories instead of collapsing them together:
@@ -52,6 +62,7 @@ Use separate wording for these categories instead of collapsing them together:
 - active device/session tracking
 - session replacement when the same user signs in elsewhere
 - fraud/abuse prevention logs if used
+- future passkey or step-up-auth support if cloud recovery/storage is added later
 
 ### User content
 
@@ -93,6 +104,7 @@ For the first release that adds account/entitlement backend features but **not y
 It should also say, if still true, that:
 
 - jobs, reports, photos, scans, signatures, and exports remain local on the device unless or until a cloud sync/recovery feature is explicitly enabled in a later release
+- keeping files local on-device can be presented as a deliberate privacy/control benefit, not only as a missing feature
 
 That distinction matters.
 
@@ -105,9 +117,28 @@ If Material Guardian later adds Pro cloud document storage/retrieval, the privac
 - what files are uploaded
 - where they are stored
 - who can access them
+- which signed-in devices can retrieve them
 - how deletion works
 - whether files are used only for storage/retrieval or also for processing features
 - retention expectations
+- whether admins can retrieve company files and whether that access is read-only, download-only, or includes edit/delete powers
+
+## Authentication direction for future cloud storage
+
+Do not force traditional passwords into the launch product just to feel "enterprise."
+
+Current launch direction should remain:
+
+- remembered local session on the same device
+- email-code sign-in on a new device or after app-data loss
+- no required second factor for the local-first launch
+
+If cloud storage/recovery is later enabled, the recommended hardening path is:
+
+- keep the passwordless sign-in model
+- add stronger account recovery and device-trust controls
+- prefer passkeys or similarly strong platform-backed auth over bolting on a clumsy password-reset flow
+- consider step-up verification for especially sensitive actions such as account deletion, changing the primary email, or enabling/disabling cloud storage on a company workspace
 
 ## Operational rule
 

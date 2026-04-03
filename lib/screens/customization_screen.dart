@@ -302,27 +302,6 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                         ),
                         if (hasSavedSignature)
                           OutlinedButton.icon(
-                            onPressed: () async {
-                              final opened = await widget
-                                  .appState
-                                  .customizationAssetService
-                                  .openAsset(_savedInspectorSignaturePath);
-                              if (opened || !context.mounted) {
-                                return;
-                              }
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Could not open the saved signature preview.',
-                                  ),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.visibility_outlined),
-                            label: const Text('Preview Signature'),
-                          ),
-                        if (hasSavedSignature)
-                          OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: deleteColor,
                             ),
@@ -423,27 +402,6 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                               hasLogo ? 'Replace Logo' : 'Import Logo',
                             ),
                           ),
-                          if (hasLogo)
-                            OutlinedButton.icon(
-                              onPressed: () async {
-                                final opened = await widget
-                                    .appState
-                                    .customizationAssetService
-                                    .openAsset(_companyLogoPath);
-                                if (opened || !context.mounted) {
-                                  return;
-                                }
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Could not open the imported logo preview.',
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.visibility_outlined),
-                              label: const Text('Preview Logo'),
-                            ),
                           if (hasLogo)
                             OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(

@@ -112,10 +112,9 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
     LengthLimitingTextInputFormatter(maxLength),
   ];
 
-  MaterialDraft get _draft => widget.appState.draftById(widget.draftId);
   CustomizationSettings get _customization => widget.appState.customization;
   bool get _isEditingExistingMaterial =>
-      _draft.sourceMaterialId.trim().isNotEmpty;
+      _initialDraft.sourceMaterialId.trim().isNotEmpty;
   String get _materialLabelForFiles {
     final tag = _materialTagController.text.trim();
     if (tag.isNotEmpty) {
@@ -159,7 +158,7 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
   @override
   void initState() {
     super.initState();
-    final draft = _draft;
+    final draft = widget.appState.draftById(widget.draftId);
     _initialDraft = draft;
     _materialTagController = TextEditingController(text: draft.materialTag);
     _descriptionController = TextEditingController(text: draft.description);
@@ -225,7 +224,7 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
   }
 
   MaterialDraft _currentDraftPayload() {
-    return _draft.copyWith(
+    return _initialDraft.copyWith(
       materialTag: _materialTagController.text,
       description: _descriptionController.text,
       vendor: _vendorController.text,
@@ -801,6 +800,7 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
 
   Future<void> _saveMaterialReceiving() async {
     try {
+      final wasEditing = _isEditingExistingMaterial;
       final currentDraft = _currentDraftPayload();
       await widget.appState.saveDraft(currentDraft);
       await widget.appState.completeDraft(currentDraft);
@@ -811,7 +811,7 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
         _allowImmediatePop = true;
       });
       _showMessage(
-        _isEditingExistingMaterial
+        wasEditing
             ? 'Material receiving updated.'
             : 'Material receiving saved.',
       );

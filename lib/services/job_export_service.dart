@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
 import 'package:image/image.dart' as img;
+import 'package:path/path.dart' as p;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
@@ -56,12 +57,18 @@ class JobExportService {
     final packetPathsByMaterialId = <String, String>{};
     var totalPhotos = 0;
     var totalScans = 0;
+    final jobBaseName = safeBaseName(job.jobNumber, fallback: 'job');
 
     for (var index = 0; index < job.materials.length; index++) {
       final material = job.materials[index];
+      final materialIndex = (index + 1).toString().padLeft(2, '0');
+      final materialBaseName = safeBaseName(
+        material.description,
+        fallback: material.tag,
+      );
       final packetFile = File(
         '${packetDirectory.path}${Platform.pathSeparator}'
-        '${(index + 1).toString().padLeft(2, '0')}_${safeBaseName(material.description, fallback: material.tag)}_packet.pdf',
+        '${jobBaseName}_${materialIndex}_${materialBaseName}_packet.pdf',
       );
       final packetBytes = await _buildPacketPdf(
         job: job,
@@ -73,30 +80,47 @@ class JobExportService {
 
       final materialMediaDirectory = Directory(
         '${sourceMediaDirectory.path}${Platform.pathSeparator}'
-        '${(index + 1).toString().padLeft(2, '0')}_${safeBaseName(material.description, fallback: material.tag)}',
+        '${jobBaseName}_${materialIndex}_$materialBaseName',
       )..createSync(recursive: true);
 
-      for (final photoPath in material.photoPaths) {
+      for (var photoIndex = 0; photoIndex < material.photoPaths.length; photoIndex++) {
+        final photoPath = material.photoPaths[photoIndex];
         final copied = await _copyIfPresent(
           sourcePath: photoPath,
           targetDirectory: Directory(
             '${materialMediaDirectory.path}${Platform.pathSeparator}photos',
           )..createSync(recursive: true),
+          targetBaseName:
+              '${jobBaseName}_${materialIndex}_${materialBaseName}_photo_${(photoIndex + 1).toString().padLeft(2, '0')}',
         );
         if (copied != null) {
           totalPhotos++;
         }
       }
 
-      for (final scanPath in material.scanPaths) {
+      for (var scanIndex = 0; scanIndex < material.scanPaths.length; scanIndex++) {
+        final scanPath = material.scanPaths[scanIndex];
         final copied = await _copyIfPresent(
           sourcePath: scanPath,
           targetDirectory: Directory(
             '${materialMediaDirectory.path}${Platform.pathSeparator}scans',
           )..createSync(recursive: true),
+          targetBaseName:
+              '${jobBaseName}_${materialIndex}_${materialBaseName}_scan_${(scanIndex + 1).toString().padLeft(2, '0')}',
         );
         if (copied != null) {
           totalScans++;
+        }
+        if (isPdfPath(scanPath)) {
+          final previewPath = pdfPreviewSiblingPath(scanPath);
+          await _copyIfPresent(
+            sourcePath: previewPath,
+            targetDirectory: Directory(
+              '${materialMediaDirectory.path}${Platform.pathSeparator}scans',
+            )..createSync(recursive: true),
+            targetBaseName:
+                '${jobBaseName}_${materialIndex}_${materialBaseName}_scan_${(scanIndex + 1).toString().padLeft(2, '0')}_preview',
+          );
         }
       }
     }
@@ -195,10 +219,7 @@ class JobExportService {
     );
     final inspectorSignature = await _loadImage(material.qcSignaturePath);
     final managerSignature = await _loadImage(material.qcManagerSignaturePath);
-    final inlineMedia = [
-      ...material.photoPaths.where(isImagePath),
-      ...material.scanPaths.where(isImagePath),
-    ];
+    final inlineMedia = _inlineMediaPaths(material);
     final inspectionDateText = _formatExportDate(material.qcInspectorDate);
     final commentsText = [
       material.comments,
@@ -332,28 +353,6 @@ class JobExportService {
                 flex: 3,
               ),
             ]),
-            if (material.scanPaths.where(isPdfPath).isNotEmpty) ...[
-              pw.SizedBox(height: 8),
-              _reportHeaderBand('ATTACHED SCAN PDFS', topSpacing: 0),
-              pw.Container(
-                width: double.infinity,
-                padding: const pw.EdgeInsets.all(6),
-                decoration: pw.BoxDecoration(border: pw.Border.all()),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    for (final scanPath in material.scanPaths.where(isPdfPath))
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.only(bottom: 4),
-                        child: pw.Text(
-                          scanPath.split(Platform.pathSeparator).last,
-                          style: const pw.TextStyle(fontSize: 8),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
             pw.SizedBox(height: 8),
             _reportHeaderBand('SIGNATURES', topSpacing: 0),
             pw.SizedBox(height: 4),
@@ -392,7 +391,7 @@ class JobExportService {
       }
       inlineMediaItems.add(
         _ExportMediaItem(
-          label: mediaPath.split(Platform.pathSeparator).last,
+          label: p.basename(mediaPath),
           image: image,
         ),
       );
@@ -618,6 +617,7 @@ class JobExportService {
   Future<String?> _copyIfPresent({
     required String sourcePath,
     required Directory targetDirectory,
+    String? targetBaseName,
   }) async {
     final normalized = sourcePath.trim();
     if (normalized.isEmpty) {
@@ -628,10 +628,28 @@ class JobExportService {
       return null;
     }
     await targetDirectory.create(recursive: true);
+    final extension = p.extension(sourceFile.path);
+    final targetFileName = targetBaseName == null || targetBaseName.trim().isEmpty
+        ? sourceFile.uri.pathSegments.last
+        : '${targetBaseName.trim()}$extension';
     final targetPath =
-        '${targetDirectory.path}${Platform.pathSeparator}${sourceFile.uri.pathSegments.last}';
+        '${targetDirectory.path}${Platform.pathSeparator}$targetFileName';
     await sourceFile.copy(targetPath);
     return targetPath;
+  }
+
+  List<String> _inlineMediaPaths(MaterialRecord material) {
+    final paths = <String>[
+      ...material.photoPaths.where(isImagePath),
+      ...material.scanPaths.where(isImagePath),
+    ];
+    for (final scanPath in material.scanPaths.where(isPdfPath)) {
+      final previewPath = pdfPreviewSiblingPath(scanPath);
+      if (File(previewPath).existsSync()) {
+        paths.add(previewPath);
+      }
+    }
+    return paths;
   }
 
   Future<String> _buildZip(Directory exportDirectory) async {

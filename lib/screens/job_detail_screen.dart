@@ -371,6 +371,14 @@ class JobDetailScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.labelLarge,
                   ),
+                  if (job.exportedAt != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Last exported ${_formatExportTimestamp(job.exportedAt!)}',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                   const SizedBox(height: 6),
                   Center(
                     child: ConstrainedBox(
@@ -466,6 +474,18 @@ String _displayExportFolder(String jobNumber) {
       .replaceAll(RegExp(r'_+'), '_')
       .replaceAll(RegExp(r'^_|_$'), '');
   return 'Downloads/MaterialGuardian/${safeJobNumber.isEmpty ? 'job' : safeJobNumber}';
+}
+
+String _formatExportTimestamp(DateTime value) {
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  final year = (local.year % 100).toString().padLeft(2, '0');
+  final hour24 = local.hour;
+  final suffix = hour24 >= 12 ? 'PM' : 'AM';
+  final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$month/$day/$year at $hour12:$minute $suffix';
 }
 
 Future<void> _showEditJobDialog(

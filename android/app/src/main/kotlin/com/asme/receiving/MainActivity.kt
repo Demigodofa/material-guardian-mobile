@@ -220,7 +220,7 @@ class MainActivity : FlutterActivity() {
         val baseName = safeLabel.take(24)
         val folder = File(filesDir, "job_media/$safeJob/scans")
         folder.mkdirs()
-        return File(folder, "${baseName}_scan_$index_preview.jpg")
+        return File(folder, "${baseName}_scan_${index}_preview.jpg")
     }
 
     private fun buildScanImageFile(

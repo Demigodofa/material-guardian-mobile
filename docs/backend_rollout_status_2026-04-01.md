@@ -102,10 +102,23 @@ The Flutter repo already has:
   - signed-out sales/trial flow tightened again after fresh device/emulator validation:
     - the actual `Start Free Trial` form now sits above the long plan-explanation block instead of being buried below it
     - small-phone and tablet first-viewports now show the real account-entry action much earlier
+    - Samsung bottom-nav clipping on the `Send Email Code` CTA is now fixed with extra bottom list padding on the live `Plans` screen
   - signed-in account/admin wording cleanup:
     - recovery copy is shorter and less repetitive
     - organization summaries now read with cleaner status separators instead of dense pipe-delimited strings
     - the active organization is no longer redundantly repeated in the memberships card
+  - paid-account sales behavior is now cleaner:
+    - accounts with an active paid entitlement see an `Active subscription` summary instead of the full buy-button catalog
+    - restore/refresh remains available for billing recovery without making subscribed users browse every plan again
+  - signature capture is hardened:
+    - the shared Flutter signature dialog now uses local pan positions instead of render-box global conversion
+    - capture failures now surface a user-facing retry message instead of silently doing nothing
+  - Android media capture cleanup:
+    - the in-app photo/scan camera preview now uses a cover-style framing path so Samsung no longer shows the visibly squished capture preview
+    - Android `Scan MTR/CoC PDFs` now routes through ML Kit document scanning again instead of only the custom camera overlay, with camera fallback still available if the scanner cannot start
+    - empty photo/scan slots now show explicit icons and slot numbers instead of reading like blank dead buttons
+  - stale edit-draft save safety:
+    - completing an edit draft no longer throws just because the referenced source material was removed earlier; the app now falls back to saving it as a new material record instead of failing the whole save
   - wider-form-factor validation now includes a real Android tablet emulator pass:
     - Pixel Tablet landscape kept the sales first CTA in the initial viewport
     - Pixel Tablet portrait also kept the trial stack readable without system-bar clipping

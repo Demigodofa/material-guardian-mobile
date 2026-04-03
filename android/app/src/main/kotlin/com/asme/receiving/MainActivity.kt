@@ -1,19 +1,30 @@
 package com.asme.receiving
 
+import android.app.Activity
 import android.app.DownloadManager
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Intent
+import android.content.IntentSender
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity : FlutterActivity() {
+    private var pendingScanResult: MethodChannel.Result? = null
+    private var pendingScanJobNumber: String? = null
+    private var pendingScanMaterialLabel: String? = null
+    private var pendingScanIndex: Int = 1
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -69,6 +80,190 @@ class MainActivity : FlutterActivity() {
 
                 else -> result.notImplemented()
             }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            MEDIA_CHANNEL
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "scanDocuments" -> {
+                    val jobNumber = call.argument<String>("jobNumber")
+                    val materialLabel = call.argument<String>("materialLabel")
+                    val nextIndex = call.argument<Int>("nextIndex") ?: 1
+                    val pageLimit = (call.argument<Int>("pageLimit") ?: 1).coerceIn(1, 8)
+                    if (jobNumber.isNullOrBlank() || materialLabel.isNullOrBlank()) {
+                        result.error("bad_args", "Missing document scanner arguments.", null)
+                        return@setMethodCallHandler
+                    }
+                    launchDocumentScan(
+                        jobNumber = jobNumber,
+                        materialLabel = materialLabel,
+                        nextIndex = nextIndex,
+                        pageLimit = pageLimit,
+                        result = result,
+                    )
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun launchDocumentScan(
+        jobNumber: String,
+        materialLabel: String,
+        nextIndex: Int,
+        pageLimit: Int,
+        result: MethodChannel.Result,
+    ) {
+        if (pendingScanResult != null) {
+            result.error("scan_in_progress", "Another document scan is already running.", null)
+            return
+        }
+
+        pendingScanResult = result
+        pendingScanJobNumber = jobNumber
+        pendingScanMaterialLabel = materialLabel
+        pendingScanIndex = nextIndex
+
+        val options = GmsDocumentScannerOptions.Builder()
+            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+            .setPageLimit(pageLimit)
+            .setResultFormats(
+                GmsDocumentScannerOptions.RESULT_FORMAT_PDF,
+                GmsDocumentScannerOptions.RESULT_FORMAT_JPEG
+            )
+            .build()
+
+        GmsDocumentScanning.getClient(options)
+            .getStartScanIntent(this)
+            .addOnSuccessListener { intentSender ->
+                try {
+                    startIntentSenderForResult(
+                        intentSender,
+                        DOCUMENT_SCAN_REQUEST_CODE,
+                        null,
+                        0,
+                        0,
+                        0,
+                    )
+                } catch (error: IntentSender.SendIntentException) {
+                    clearPendingScan()
+                    result.error("scanner_unavailable", error.message, null)
+                }
+            }
+            .addOnFailureListener { error ->
+                clearPendingScan()
+                result.error("scanner_unavailable", error.message, null)
+            }
+    }
+
+    private fun saveDocumentScan(
+        scanResult: GmsDocumentScanningResult?,
+        jobNumber: String,
+        materialLabel: String,
+        nextIndex: Int,
+    ): List<Map<String, String>> {
+        val savedEntries = mutableListOf<Map<String, String>>()
+        val pdf = scanResult?.pdf
+        if (pdf != null) {
+            val targetFile = buildScanPdfFile(jobNumber, materialLabel, nextIndex)
+            copyUriToFile(pdf.uri, targetFile)
+            savedEntries += mapOf("path" to targetFile.absolutePath)
+            return savedEntries
+        }
+
+        val firstPageUri = scanResult?.pages?.firstOrNull()?.imageUri
+        if (firstPageUri != null) {
+            val fallbackPreview = buildScanPreviewFile(jobNumber, materialLabel, nextIndex)
+            copyUriToFile(firstPageUri, fallbackPreview)
+            savedEntries += mapOf("path" to fallbackPreview.absolutePath)
+        }
+        return savedEntries
+    }
+
+    private fun copyUriToFile(sourceUri: Uri, targetFile: File) {
+        targetFile.parentFile?.mkdirs()
+        contentResolver.openInputStream(sourceUri)?.use { input ->
+            targetFile.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        } ?: error("Could not open document scanner output.")
+    }
+
+    private fun buildScanPdfFile(
+        jobNumber: String,
+        materialLabel: String,
+        index: Int,
+    ): File {
+        val safeJob = sanitizeFileComponent(jobNumber)
+        val safeLabel = sanitizeFileComponent(materialLabel).ifBlank { "material" }
+        val baseName = safeLabel.take(24)
+        val folder = File(filesDir, "job_media/$safeJob/scans")
+        folder.mkdirs()
+        return File(folder, "${baseName}_scan_$index.pdf")
+    }
+
+    private fun buildScanPreviewFile(
+        jobNumber: String,
+        materialLabel: String,
+        index: Int,
+    ): File {
+        val safeJob = sanitizeFileComponent(jobNumber)
+        val safeLabel = sanitizeFileComponent(materialLabel).ifBlank { "material" }
+        val baseName = safeLabel.take(24)
+        val folder = File(filesDir, "job_media/$safeJob/scans")
+        folder.mkdirs()
+        return File(folder, "${baseName}_scan_$index.jpg")
+    }
+
+    private fun sanitizeFileComponent(value: String): String =
+        value.lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
+
+    private fun clearPendingScan() {
+        pendingScanResult = null
+        pendingScanJobNumber = null
+        pendingScanMaterialLabel = null
+        pendingScanIndex = 1
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != DOCUMENT_SCAN_REQUEST_CODE) {
+            return
+        }
+
+        val result = pendingScanResult
+        val jobNumber = pendingScanJobNumber
+        val materialLabel = pendingScanMaterialLabel
+        val nextIndex = pendingScanIndex
+        clearPendingScan()
+
+        if (result == null) {
+            return
+        }
+        if (resultCode != Activity.RESULT_OK) {
+            result.success(emptyList<Map<String, String>>())
+            return
+        }
+        if (jobNumber.isNullOrBlank() || materialLabel.isNullOrBlank()) {
+            result.error("scan_failed", "Scanner arguments were lost before completion.", null)
+            return
+        }
+
+        val scanResult = GmsDocumentScanningResult.fromActivityResultIntent(data)
+        runCatching {
+            saveDocumentScan(
+                scanResult = scanResult,
+                jobNumber = jobNumber,
+                materialLabel = materialLabel,
+                nextIndex = nextIndex,
+            )
+        }.onSuccess { savedEntries ->
+            result.success(savedEntries)
+        }.onFailure { error ->
+            result.error("scan_failed", error.message, null)
         }
     }
 
@@ -244,5 +439,7 @@ class MainActivity : FlutterActivity() {
 
     companion object {
         private const val EXPORT_CHANNEL = "com.asme.receiving/export"
+        private const val MEDIA_CHANNEL = "com.asme.receiving/media"
+        private const val DOCUMENT_SCAN_REQUEST_CODE = 7104
     }
 }

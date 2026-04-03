@@ -337,9 +337,23 @@ class _InAppCameraCaptureOverlayState extends State<InAppCameraCaptureOverlay> {
     }
 
     return Center(
-      child: AspectRatio(
-        aspectRatio: controller.value.aspectRatio,
-        child: CameraPreview(controller),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final previewSize = controller.value.previewSize;
+          if (previewSize == null) {
+            return CameraPreview(controller);
+          }
+          return ClipRect(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: previewSize.height,
+                height: previewSize.width,
+                child: CameraPreview(controller),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

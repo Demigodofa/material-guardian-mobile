@@ -27,18 +27,8 @@ class _SignatureCaptureDialog extends StatefulWidget {
 class _SignatureCaptureDialogState extends State<_SignatureCaptureDialog> {
   final GlobalKey _boundaryKey = GlobalKey();
   final List<List<Offset>> _strokes = <List<Offset>>[];
-  final GlobalKey _canvasKey = GlobalKey();
 
   bool get _hasSignature => _strokes.any((stroke) => stroke.isNotEmpty);
-
-  Offset? _localOffsetFromGlobal(Offset globalPosition) {
-    final renderBox =
-        _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) {
-      return null;
-    }
-    return renderBox.globalToLocal(globalPosition);
-  }
 
   void _startStroke(Offset? offset) {
     if (offset == null) {
@@ -70,21 +60,35 @@ class _SignatureCaptureDialogState extends State<_SignatureCaptureDialog> {
       return;
     }
 
-    final boundary =
-        _boundaryKey.currentContext?.findRenderObject()
-            as RenderRepaintBoundary?;
-    if (boundary == null) {
-      return;
-    }
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      final boundary =
+          _boundaryKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw StateError('Signature capture surface is unavailable.');
+      }
 
-    final image = await boundary.toImage(pixelRatio: 3);
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    image.dispose();
-    if (byteData == null || !mounted) {
-      return;
-    }
+      final image = await boundary.toImage(pixelRatio: 3);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      if (byteData == null || !mounted) {
+        return;
+      }
 
-    Navigator.pop(context, byteData.buffer.asUint8List());
+      Navigator.pop(context, byteData.buffer.asUint8List());
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Signature capture failed. Clear it and try signing again.',
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -123,14 +127,12 @@ class _SignatureCaptureDialogState extends State<_SignatureCaptureDialog> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: Listener(
+                  child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onPointerDown: (event) =>
-                        _startStroke(_localOffsetFromGlobal(event.position)),
-                    onPointerMove: (event) =>
-                        _extendStroke(_localOffsetFromGlobal(event.position)),
+                    onPanStart: (details) => _startStroke(details.localPosition),
+                    onPanUpdate: (details) =>
+                        _extendStroke(details.localPosition),
                     child: CustomPaint(
-                      key: _canvasKey,
                       painter: _SignaturePainter(
                         strokes: _strokes,
                         color: Colors.black87,
@@ -146,7 +148,9 @@ class _SignatureCaptureDialogState extends State<_SignatureCaptureDialog> {
                   TextButton.icon(
                     onPressed: _hasSignature
                         ? () {
-                            setState(_strokes.clear);
+                            setState(() {
+                              _strokes.clear();
+                            });
                           }
                         : null,
                     icon: const Icon(Icons.cleaning_services_outlined),

@@ -429,6 +429,12 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: PrivacyPolicyScreen()));
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(
+        find.text('Accounts and sign-in'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       expect(find.text('Accounts and sign-in'), findsOneWidget);
       expect(find.textContaining('email-code account'), findsOneWidget);
       await tester.scrollUntilVisible(
@@ -442,6 +448,10 @@ void main() {
         find.textContaining(
           'jobs, reports, photos, scans, and signatures are not yet synced',
         ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Future cloud storage is expected'),
         findsOneWidget,
       );
     },
@@ -886,6 +896,128 @@ void main() {
       );
     },
   );
+
+  testWidgets('paid accounts see the active plan instead of the full sales catalog', (
+    tester,
+  ) async {
+    final sessionStore = InMemoryBackendAuthSessionStore();
+    final service = BackendApiService(
+      baseUrl:
+          'https://app-platforms-backend-dev-293518443128.us-east4.run.app',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/auth/start')) {
+          return http.Response(
+            '{"flowId":"flow_paid","deliveryTarget":"paid@materialguardian.test","expiresAt":"2026-04-02T18:30:00.000Z","demoCode":"246810"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        if (request.url.path.endsWith('/auth/complete')) {
+          return http.Response(
+            '{"status":"authenticated","accessToken":"access-paid","refreshToken":"refresh-paid","user":{"id":"user_paid","email":"paid@materialguardian.test","displayName":"Paid User","status":"active","createdAt":"2026-04-02T12:00:00.000Z","lastLoginAt":"2026-04-02T12:05:00.000Z"},"memberships":[],"activeEntitlement":{"productCode":"material_guardian","planCode":"material_guardian_individual_yearly","accessState":"paid","seatAvailability":"not_applicable","subscriptionState":"active","trialRemaining":0,"organizationId":null,"startsAt":"2026-04-02T12:00:00.000Z","endsAt":null},"session":{"id":"session_paid","deviceLabel":"Kevin PowerShell","platform":"web","status":"active","issuedAt":"2026-04-02T12:05:00.000Z","lastSeenAt":"2026-04-02T12:05:00.000Z","revokedAt":null}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        if (request.url.path.endsWith('/me')) {
+          return http.Response(
+            '{"user":{"id":"user_paid","email":"paid@materialguardian.test","displayName":"Paid User","status":"active","createdAt":"2026-04-02T12:00:00.000Z","lastLoginAt":"2026-04-02T12:05:00.000Z"},"memberships":[],"currentSeatAssignment":{"organizationId":null,"status":"not_applicable"},"trialState":null,"activeEntitlement":{"productCode":"material_guardian","planCode":"material_guardian_individual_yearly","accessState":"paid","seatAvailability":"not_applicable","subscriptionState":"active","trialRemaining":0,"organizationId":null,"startsAt":"2026-04-02T12:00:00.000Z","endsAt":null},"activeSession":{"id":"session_paid","deviceLabel":"Kevin PowerShell","platform":"web","status":"active","issuedAt":"2026-04-02T12:05:00.000Z","lastSeenAt":"2026-04-02T12:05:00.000Z","revokedAt":null}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        if (request.url.path.endsWith('/entitlements/current')) {
+          return http.Response(
+            '{"productCode":"material_guardian","planCode":"material_guardian_individual_yearly","accessState":"paid","seatAvailability":"not_applicable","subscriptionState":"active","trialRemaining":0,"organizationId":null,"startsAt":"2026-04-02T12:00:00.000Z","endsAt":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        if (request.url.path.endsWith('/plans')) {
+          return http.Response(
+            '''
+            {
+              "plans": [
+                {
+                  "planCode": "material_guardian_individual_monthly",
+                  "productCode": "material_guardian",
+                  "audienceType": "individual",
+                  "billingInterval": "monthly",
+                  "seatLimit": 1,
+                  "displayPrice": "\$9.99",
+                  "displayPriceCents": 999,
+                  "storeProductIds": {
+                    "google": "material_guardian_individual_monthly"
+                  },
+                  "futureBilling": {}
+                },
+                {
+                  "planCode": "material_guardian_individual_yearly",
+                  "productCode": "material_guardian",
+                  "audienceType": "individual",
+                  "billingInterval": "yearly",
+                  "seatLimit": 1,
+                  "displayPrice": "\$99.99",
+                  "displayPriceCents": 9999,
+                  "annualSavingsDisplay": "\$20.00",
+                  "storeProductIds": {
+                    "google": "material_guardian_individual_yearly"
+                  },
+                  "futureBilling": {}
+                }
+              ]
+            }
+            ''',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        return http.Response(
+          '{"status":"ok","service":"app-platforms-backend","mode":"postgres"}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final appState = MaterialGuardianAppState.seeded(
+      backendApiService: service,
+      authSessionStore: sessionStore,
+      storePurchaseService: const _FakeStorePurchaseService(
+        available: true,
+        queryResult: StoreProductQueryResult(
+          products: <StoreProductSnapshot>[],
+          notFoundIds: <String>[],
+          errorMessage: null,
+        ),
+      ),
+    );
+
+    await appState.startBackendSignIn(
+      email: 'paid@materialguardian.test',
+      displayName: 'Paid User',
+    );
+    await appState.completeBackendSignIn(code: '246810');
+    await appState.loadPurchaseCatalog();
+
+    await tester.pumpWidget(MaterialApp(home: SalesScreen(appState: appState)));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Active subscription'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Active subscription'), findsOneWidget);
+    expect(find.textContaining('This account already has an active subscription'), findsOneWidget);
+    expect(find.text('Choose This Plan'), findsNothing);
+  });
 
   test(
     'restoring purchases does not leave the app stuck in purchasing mode',

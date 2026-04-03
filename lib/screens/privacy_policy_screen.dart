@@ -9,7 +9,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
     (
       title: 'Overview',
       body:
-          'Material Guardian is an offline-first receiving inspection app. Jobs, receiving reports, photos, scans, signatures, and exported packet files stay on your device in the current release.',
+          'Material Guardian is an offline-first receiving inspection app. Jobs, receiving reports, photos, scans, signatures, and exported packet files stay on your device in the current release. Cloud storage and cross-device recovery are planned for a later opt-in upgrade.',
     ),
     (
       title: 'Camera and document scanning',
@@ -24,7 +24,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
     (
       title: 'Local job data and cloud status',
       body:
-          'Report content still stays local-first in this release. The developer service tracks account identity, organization membership, seats, and subscription state, but your jobs, reports, photos, scans, and signatures are not yet synced into a customer cloud workspace.',
+          'Report content still stays local-first in this release. The developer service tracks account identity, organization membership, seats, and subscription state, but your jobs, reports, photos, scans, and signatures are not yet synced into a customer cloud workspace. Future cloud storage is expected to be an explicit upgrade with clearer recovery and cross-device access wording.',
     ),
     (
       title: 'Organizations and billing',
@@ -69,7 +69,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'This screen should match the real product behavior: local-first report data, backend-managed account access, and no customer cloud-storage workspace yet.',
+                      'This screen should match the real product behavior: local-first report data today, backend-managed account access now, and future cloud storage only as an explicit later upgrade.',
                     ),
                   ],
                 ),

@@ -51,13 +51,17 @@ class _SalesScreenState extends State<SalesScreen> {
             appState.effectiveBackendEntitlement ??
             appState.backendMe?.activeEntitlement;
         final isSignedIn = appState.isSignedIn;
+        final baseListPadding = screenListPadding(context);
+        final listPadding = baseListPadding.copyWith(
+          bottom: baseListPadding.bottom + 96,
+        );
 
         return Scaffold(
           appBar: AppBar(title: const Text('Plans')),
           body: SafeArea(
             child: centeredContent(
               child: ListView(
-                padding: screenListPadding(context),
+                padding: listPadding,
                 children: [
                   const SizedBox(height: 4),
                   const _SalesLogo(),
@@ -442,6 +446,18 @@ class _PlansCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final plans = appState.backendPlans;
+    final activeEntitlement =
+        appState.effectiveBackendEntitlement ??
+        appState.backendMe?.activeEntitlement;
+    BackendPlanSnapshot? activePlan;
+    for (final plan in plans) {
+      if (plan.planCode == activeEntitlement?.planCode) {
+        activePlan = plan;
+        break;
+      }
+    }
+    final hasActivePaidPlan =
+        activeEntitlement?.accessState == 'paid' && activePlan != null;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -458,6 +474,10 @@ class _PlansCard extends StatelessWidget {
               'Yearly plans should read as the better value. Business admins can invite people later, keep branding consistent, and assign seats only to the people who actually need report creation.',
             ),
             const SizedBox(height: 12),
+            if (hasActivePaidPlan) ...[
+              _CurrentPlanCard(plan: activePlan),
+              const SizedBox(height: 12),
+            ],
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -497,6 +517,10 @@ class _PlansCard extends StatelessWidget {
             const SizedBox(height: 12),
             if (plans.isEmpty)
               const Text('Plan catalog is still loading.')
+            else if (hasActivePaidPlan)
+              const Text(
+                'This account already has an active subscription. Use Restore Purchases if the store and backend ever need to be re-linked on this device.',
+              )
             else
               for (final plan in plans) ...[
                 _SalesPlanTile(appState: appState, plan: plan),
@@ -504,6 +528,58 @@ class _PlansCard extends StatelessWidget {
               ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CurrentPlanCard extends StatelessWidget {
+  const _CurrentPlanCard({required this.plan});
+
+  final BackendPlanSnapshot plan;
+
+  @override
+  Widget build(BuildContext context) {
+    final savingsLine =
+        plan.savingsCopy ??
+        (plan.annualSavingsDisplay == null
+            ? null
+            : 'Save ${plan.annualSavingsDisplay} per year, basically 2 free months.');
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Active subscription',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${_titleCase(plan.audienceType)} ${_titleCase(plan.billingInterval)}',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(plan.displayPrice),
+          if (savingsLine != null && savingsLine.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              savingsLine,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

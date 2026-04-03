@@ -434,7 +434,7 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
 
     String? replacementPath;
     if (source == _ScanSource.camera) {
-      await _captureScansInApp(replaceIndex: index);
+      await _scanDocumentsWithDeviceScanner(replaceIndex: index);
       return;
     } else {
       final importedPaths = await widget.appState.mediaService.addScans(
@@ -606,6 +606,57 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
     await _saveDraftNow();
   }
 
+  Future<void> _scanDocumentsWithDeviceScanner({int? replaceIndex}) async {
+    final remainingSlots = replaceIndex == null ? 8 - _scanPaths.length : 1;
+    if (remainingSlots <= 0) {
+      _showMessage('A material can keep up to 8 scans.');
+      return;
+    }
+
+    try {
+      final scannedPaths = await widget.appState.mediaService
+          .scanDocumentsWithDeviceScanner(
+            jobNumber: widget.appState.jobById(widget.jobId).jobNumber,
+            materialLabel: _materialLabelForFiles,
+            nextIndex:
+                replaceIndex == null ? _scanPaths.length + 1 : replaceIndex + 1,
+            pageLimit: remainingSlots,
+          );
+      if (!mounted || scannedPaths.isEmpty) {
+        return;
+      }
+
+      if (replaceIndex != null) {
+        final previousPath = _scanPaths[replaceIndex];
+        final replacementPath = scannedPaths.first;
+        if (previousPath != replacementPath) {
+          await widget.appState.mediaService.deletePath(previousPath);
+        }
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          final nextPaths = [..._scanPaths];
+          nextPaths[replaceIndex] = replacementPath;
+          _scanPaths = nextPaths;
+        });
+      } else {
+        setState(() {
+          _scanPaths = [..._scanPaths, ...scannedPaths];
+        });
+      }
+      await _saveDraftNow();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      _showMessage(
+        'Document scanner unavailable on this device right now. Falling back to camera capture.',
+      );
+      await _captureScansInApp(replaceIndex: replaceIndex);
+    }
+  }
+
   Future<void> _handlePhotoAction() async {
     final source = await _showPhotoSourceSheet(context);
     if (!mounted || source == null) {
@@ -627,7 +678,7 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
       await _importScans();
       return;
     }
-    await _captureScansInApp();
+    await _scanDocumentsWithDeviceScanner();
   }
 
   Future<void> _removeMediaAt({
@@ -1614,7 +1665,7 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Preferred: document scanner. Camera fallback still exports cleanly into the combined MTR PDF.',
+                          'Preferred: built-in document scanner with cleanup. Camera fallback still exports cleanly into the combined MTR PDF.',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         const SizedBox(height: 10),
@@ -2024,6 +2075,26 @@ class _ThumbnailCell extends StatelessWidget {
           color: const Color(0xFFE5E7EB),
           border: Border.all(color: const Color(0xFFCBD5E1)),
           borderRadius: borderRadius,
+        ),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              itemLabel == 'scan'
+                  ? Icons.document_scanner_outlined
+                  : Icons.add_a_photo_outlined,
+              size: 18,
+              color: const Color(0xFF6B7280),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$slotIndex',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: const Color(0xFF6B7280),
+              ),
+            ),
+          ],
         ),
       ),
     );

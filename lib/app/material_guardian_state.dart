@@ -579,6 +579,16 @@ class MaterialGuardianAppState extends ChangeNotifier {
 
   Future<void> completeDraft(MaterialDraft draft) async {
     final existingMaterialId = draft.sourceMaterialId.trim();
+    final job = jobById(draft.jobId);
+    MaterialRecord? existingMaterial;
+    if (existingMaterialId.isNotEmpty) {
+      for (final material in job.materials) {
+        if (material.id == existingMaterialId) {
+          existingMaterial = material;
+          break;
+        }
+      }
+    }
     final material = MaterialRecord(
       id: existingMaterialId.isEmpty
           ? 'mat-${DateTime.now().microsecondsSinceEpoch}'
@@ -640,16 +650,10 @@ class MaterialGuardianAppState extends ChangeNotifier {
       photoPaths: draft.photoPaths,
       scanPaths: draft.scanPaths,
       photoCount: draft.photoPaths.length,
-      createdAt: existingMaterialId.isEmpty
-          ? DateTime.now()
-          : materialById(
-              jobId: draft.jobId,
-              materialId: existingMaterialId,
-            ).createdAt,
+      createdAt: existingMaterial?.createdAt ?? DateTime.now(),
     );
 
-    final job = jobById(draft.jobId);
-    final updatedMaterials = existingMaterialId.isEmpty
+    final updatedMaterials = existingMaterial == null
         ? [...job.materials, material]
         : [
             for (final existing in job.materials)

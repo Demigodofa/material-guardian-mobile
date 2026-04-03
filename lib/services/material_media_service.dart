@@ -1,7 +1,7 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 
@@ -13,6 +13,10 @@ enum PhotoCaptureSource { camera, gallery }
 class MaterialMediaService {
   MaterialMediaService({ImagePicker? imagePicker})
     : _imagePicker = imagePicker ?? ImagePicker();
+
+  static const MethodChannel _mediaChannel = MethodChannel(
+    'com.asme.receiving/media',
+  );
 
   final ImagePicker _imagePicker;
 
@@ -132,6 +136,37 @@ class MaterialMediaService {
       imported.add(targetPath);
     }
     return imported;
+  }
+
+  Future<List<String>> scanDocumentsWithDeviceScanner({
+    required String jobNumber,
+    required String materialLabel,
+    required int nextIndex,
+    required int pageLimit,
+  }) async {
+    if (!Platform.isAndroid) {
+      return const [];
+    }
+
+    final rawResults =
+        await _mediaChannel.invokeMethod<List<dynamic>>('scanDocuments', {
+          'jobNumber': jobNumber,
+          'materialLabel': materialLabel,
+          'nextIndex': nextIndex,
+          'pageLimit': pageLimit,
+        }) ??
+        const <dynamic>[];
+
+    final paths = <String>[];
+    for (final entry in rawResults) {
+      if (entry is Map) {
+        final path = entry['path']?.toString().trim() ?? '';
+        if (path.isNotEmpty) {
+          paths.add(path);
+        }
+      }
+    }
+    return paths;
   }
 
   Future<String?> importSignature({

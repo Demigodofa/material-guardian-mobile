@@ -99,6 +99,9 @@ The Flutter repo already has:
     - the dialog no longer writes app-state changes before the route closes
     - one-shot dialog fields no longer keep disposable controllers alive across the close animation
     - widget coverage now includes a regression that opens the dialog, creates a job, and asserts no framework exception
+  - signed-out sales/trial flow tightened again after fresh device/emulator validation:
+    - the actual `Start Free Trial` form now sits above the long plan-explanation block instead of being buried below it
+    - small-phone and tablet first-viewports now show the real account-entry action much earlier
   - wider-form-factor validation now includes a real Android tablet emulator pass:
     - Pixel Tablet landscape kept the sales first CTA in the initial viewport
     - Pixel Tablet portrait also kept the trial stack readable without system-bar clipping

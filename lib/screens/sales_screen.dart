@@ -67,8 +67,6 @@ class _SalesScreenState extends State<SalesScreen> {
                     trialRemaining: entitlement?.trialRemaining ?? 6,
                     accessState: entitlement?.accessState,
                   ),
-                  const SizedBox(height: 16),
-                  const _HowPlansWorkCard(),
                   if (appState.backendAccountError != null &&
                       appState.backendAccountError!.trim().isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -126,6 +124,8 @@ class _SalesScreenState extends State<SalesScreen> {
                       },
                     ),
                   ],
+                  const SizedBox(height: 16),
+                  const _HowPlansWorkCard(),
                   const SizedBox(height: 16),
                   _PlansCard(appState: appState),
                   if (!isSignedIn) ...[

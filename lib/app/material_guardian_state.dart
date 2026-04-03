@@ -193,6 +193,60 @@ class MaterialGuardianAppState extends ChangeNotifier {
     );
   }
 
+  factory MaterialGuardianAppState.seededSignedIn({
+    BackendApiService? backendApiService,
+    BackendAuthSessionStore? authSessionStore,
+    StorePurchaseService? storePurchaseService,
+  }) {
+    final appState = MaterialGuardianAppState.seeded(
+      backendApiService: backendApiService,
+      authSessionStore: authSessionStore,
+      storePurchaseService: storePurchaseService,
+    );
+    final signedInAt = DateTime(2026, 4, 3, 12);
+    final activeEntitlement = BackendEntitlementSnapshot(
+      productCode: 'material_guardian',
+      planCode: 'material_guardian_individual_yearly',
+      accessState: 'paid',
+      seatAvailability: 'assigned',
+      subscriptionState: 'active',
+      trialRemaining: 0,
+      organizationId: null,
+      startsAt: signedInAt,
+      endsAt: null,
+    );
+    appState._backendAuthSession = const StoredBackendAuthSession(
+      accessToken: 'debug-seeded-access-token',
+      refreshToken: 'debug-seeded-refresh-token',
+    );
+    appState._backendMe = BackendMeSnapshot(
+      user: BackendUserSummary(
+        id: 'debug_user',
+        email: 'debug@materialguardian.test',
+        displayName: 'Debug Solo User',
+        status: 'active',
+        createdAt: signedInAt,
+        lastLoginAt: signedInAt,
+      ),
+      memberships: const <BackendMembershipSummary>[],
+      currentSeatOrganizationId: null,
+      currentSeatStatus: 'not_applicable',
+      trialState: null,
+      activeEntitlement: activeEntitlement,
+      activeSession: BackendSessionSnapshot(
+        id: 'debug-session',
+        deviceLabel: 'Debug Seeded Session',
+        platform: 'android',
+        status: 'active',
+        issuedAt: signedInAt,
+        lastSeenAt: signedInAt,
+        revokedAt: null,
+      ),
+    );
+    appState._backendEntitlement = activeEntitlement;
+    return appState;
+  }
+
   static Future<MaterialGuardianAppState> create({
     BackendApiService? backendApiService,
     BackendAuthSessionStore? authSessionStore,

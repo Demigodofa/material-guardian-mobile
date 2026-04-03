@@ -88,6 +88,16 @@ Current reality:
 - donor QC dates are now carried through shared Flutter draft/state/export again: the receiving form shows date pickers beside `QC Inspector` and `QC Manager`, saved materials retain those dates, and packet export now includes `QC Inspector Date` / `QC Manager Date` plus dated signature blocks instead of dropping that donor information
 - packet export parity is now tighter again: the Flutter packet no longer prints the donor-inaccurate internal `Tag` row or generic `Field / Value` headers, it omits blank surface-finish rows instead of printing placeholder dashes, it restores donor material-detail order (`Material Description`, `PO#`, `Vendor`, `Qty`, `Product`, `Specification`, `Grade/Type`, `Fitting`), and it now includes the donor-style `Signatures` heading
 - the shared Flutter form also now matches the donor surface-finish row structure more closely: `Actual Surface Finish Reading` is its own field again and the unit is rendered beside it instead of being embedded in the label text
+- fresh Samsung and emulator review tightened receiving-form layout again:
+  - narrow-width rows now stack for readability instead of keeping donor-length field groups on one crushed line
+  - `TH 1-4` now becomes a 2x2 block on smaller phones, which removed the clipped `T...` labels that showed up on Samsung
+  - dropdown labels now render outside the field body to match the donor reading pattern more closely
+- customization signature/logo actions now persist immediately instead of only mutating local screen state:
+  - captured or imported default inspector signatures remain visible after navigation
+  - imported/replaced/removed company logos persist immediately for later export review
+- shared Flutter export output is now intentionally being validated as a visual artifact, not just a file:
+  - `test/manual_export_probe_test.dart` copies the seeded packet, ZIP, and export info to the Windows Desktop
+  - the current first packet page now uses a bordered receiving-inspection sheet layout that is materially closer to the donor Android report template than the earlier plain text/table export
 - the current project stage is debugging/hardening, not first-pass scaffolding; active attention is on real-device Android behavior and preserving a clean path for later iOS validation
 - iOS-specific fit and validation still need to be completed on the Mac through the Apple handoff queue
 - privacy/store wording must now be tracked as part of migration because the current shipped Android privacy language is intentionally local-only and will become inaccurate once backend account features are released

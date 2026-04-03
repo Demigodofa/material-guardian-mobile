@@ -53,6 +53,30 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
     super.dispose();
   }
 
+  Future<void> _persistCustomizationAssets({
+    String? successMessage,
+  }) async {
+    final nextSettings = widget.appState.customization.copyWith(
+      receiveAsmeB16Parts: _receiveAsmeB16Parts,
+      surfaceFinishRequired: _surfaceFinishRequired,
+      surfaceFinishUnit: _surfaceFinishUnit,
+      defaultQcInspectorName: _qcInspectorController.text.trim(),
+      defaultQcManagerName: _qcManagerController.text.trim(),
+      includeCompanyLogoOnReports: _includeCompanyLogoOnReports,
+      hasSavedInspectorSignature:
+          _savedInspectorSignaturePath.trim().isNotEmpty,
+      savedInspectorSignaturePath: _savedInspectorSignaturePath,
+      companyLogoPath: _companyLogoPath,
+    );
+    await widget.appState.saveCustomization(nextSettings);
+    if (!mounted || successMessage == null || successMessage.trim().isEmpty) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(successMessage)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final canManageWorkspaceSettings =
@@ -242,6 +266,9 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                             setState(() {
                               _savedInspectorSignaturePath = nextPath;
                             });
+                            await _persistCustomizationAssets(
+                              successMessage: 'Saved inspector signature.',
+                            );
                           },
                           icon: const Icon(Icons.draw_outlined),
                           label: Text(
@@ -262,6 +289,9 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                             setState(() {
                               _savedInspectorSignaturePath = nextPath;
                             });
+                            await _persistCustomizationAssets(
+                              successMessage: 'Imported inspector signature.',
+                            );
                           },
                           icon: const Icon(Icons.file_open_outlined),
                           label: const Text('Import Signature'),
@@ -301,6 +331,9 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                               setState(() {
                                 _savedInspectorSignaturePath = '';
                               });
+                              await _persistCustomizationAssets(
+                                successMessage: 'Removed saved signature.',
+                              );
                             },
                             icon: const Icon(Icons.delete_outline_rounded),
                             label: const Text('Remove Signature'),
@@ -374,6 +407,11 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                               setState(() {
                                 _companyLogoPath = nextPath;
                               });
+                              await _persistCustomizationAssets(
+                                successMessage: hasLogo
+                                    ? 'Replaced company logo.'
+                                    : 'Imported company logo.',
+                              );
                             },
                             icon: const Icon(Icons.image_outlined),
                             label: Text(
@@ -415,6 +453,9 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                                 setState(() {
                                   _companyLogoPath = '';
                                 });
+                                await _persistCustomizationAssets(
+                                  successMessage: 'Removed company logo.',
+                                );
                               },
                               icon: const Icon(Icons.delete_outline_rounded),
                               label: const Text('Remove Logo'),

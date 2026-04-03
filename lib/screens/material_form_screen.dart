@@ -942,61 +942,119 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: TextField(
-                                controller: _quantityController,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: _maxLengthFormatters(
-                                  _quantityMaxLength,
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final stackFields = constraints.maxWidth < 560;
+                            if (stackFields) {
+                              return Column(
+                                children: [
+                                  TextField(
+                                    controller: _quantityController,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: _maxLengthFormatters(
+                                      _quantityMaxLength,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Qty',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _LabeledDropdownField(
+                                    value: _productTypeController.text,
+                                    labelText: 'Product',
+                                    options: _optionsWithCurrent(
+                                      _productTypeController.text,
+                                      _productTypeOptions,
+                                    ),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _productTypeController.text =
+                                            value ?? '';
+                                      });
+                                      _saveDraftSilently();
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _LabeledDropdownField(
+                                    value:
+                                        _specificationPrefixController.text,
+                                    labelText: 'A/SA',
+                                    options: _optionsWithCurrent(
+                                      _specificationPrefixController.text,
+                                      _specificationPrefixOptions,
+                                    ),
+                                    labelBuilder: (value) =>
+                                        value.isEmpty ? 'Blank' : value,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _specificationPrefixController.text =
+                                            value ?? '';
+                                      });
+                                      _saveDraftSilently();
+                                    },
+                                  ),
+                                ],
+                              );
+                            }
+                            return Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: TextField(
+                                    controller: _quantityController,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: _maxLengthFormatters(
+                                      _quantityMaxLength,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Qty',
+                                    ),
+                                  ),
                                 ),
-                                decoration: const InputDecoration(
-                                  labelText: 'Qty',
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 4,
+                                  child: _LabeledDropdownField(
+                                    value: _productTypeController.text,
+                                    labelText: 'Product',
+                                    options: _optionsWithCurrent(
+                                      _productTypeController.text,
+                                      _productTypeOptions,
+                                    ),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _productTypeController.text =
+                                            value ?? '';
+                                      });
+                                      _saveDraftSilently();
+                                    },
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 4,
-                              child: _LabeledDropdownField(
-                                value: _productTypeController.text,
-                                labelText: 'Product',
-                                options: _optionsWithCurrent(
-                                  _productTypeController.text,
-                                  _productTypeOptions,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 2,
+                                  child: _LabeledDropdownField(
+                                    value:
+                                        _specificationPrefixController.text,
+                                    labelText: 'A/SA',
+                                    options: _optionsWithCurrent(
+                                      _specificationPrefixController.text,
+                                      _specificationPrefixOptions,
+                                    ),
+                                    labelBuilder: (value) =>
+                                        value.isEmpty ? 'Blank' : value,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _specificationPrefixController.text =
+                                            value ?? '';
+                                      });
+                                      _saveDraftSilently();
+                                    },
+                                  ),
                                 ),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _productTypeController.text = value ?? '';
-                                  });
-                                  _saveDraftSilently();
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 2,
-                              child: _LabeledDropdownField(
-                                value: _specificationPrefixController.text,
-                                labelText: 'A/SA',
-                                options: _optionsWithCurrent(
-                                  _specificationPrefixController.text,
-                                  _specificationPrefixOptions,
-                                ),
-                                labelBuilder: (value) =>
-                                    value.isEmpty ? 'Blank' : value,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _specificationPrefixController.text =
-                                        value ?? '';
-                                  });
-                                  _saveDraftSilently();
-                                },
-                              ),
-                            ),
-                          ],
+                              ],
+                            );
+                          },
                         ),
                         const SizedBox(height: 12),
                         TextField(
@@ -1010,52 +1068,104 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
                         ),
                         if (showB16) ...[
                           const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _LabeledDropdownField(
-                                  value: _fittingStandardController.text,
-                                  labelText: 'Fitting',
-                                  options: _optionsWithCurrent(
-                                    _fittingStandardController.text,
-                                    _fittingStandardOptions,
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final stackFields = constraints.maxWidth < 560;
+                              if (stackFields) {
+                                return Column(
+                                  children: [
+                                    _LabeledDropdownField(
+                                      value: _fittingStandardController.text,
+                                      labelText: 'Fitting',
+                                      options: _optionsWithCurrent(
+                                        _fittingStandardController.text,
+                                        _fittingStandardOptions,
+                                      ),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _fittingStandardController.text =
+                                              value ?? 'N/A';
+                                          if (_fittingStandardController.text !=
+                                              'B16') {
+                                            _fittingSuffixController.text = '';
+                                          }
+                                        });
+                                        _saveDraftSilently();
+                                      },
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _LabeledDropdownField(
+                                      value: _fittingSuffixController.text,
+                                      labelText: 'B16 Type',
+                                      options: _optionsWithCurrent(
+                                        _fittingSuffixController.text,
+                                        _fittingSuffixOptions,
+                                      ),
+                                      enabled:
+                                          _fittingStandardController.text ==
+                                          'B16',
+                                      labelBuilder: (value) =>
+                                          value.isEmpty ? 'N/A' : value,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _fittingSuffixController.text =
+                                              value ?? '';
+                                        });
+                                        _saveDraftSilently();
+                                      },
+                                    ),
+                                  ],
+                                );
+                              }
+                              return Row(
+                                children: [
+                                  Expanded(
+                                    child: _LabeledDropdownField(
+                                      value: _fittingStandardController.text,
+                                      labelText: 'Fitting',
+                                      options: _optionsWithCurrent(
+                                        _fittingStandardController.text,
+                                        _fittingStandardOptions,
+                                      ),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _fittingStandardController.text =
+                                              value ?? 'N/A';
+                                          if (_fittingStandardController.text !=
+                                              'B16') {
+                                            _fittingSuffixController.text = '';
+                                          }
+                                        });
+                                        _saveDraftSilently();
+                                      },
+                                    ),
                                   ),
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _fittingStandardController.text =
-                                          value ?? 'N/A';
-                                      if (_fittingStandardController.text !=
-                                          'B16') {
-                                        _fittingSuffixController.text = '';
-                                      }
-                                    });
-                                    _saveDraftSilently();
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _LabeledDropdownField(
-                                  value: _fittingSuffixController.text,
-                                  labelText: 'B16 Type',
-                                  options: _optionsWithCurrent(
-                                    _fittingSuffixController.text,
-                                    _fittingSuffixOptions,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _LabeledDropdownField(
+                                      value: _fittingSuffixController.text,
+                                      labelText: 'B16 Type',
+                                      options: _optionsWithCurrent(
+                                        _fittingSuffixController.text,
+                                        _fittingSuffixOptions,
+                                      ),
+                                      enabled:
+                                          _fittingStandardController.text ==
+                                          'B16',
+                                      labelBuilder: (value) =>
+                                          value.isEmpty ? 'N/A' : value,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _fittingSuffixController.text =
+                                              value ?? '';
+                                        });
+                                        _saveDraftSilently();
+                                      },
+                                    ),
                                   ),
-                                  enabled:
-                                      _fittingStandardController.text == 'B16',
-                                  labelBuilder: (value) =>
-                                      value.isEmpty ? 'N/A' : value,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _fittingSuffixController.text =
-                                          value ?? '';
-                                    });
-                                    _saveDraftSilently();
-                                  },
-                                ),
-                              ),
-                            ],
+                                ],
+                              );
+                            },
                           ),
                         ],
                         const SizedBox(height: 12),
@@ -1079,11 +1189,15 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
                               .toList(growable: false),
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _thickness1Controller,
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final stackFields = constraints.maxWidth < 700;
+                            Widget buildThicknessField(
+                              TextEditingController controller,
+                              String label,
+                            ) {
+                              return TextField(
+                                controller: controller,
                                 keyboardType:
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
@@ -1091,131 +1205,237 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
                                 inputFormatters: _maxLengthFormatters(
                                   _dimensionValueMaxLength,
                                 ),
-                                decoration: const InputDecoration(
-                                  labelText: 'TH 1',
+                                decoration: InputDecoration(labelText: label),
+                              );
+                            }
+
+                            if (stackFields) {
+                              return Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: buildThicknessField(
+                                          _thickness1Controller,
+                                          'TH 1',
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: buildThicknessField(
+                                          _thickness2Controller,
+                                          'TH 2',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: buildThicknessField(
+                                          _thickness3Controller,
+                                          'TH 3',
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: buildThicknessField(
+                                          _thickness4Controller,
+                                          'TH 4',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            }
+
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: buildThicknessField(
+                                    _thickness1Controller,
+                                    'TH 1',
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _thickness2Controller,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                inputFormatters: _maxLengthFormatters(
-                                  _dimensionValueMaxLength,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: buildThicknessField(
+                                    _thickness2Controller,
+                                    'TH 2',
+                                  ),
                                 ),
-                                decoration: const InputDecoration(
-                                  labelText: 'TH 2',
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: buildThicknessField(
+                                    _thickness3Controller,
+                                    'TH 3',
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _thickness3Controller,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                inputFormatters: _maxLengthFormatters(
-                                  _dimensionValueMaxLength,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: buildThicknessField(
+                                    _thickness4Controller,
+                                    'TH 4',
+                                  ),
                                 ),
-                                decoration: const InputDecoration(
-                                  labelText: 'TH 3',
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _thickness4Controller,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                inputFormatters: _maxLengthFormatters(
-                                  _dimensionValueMaxLength,
-                                ),
-                                decoration: const InputDecoration(
-                                  labelText: 'TH 4',
-                                ),
-                              ),
-                            ),
-                          ],
+                              ],
+                            );
+                          },
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _widthController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final stackFields = constraints.maxWidth < 700;
+                            if (stackFields) {
+                              return Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _widthController,
+                                          keyboardType: const TextInputType
+                                              .numberWithOptions(decimal: true),
+                                          inputFormatters: _maxLengthFormatters(
+                                            _dimensionValueMaxLength,
+                                          ),
+                                          decoration: const InputDecoration(
+                                            labelText: 'Width',
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _lengthController,
+                                          keyboardType: const TextInputType
+                                              .numberWithOptions(decimal: true),
+                                          inputFormatters: _maxLengthFormatters(
+                                            _dimensionValueMaxLength,
+                                          ),
+                                          decoration: const InputDecoration(
+                                            labelText: 'Length',
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _diameterController,
+                                          keyboardType: const TextInputType
+                                              .numberWithOptions(decimal: true),
+                                          inputFormatters: _maxLengthFormatters(
+                                            _dimensionValueMaxLength,
+                                          ),
+                                          decoration: const InputDecoration(
+                                            labelText: 'Diameter',
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _LabeledDropdownField(
+                                          value:
+                                              _diameterTypeController.text,
+                                          labelText: 'ID/OD',
+                                          options: _optionsWithCurrent(
+                                            _diameterTypeController.text,
+                                            _diameterTypeOptions,
+                                          ),
+                                          labelBuilder: (value) =>
+                                              value.isEmpty ? 'None' : value,
+                                          onChanged: (value) {
+                                            setState(() {
+                                              _diameterTypeController.text =
+                                                  value ?? '';
+                                            });
+                                            _saveDraftSilently();
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            }
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _widthController,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    inputFormatters: _maxLengthFormatters(
+                                      _dimensionValueMaxLength,
                                     ),
-                                inputFormatters: _maxLengthFormatters(
-                                  _dimensionValueMaxLength,
-                                ),
-                                decoration: const InputDecoration(
-                                  labelText: 'Width',
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _lengthController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Width',
                                     ),
-                                inputFormatters: _maxLengthFormatters(
-                                  _dimensionValueMaxLength,
+                                  ),
                                 ),
-                                decoration: const InputDecoration(
-                                  labelText: 'Length',
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _diameterController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _lengthController,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    inputFormatters: _maxLengthFormatters(
+                                      _dimensionValueMaxLength,
                                     ),
-                                inputFormatters: _maxLengthFormatters(
-                                  _dimensionValueMaxLength,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Length',
+                                    ),
+                                  ),
                                 ),
-                                decoration: const InputDecoration(
-                                  labelText: 'Diameter',
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _diameterController,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    inputFormatters: _maxLengthFormatters(
+                                      _dimensionValueMaxLength,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Diameter',
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _LabeledDropdownField(
-                                value: _diameterTypeController.text,
-                                labelText: 'ID/OD',
-                                options: _optionsWithCurrent(
-                                  _diameterTypeController.text,
-                                  _diameterTypeOptions,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _LabeledDropdownField(
+                                    value: _diameterTypeController.text,
+                                    labelText: 'ID/OD',
+                                    options: _optionsWithCurrent(
+                                      _diameterTypeController.text,
+                                      _diameterTypeOptions,
+                                    ),
+                                    labelBuilder: (value) =>
+                                        value.isEmpty ? 'None' : value,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _diameterTypeController.text =
+                                            value ?? '';
+                                      });
+                                      _saveDraftSilently();
+                                    },
+                                  ),
                                 ),
-                                labelBuilder: (value) =>
-                                    value.isEmpty ? 'None' : value,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _diameterTypeController.text = value ?? '';
-                                  });
-                                  _saveDraftSilently();
-                                },
-                              ),
-                            ),
-                          ],
+                              ],
+                            );
+                          },
                         ),
                         const SizedBox(height: 12),
                         _BinaryChoiceRow(
@@ -1904,19 +2124,41 @@ class _LabeledDropdownField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final resolvedValue = options.contains(value) ? value : null;
-    return DropdownButtonFormField<String>(
-      key: ValueKey('$labelText|${resolvedValue ?? ''}|$enabled'),
-      initialValue: resolvedValue,
-      isExpanded: true,
-      decoration: InputDecoration(labelText: labelText),
-      items: [
-        for (final option in options)
-          DropdownMenuItem<String>(
-            value: option,
-            child: Text(labelBuilder?.call(option) ?? option),
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          labelText,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: enabled
+                ? theme.colorScheme.onSurfaceVariant
+                : theme.disabledColor,
           ),
+        ),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          key: ValueKey('$labelText|${resolvedValue ?? ''}|$enabled'),
+          initialValue: resolvedValue,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          ),
+          items: [
+            for (final option in options)
+              DropdownMenuItem<String>(
+                value: option,
+                child: Text(
+                  labelBuilder?.call(option) ?? option,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: enabled ? onChanged : null,
+        ),
       ],
-      onChanged: enabled ? onChanged : null,
     );
   }
 }

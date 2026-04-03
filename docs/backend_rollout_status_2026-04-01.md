@@ -119,6 +119,21 @@ The Flutter repo already has:
     - empty photo/scan slots now show explicit icons and slot numbers instead of reading like blank dead buttons
   - stale edit-draft save safety:
     - completing an edit draft no longer throws just because the referenced source material was removed earlier; the app now falls back to saving it as a new material record instead of failing the whole save
+  - donor-aligned receiving-form layout cleanup after fresh Samsung and emulator review:
+    - narrow-width rows now collapse instead of crushing fields together:
+      - `Qty / Product / A/SA`
+      - `Fitting / B16 Type`
+      - `TH 1-4`
+      - `Width / Length / Diameter / ID/OD`
+    - dropdown labels now sit outside the field body, which reads closer to the donor app and removed the jammed floating-label look on real phones
+  - customization asset persistence is tighter:
+    - capturing, importing, replacing, or removing the default inspector signature now saves immediately instead of waiting for a later general save
+    - importing, replacing, or removing the company logo now also saves immediately
+    - this reduced the earlier Samsung confusion where signature capture looked like it had not stuck
+  - packet export parity moved materially closer to the donor Android form:
+    - the first page now renders as a bordered receiving-inspection sheet instead of a loose text dump
+    - job/vendor/PO/date, quantity/product/specification/grade/fitting, dimensions, inspection decisions, comments, QC rows, and signatures now read in one structured form block
+    - a reusable manual export probe test can now copy the seeded packet, ZIP, and export info to the Windows Desktop for visual comparison without a device round-trip
   - wider-form-factor validation now includes a real Android tablet emulator pass:
     - Pixel Tablet landscape kept the sales first CTA in the initial viewport
     - Pixel Tablet portrait also kept the trial stack readable without system-bar clipping
@@ -158,6 +173,7 @@ The Flutter repo already has:
 3. move from operator-style admin controls toward cleaner business UX
 4. keep purchase verification, privacy wording, and store disclosures in step with the real release path
 5. remove the temporary operator-style backend diagnostics from the visible account flow before release
+6. keep running the Desktop export probe and donor PDF comparison after any material export-layout change so packet regression is caught visually, not only by file-exists checks
 
 ### Deferred until later
 

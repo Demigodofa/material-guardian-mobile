@@ -201,38 +201,17 @@ class JobExportService {
       ...material.photoPaths.where(isImagePath),
     ];
 
-    final dimensionRows = <List<String>>[
-      ['Unit', material.dimensionUnit.label],
-      [
-        'Thickness Readings',
-        [
-              material.thickness1,
-              material.thickness2,
-              material.thickness3,
-              material.thickness4,
-            ].where((value) => value.trim().isNotEmpty).join(', ').isEmpty
-            ? 'N/A'
-            : [
-                material.thickness1,
-                material.thickness2,
-                material.thickness3,
-                material.thickness4,
-              ].where((value) => value.trim().isNotEmpty).join(', '),
-      ],
-      ['Width', material.width],
-      ['Length', material.length],
-      ['Diameter', material.diameter],
-      ['O.D./I.D.', material.diameterType],
-      if (material.b16DimensionsAcceptable.trim().isNotEmpty)
-        ['B16 Dimensions Acceptable', material.b16DimensionsAcceptable],
-      if (material.surfaceFinishCode.trim().isNotEmpty)
-        ['Surface Finish', material.surfaceFinishCode],
-      if (material.surfaceFinishReading.trim().isNotEmpty)
-        ['Surface Finish Reading', material.surfaceFinishReading],
-      if (material.surfaceFinishUnit.trim().isNotEmpty &&
-          material.surfaceFinishReading.trim().isNotEmpty)
-        ['Surface Finish Unit', material.surfaceFinishUnit],
-    ];
+    final thicknessReadings = [
+      material.thickness1,
+      material.thickness2,
+      material.thickness3,
+      material.thickness4,
+    ].where((value) => value.trim().isNotEmpty).join(', ');
+    final inspectionDateText = _formatExportDate(material.qcInspectorDate);
+    final commentsText = [
+      material.comments,
+      material.description,
+    ].where((value) => value.trim().isNotEmpty).join(' | ');
 
     document.addPage(
       pw.MultiPage(
@@ -241,43 +220,74 @@ class JobExportService {
         build: (context) {
           return [
             if (logo != null)
-              pw.Container(
-                margin: const pw.EdgeInsets.only(bottom: 16),
-                child: pw.Image(logo, height: 48, fit: pw.BoxFit.contain),
+              pw.Align(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Container(
+                  margin: const pw.EdgeInsets.only(bottom: 10),
+                  child: pw.Image(logo, height: 42, fit: pw.BoxFit.contain),
+                ),
               ),
-            pw.Text(
-              'RECEIVING INSPECTION REPORT',
-              style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 12),
-            pw.Text('Job#: ${job.jobNumber}'),
-            if (job.description.trim().isNotEmpty) pw.Text(job.description),
-            if (job.notes.trim().isNotEmpty) pw.Text(job.notes),
-            pw.SizedBox(height: 16),
-            _sectionHeading('Material Details'),
-            _fieldTable(<List<String>>[
-              ['Material Description', material.description],
-              ['PO#', material.poNumber],
-              ['Vendor', material.vendor],
-              ['Qty', material.quantity],
-              ['Product', material.productType],
-              ['Specification', material.specificationPrefix],
-              ['Grade/Type', material.gradeType],
-              ['Fitting', _fittingValue(material)],
+            _reportHeaderBand('RECEIVING INSPECTION REPORT'),
+            _reportGridRow([
+              _ReportCell('Job No.', job.jobNumber, flex: 2),
+              _ReportCell('Vendor', material.vendor, flex: 3),
             ]),
-            pw.SizedBox(height: 12),
-            _sectionHeading('Dimensions'),
-            _fieldTable(dimensionRows),
-            pw.SizedBox(height: 12),
-            _sectionHeading('Inspection'),
-            _fieldTable(<List<String>>[
-              [
+            _reportGridRow([
+              _ReportCell('PO', material.poNumber, flex: 2),
+              _ReportCell('Date', inspectionDateText, flex: 3),
+            ]),
+            _reportGridRow([
+              _ReportCell('Quantity', material.quantity, flex: 1),
+              _ReportCell('Product', material.productType, flex: 2),
+              _ReportCell('Specification', material.specificationPrefix, flex: 1),
+              _ReportCell('Grade/Type', material.gradeType, flex: 1),
+              _ReportCell('Fitting', _fittingValue(material), flex: 1),
+            ]),
+            _reportGridRow([
+              _ReportCell('Dimensions', material.dimensionUnit.label, flex: 1),
+              _ReportCell('Thickness', thicknessReadings, flex: 2),
+              _ReportCell('Width', material.width, flex: 1),
+              _ReportCell('Length', material.length, flex: 1),
+              _ReportCell('Diameter', material.diameter, flex: 1),
+              _ReportCell('ID / OD', material.diameterType, flex: 1),
+            ]),
+            if (material.surfaceFinishCode.trim().isNotEmpty ||
+                material.surfaceFinishReading.trim().isNotEmpty ||
+                material.surfaceFinishUnit.trim().isNotEmpty)
+              _reportGridRow([
+                _ReportCell('Surface Finish', material.surfaceFinishCode, flex: 2),
+                _ReportCell(
+                  'Reading',
+                  material.surfaceFinishReading,
+                  flex: 2,
+                ),
+                _ReportCell('Unit', material.surfaceFinishUnit, flex: 1),
+              ]),
+            if (material.b16DimensionsAcceptable.trim().isNotEmpty)
+              _reportGridRow([
+                _ReportCell(
+                  'B16 Dimensions Acceptable',
+                  material.b16DimensionsAcceptable,
+                ),
+              ]),
+            _reportGridRow([
+              _ReportCell(
                 'Visual Inspection Acceptable',
                 material.visualInspectionAcceptable ? 'Yes' : 'No',
-              ],
-              ['Marking Actual', material.markings],
-              [
-                'Marking Acceptable to Code/Standard',
+                flex: 3,
+              ),
+              _ReportCell(
+                'Disposition',
+                _formatDisposition(material.acceptanceStatus),
+                flex: 2,
+              ),
+            ]),
+            _reportGridRow([
+              _ReportCell('Actual Material Marking', material.markings),
+            ]),
+            _reportGridRow([
+              _ReportCell(
+                'Marking Acceptable to Code / Standard',
                 !material.markingSelected
                     ? 'N/A'
                     : material.markingAcceptableNa
@@ -285,9 +295,10 @@ class JobExportService {
                     : material.markingAcceptable
                     ? 'Yes'
                     : 'No',
-              ],
-              [
-                'MTR/CoC Acceptable to Specification',
+                flex: 1,
+              ),
+              _ReportCell(
+                'MTR / CoC Acceptable to Specification',
                 !material.mtrSelected
                     ? 'N/A'
                     : material.mtrAcceptableNa
@@ -295,51 +306,59 @@ class JobExportService {
                     : material.mtrAcceptable
                     ? 'Yes'
                     : 'No',
-              ],
-              ['Disposition', _formatDisposition(material.acceptanceStatus)],
-            ]),
-            pw.SizedBox(height: 12),
-            _sectionHeading('Comments'),
-            _fieldTable(<List<String>>[
-              [
-                'Comments',
-                [
-                  material.comments,
-                  material.description,
-                ].where((value) => value.trim().isNotEmpty).join(' | '),
-              ],
-            ]),
-            pw.SizedBox(height: 12),
-            _sectionHeading('Quality Control'),
-            _fieldTable(<List<String>>[
-              [
-                'Material Disposition',
-                _formatMaterialDisposition(material.materialApproval),
-              ],
-              ['QC Inspector', material.qcInspectorName],
-              [
-                'QC Inspector Date',
-                _formatExportDate(material.qcInspectorDate),
-              ],
-              ['QC Manager', material.qcManagerName],
-              ['QC Manager Date', _formatExportDate(material.qcManagerDate)],
-            ]),
-            pw.SizedBox(height: 16),
-            if (material.scanPaths.where(isPdfPath).isNotEmpty)
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    'Attached scan PDFs included in export bundle:',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                  ),
-                  pw.SizedBox(height: 6),
-                  for (final scanPath in material.scanPaths.where(isPdfPath))
-                    pw.Text('- ${scanPath.split(Platform.pathSeparator).last}'),
-                  pw.SizedBox(height: 12),
-                ],
+                flex: 1,
               ),
-            _sectionHeading('Signatures'),
+            ]),
+            _reportGridRow([
+              _ReportCell('Comments', commentsText),
+            ]),
+            _reportGridRow([
+              _ReportCell(
+                'Material Approval',
+                _formatMaterialDisposition(material.materialApproval),
+              ),
+            ]),
+            _reportHeaderBand('QUALITY CONTROL', topSpacing: 14),
+            _reportGridRow([
+              _ReportCell('QC Inspector', material.qcInspectorName, flex: 2),
+              _ReportCell(
+                'Initials / Date',
+                '${_valueOrDash(material.qcInspectorName)} / $inspectionDateText',
+                flex: 3,
+              ),
+            ]),
+            _reportGridRow([
+              _ReportCell('QC Manager', material.qcManagerName, flex: 2),
+              _ReportCell(
+                'Initials / Date',
+                '${_valueOrDash(material.qcManagerName)} / ${_formatExportDate(material.qcManagerDate)}',
+                flex: 3,
+              ),
+            ]),
+            if (material.scanPaths.where(isPdfPath).isNotEmpty) ...[
+              pw.SizedBox(height: 12),
+              _reportHeaderBand('ATTACHED SCAN PDFS', topSpacing: 0),
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.all(10),
+                decoration: pw.BoxDecoration(border: pw.Border.all()),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    for (final scanPath in material.scanPaths.where(isPdfPath))
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.only(bottom: 4),
+                        child: pw.Text(
+                          scanPath.split(Platform.pathSeparator).last,
+                          style: const pw.TextStyle(fontSize: 9),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+            pw.SizedBox(height: 16),
+            _reportHeaderBand('SIGNATURES', topSpacing: 0),
             pw.SizedBox(height: 8),
             pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -349,7 +368,7 @@ class JobExportService {
                     'QC Inspector Signature',
                     inspectorSignature,
                     printedName: material.qcInspectorName,
-                    dateText: _formatExportDate(material.qcInspectorDate),
+                    dateText: inspectionDateText,
                   ),
                 ),
                 pw.SizedBox(width: 18),
@@ -402,47 +421,62 @@ class JobExportService {
     return Uint8List.fromList(await document.save());
   }
 
-  pw.Widget _fieldTable(List<List<String>> rows) {
-    return pw.Table(
-      columnWidths: <int, pw.TableColumnWidth>{
-        0: const pw.FlexColumnWidth(0.42),
-        1: const pw.FlexColumnWidth(0.58),
-      },
-      children: rows
-          .map(
-            (row) => pw.TableRow(
-              children: [
-                pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(
-                    vertical: 6,
-                    horizontal: 6,
-                  ),
-                  child: pw.Text(
-                    row[0],
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                  ),
-                ),
-                pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(
-                    vertical: 6,
-                    horizontal: 6,
-                  ),
-                  child: pw.Text(row[1].trim().isEmpty ? '-' : row[1]),
-                ),
-              ],
-            ),
-          )
-          .toList(growable: false),
+  pw.Widget _reportHeaderBand(String title, {double topSpacing = 0}) {
+    return pw.Padding(
+      padding: pw.EdgeInsets.only(top: topSpacing, bottom: 0),
+      child: pw.Container(
+        width: double.infinity,
+        padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+        decoration: pw.BoxDecoration(
+          color: PdfColors.grey300,
+          border: pw.Border.all(width: 0.8, color: PdfColors.grey700),
+        ),
+        child: pw.Text(
+          title,
+          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
+        ),
+      ),
     );
   }
 
-  pw.Widget _sectionHeading(String title) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 6),
-      child: pw.Text(
-        title,
-        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13),
-      ),
+  pw.Widget _reportGridRow(List<_ReportCell> cells) {
+    return pw.Table(
+      border: pw.TableBorder.all(width: 0.8, color: PdfColors.grey700),
+      columnWidths: <int, pw.TableColumnWidth>{
+        for (var index = 0; index < cells.length; index++)
+          index: pw.FlexColumnWidth(cells[index].flex.toDouble()),
+      },
+      children: [
+        pw.TableRow(
+          children: [
+            for (final cell in cells)
+              pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 5,
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      cell.label,
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 8.4,
+                      ),
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      _valueOrDash(cell.value),
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -570,4 +604,16 @@ class JobExportService {
         return value;
     }
   }
+
+  String _valueOrDash(String value) {
+    return value.trim().isEmpty ? '-' : value.trim();
+  }
+}
+
+class _ReportCell {
+  const _ReportCell(this.label, this.value, {this.flex = 1});
+
+  final String label;
+  final String value;
+  final int flex;
 }

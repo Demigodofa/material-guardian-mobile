@@ -5,6 +5,12 @@ import 'app/material_guardian_state.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final appState = await MaterialGuardianAppState.create();
+  const useDebugSeededSignedInState = bool.fromEnvironment(
+    'MG_DEBUG_SEEDED_SIGNED_IN',
+    defaultValue: false,
+  );
+  final appState = useDebugSeededSignedInState
+      ? MaterialGuardianAppState.seededSignedIn()
+      : await MaterialGuardianAppState.create();
   runApp(MaterialGuardianApp(appState: appState));
 }

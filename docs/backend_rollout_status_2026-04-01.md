@@ -95,6 +95,10 @@ The Flutter repo already has:
     - the privacy screen no longer claims the app is account-free
     - it now distinguishes backend-managed account/org/subscription state from local report/job/media data
   - field caps extended to create-job dialog inputs so long job-number/description/notes entry no longer becomes an unbounded layout/input path
+  - create-job dialog save flow hardened after Samsung/debug validation:
+    - the dialog no longer writes app-state changes before the route closes
+    - one-shot dialog fields no longer keep disposable controllers alive across the close animation
+    - widget coverage now includes a regression that opens the dialog, creates a job, and asserts no framework exception
   - wider-form-factor validation now includes a real Android tablet emulator pass:
     - Pixel Tablet landscape kept the sales first CTA in the initial viewport
     - Pixel Tablet portrait also kept the trial stack readable without system-bar clipping

@@ -184,11 +184,13 @@ Future<void> _showCreateJobDialog(
   BuildContext context,
   MaterialGuardianAppState appState,
 ) async {
-  final jobNumberController = TextEditingController();
-  final descriptionController = TextEditingController();
-  final notesController = TextEditingController();
+  var jobNumber = '';
+  var description = '';
+  var notes = '';
 
-  await showDialog<void>(
+  final request = await showDialog<
+    ({String jobNumber, String description, String notes})
+  >(
     context: context,
     builder: (context) {
       return AlertDialog(
@@ -200,23 +202,29 @@ Future<void> _showCreateJobDialog(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: jobNumberController,
                 textInputAction: TextInputAction.next,
                 inputFormatters: [LengthLimitingTextInputFormatter(24)],
+                onChanged: (value) {
+                  jobNumber = value;
+                },
                 decoration: const InputDecoration(labelText: 'Job Number'),
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: descriptionController,
                 textInputAction: TextInputAction.next,
                 inputFormatters: [LengthLimitingTextInputFormatter(60)],
+                onChanged: (value) {
+                  description = value;
+                },
                 decoration: const InputDecoration(labelText: 'Description'),
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: notesController,
                 textInputAction: TextInputAction.done,
                 inputFormatters: [LengthLimitingTextInputFormatter(120)],
+                onChanged: (value) {
+                  notes = value;
+                },
                 decoration: const InputDecoration(labelText: 'Notes'),
               ),
             ],
@@ -231,17 +239,17 @@ Future<void> _showCreateJobDialog(
           ),
           FilledButton(
             onPressed: () async {
-              if (jobNumberController.text.trim().isEmpty) {
+              if (jobNumber.trim().isEmpty) {
                 return;
               }
-              await appState.saveJob(
-                jobNumber: jobNumberController.text,
-                description: descriptionController.text,
-                notes: notesController.text,
+              Navigator.pop(
+                context,
+                (
+                  jobNumber: jobNumber,
+                  description: description,
+                  notes: notes,
+                ),
               );
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
             },
             child: const Text('Create'),
           ),
@@ -250,9 +258,15 @@ Future<void> _showCreateJobDialog(
     },
   );
 
-  jobNumberController.dispose();
-  descriptionController.dispose();
-  notesController.dispose();
+  if (request == null) {
+    return;
+  }
+
+  await appState.saveJob(
+    jobNumber: request.jobNumber,
+    description: request.description,
+    notes: request.notes,
+  );
 }
 
 class _LandingLogo extends StatelessWidget {

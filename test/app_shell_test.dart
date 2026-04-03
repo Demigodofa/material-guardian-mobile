@@ -323,14 +323,104 @@ void main() {
     await tester.pump();
 
     expect(
-      tester.widget<TextField>(jobNumberField).controller?.text.length,
+      tester.widget<EditableText>(find.byType(EditableText).at(0)).controller.text.length,
       24,
     );
     expect(
-      tester.widget<TextField>(descriptionField).controller?.text.length,
+      tester.widget<EditableText>(find.byType(EditableText).at(1)).controller.text.length,
       60,
     );
-    expect(tester.widget<TextField>(notesField).controller?.text.length, 120);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText).at(2)).controller.text.length,
+      120,
+    );
+  });
+
+  testWidgets('create job dialog can save a job without throwing', (tester) async {
+    final sessionStore = InMemoryBackendAuthSessionStore();
+    final service = BackendApiService(
+      baseUrl:
+          'https://app-platforms-backend-dev-293518443128.us-east4.run.app',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/auth/start')) {
+          return http.Response(
+            '{"flowId":"flow_jobs_create","deliveryTarget":"create@materialguardian.test","expiresAt":"2026-04-02T18:30:00.000Z","demoCode":"246810"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/auth/complete')) {
+          return http.Response(
+            '{"status":"authenticated","accessToken":"access-create","refreshToken":"refresh-create","user":{"id":"user_create","email":"create@materialguardian.test","displayName":"Create User","status":"active","createdAt":"2026-04-02T12:00:00.000Z","lastLoginAt":"2026-04-02T12:05:00.000Z"},"memberships":[],"activeEntitlement":{"productCode":"material_guardian","planCode":null,"accessState":"trial","seatAvailability":"not_applicable","subscriptionState":"trial","trialRemaining":6,"organizationId":null,"startsAt":"2026-04-02T12:00:00.000Z","endsAt":null},"session":{"id":"session_create","deviceLabel":"Kevin PowerShell","platform":"web","status":"active","issuedAt":"2026-04-02T12:05:00.000Z","lastSeenAt":"2026-04-02T12:05:00.000Z","revokedAt":null}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/me')) {
+          return http.Response(
+            '{"user":{"id":"user_create","email":"create@materialguardian.test","displayName":"Create User","status":"active","createdAt":"2026-04-02T12:00:00.000Z","lastLoginAt":"2026-04-02T12:05:00.000Z"},"memberships":[],"currentSeatAssignment":{"organizationId":null,"status":"not_applicable"},"trialState":{"productCode":"material_guardian","jobsAllowed":6,"jobsUsed":0,"jobsRemaining":6,"status":"active"},"activeEntitlement":{"productCode":"material_guardian","planCode":null,"accessState":"trial","seatAvailability":"not_applicable","subscriptionState":"trial","trialRemaining":6,"organizationId":null,"startsAt":"2026-04-02T12:00:00.000Z","endsAt":null},"activeSession":{"id":"session_create","deviceLabel":"Kevin PowerShell","platform":"web","status":"active","issuedAt":"2026-04-02T12:05:00.000Z","lastSeenAt":"2026-04-02T12:05:00.000Z","revokedAt":null}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/entitlements/current')) {
+          return http.Response(
+            '{"productCode":"material_guardian","planCode":null,"accessState":"trial","seatAvailability":"not_applicable","subscriptionState":"trial","trialRemaining":6,"organizationId":null,"startsAt":"2026-04-02T12:00:00.000Z","endsAt":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"status":"ok","service":"app-platforms-backend","mode":"postgres"}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final appState = MaterialGuardianAppState.seeded(
+      backendApiService: service,
+      authSessionStore: sessionStore,
+    );
+    await appState.startBackendSignIn(
+      email: 'create@materialguardian.test',
+      displayName: 'Create User',
+    );
+    await appState.completeBackendSignIn(code: '246810');
+
+    await tester.pumpWidget(MaterialApp(home: JobsScreen(appState: appState)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Create Job'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Job Number',
+      ),
+      'STRESS01',
+    );
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.labelText == 'Description',
+      ),
+      'PhoneFlow',
+    );
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Notes',
+      ),
+      'Stress',
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+
+    expect(appState.jobs.any((job) => job.jobNumber == 'STRESS01'), isTrue);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

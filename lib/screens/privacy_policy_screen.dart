@@ -9,7 +9,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
     (
       title: 'Overview',
       body:
-          'Material Guardian is an offline-first receiving inspection app. Jobs, receiving reports, photos, scans, signatures, and exported packet files stay on your device in the current release. Cloud storage and cross-device recovery are planned for a later opt-in upgrade.',
+          'Material Guardian is a receiving inspection app. Jobs, receiving reports, photos, scans, signatures, and exported packet files stay on your device unless you choose to share or export them.',
     ),
     (
       title: 'Camera and document scanning',
@@ -22,9 +22,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
           'Material Guardian can use an email-code account for sign-in, subscriptions, organization membership, and seat access. The app remembers the signed-in session on this device until you sign out or clear app data.',
     ),
     (
-      title: 'Local job data and cloud status',
+      title: 'Local job data',
       body:
-          'Report content still stays local-first in this release. The developer service tracks account identity, organization membership, seats, and subscription state, but your jobs, reports, photos, scans, and signatures are not yet synced into a customer cloud workspace. Future cloud storage is expected to be an explicit upgrade with clearer recovery and cross-device access wording.',
+          'Account, membership, seat, and subscription status can be checked against the Material Guardian service. Your jobs, reports, photos, scans, and signatures remain local to this device unless you export or share them.',
     ),
     (
       title: 'Organizations and billing',
@@ -69,7 +69,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'This screen should match the real product behavior: local-first report data today, backend-managed account access now, and future cloud storage only as an explicit later upgrade.',
+                      'This policy reflects the shipped product behavior: local report data on the device, account and billing access through the Material Guardian service, and user-controlled exports and sharing.',
                     ),
                   ],
                 ),

@@ -471,21 +471,21 @@ void main() {
       expect(find.text('Accounts and sign-in'), findsOneWidget);
       expect(find.textContaining('email-code account'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.text('Local job data and cloud status'),
+        find.text('Local job data'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      expect(find.text('Local job data and cloud status'), findsOneWidget);
+      expect(find.text('Local job data'), findsOneWidget);
       expect(
         find.textContaining(
-          'jobs, reports, photos, scans, and signatures are not yet synced',
+          'jobs, reports, photos, scans, and signatures remain local to this device',
         ),
         findsOneWidget,
       );
       expect(
-        find.textContaining('Future cloud storage is expected'),
-        findsOneWidget,
+        find.textContaining('unless you export or share them'),
+        findsWidgets,
       );
     },
   );
@@ -1125,8 +1125,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Active subscription'), findsOneWidget);
-    expect(find.textContaining('This account already has an active subscription'), findsOneWidget);
-    expect(find.text('Choose This Plan'), findsNothing);
+    expect(
+      find.textContaining('This account already has an active plan'),
+      findsOneWidget,
+    );
+    expect(find.text('Upgrade or Change Plan'), findsOneWidget);
+    expect(find.text('Select Plan'), findsNothing);
   });
 
   test(
@@ -1213,7 +1217,8 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: JobsScreen(appState: appState)));
     await tester.pumpAndSettle();
 
-    expect(find.text('Plans'), findsOneWidget);
+    expect(find.text('Plans'), findsNothing);
+    expect(find.text('Plans and Billing'), findsOneWidget);
     expect(find.text('Customization'), findsOneWidget);
     expect(find.text('Account'), findsNothing);
   });
@@ -1290,12 +1295,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Plans & Billing'), findsNothing);
-      expect(find.text('Plans'), findsOneWidget);
+      expect(find.text('Plans'), findsNothing);
+      expect(find.text('Plans and Billing'), findsOneWidget);
       final scrollable = find.byType(Scrollable).first;
       final createOrgButton = find.widgetWithText(
         FilledButton,
-        'Create Another Organization',
+        'Create Another Workspace',
       );
       await tester.scrollUntilVisible(
         createOrgButton,
@@ -1307,11 +1312,14 @@ void main() {
       expect(createOrgButton, findsOneWidget);
 
       await tester.scrollUntilVisible(
-        find.widgetWithText(FilledButton, 'Invite Member'),
+        find.widgetWithText(FilledButton, 'Send Invite'),
         200,
         scrollable: scrollable,
       );
       await tester.pumpAndSettle();
+
+      expect(find.text('Current plan: Business 5 Monthly'), findsOneWidget);
+      expect(find.text('Invite owners or admins only when they need to manage company settings. Report seats are assigned separately below.'), findsOneWidget);
 
       Finder textFieldByLabel(String label) {
         return find.byWidgetPredicate(

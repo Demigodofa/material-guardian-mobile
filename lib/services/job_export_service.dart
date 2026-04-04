@@ -718,10 +718,7 @@ class JobExportService {
   }
 
   Future<String> _buildZip(Directory exportDirectory) async {
-    final zipFileName =
-        '${exportDirectory.uri.pathSegments.where((segment) => segment.isNotEmpty).last}.zip';
-    final zipPath =
-        '${exportDirectory.parent.path}${Platform.pathSeparator}$zipFileName';
+    final zipPath = zipPathCandidatesForExportRoot(exportDirectory.path).first;
     final existingZip = File(zipPath);
     if (await existingZip.exists()) {
       await existingZip.delete();

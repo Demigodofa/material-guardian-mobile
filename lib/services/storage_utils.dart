@@ -19,6 +19,36 @@ String safeBaseName(String value, {String fallback = 'item'}) {
   return cleaned.isEmpty ? fallback : cleaned;
 }
 
+String exportRootBaseName(String exportRootPath) {
+  final normalized = exportRootPath.trim();
+  if (normalized.isEmpty) {
+    return 'job';
+  }
+  final trimmed = normalized.replaceAll(RegExp(r'[\\/]+$'), '');
+  final segments = trimmed.split(RegExp(r'[\\/]'));
+  return segments.isEmpty ? 'job' : segments.last;
+}
+
+Set<String> zipPathCandidatesForExportRoot(String exportRootPath) {
+  final normalized = exportRootPath.trim();
+  if (normalized.isEmpty) {
+    return const <String>{};
+  }
+
+  final baseName = exportRootBaseName(normalized);
+  final candidates = <String>{};
+
+  if (normalized.endsWith(r'\') || normalized.endsWith('/')) {
+    candidates.add('$normalized$baseName.zip');
+    return candidates;
+  }
+
+  candidates.add('${normalized}${Platform.pathSeparator}$baseName.zip');
+  final alternateSeparator = Platform.pathSeparator == r'\' ? '/' : r'\';
+  candidates.add('$normalized$alternateSeparator$baseName.zip');
+  return candidates;
+}
+
 bool isImagePath(String path) {
   final extension = p.extension(path).toLowerCase();
   return extension == '.png' ||

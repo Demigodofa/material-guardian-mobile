@@ -290,15 +290,16 @@ class MaterialMediaService {
       return null;
     }
 
-    final zipPath =
-        '$path${path.endsWith(r'\') || path.endsWith('/') ? '' : Platform.pathSeparator}${path.split(RegExp(r'[\\/]')).last}.zip';
-    final zipFile = File(zipPath);
-    if (await zipFile.exists()) {
-      return zipPath;
+    for (final zipPath in zipPathCandidatesForExportRoot(path)) {
+      final zipFile = File(zipPath);
+      if (await zipFile.exists()) {
+        return zipPath;
+      }
     }
 
+    final normalized = path.trim();
     final packetDirectory = Directory(
-      '$path${path.endsWith(r'\') || path.endsWith('/') ? '' : Platform.pathSeparator}material_packets',
+      '$normalized${normalized.endsWith(r'\') || normalized.endsWith('/') ? '' : Platform.pathSeparator}material_packets',
     );
     if (!await packetDirectory.exists()) {
       return null;

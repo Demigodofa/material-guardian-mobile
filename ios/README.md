@@ -4,9 +4,12 @@ This folder is the canonical Apple handoff and future iOS-specific landing area 
 
 The original Android-repo `ios/` folder is being preserved as a legacy reference copy for safety, but new Apple-side notes should be centered here.
 
+For local repo paths and cross-repo ownership on this Mac, also read `docs/local_repo_map_2026-04-04.md`.
+
 Start with:
 
 - `docs/flutter_cross_platform_build_plan.md`
+- `docs/ios_playstore_handoff_2026-04-04.md`
 - `ios/Codex Handoff for Material Guardian.md`
 
 Review/validation preference:

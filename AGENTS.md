@@ -5,6 +5,7 @@
 - This repo will hold the shared Flutter client for Android and iPhone.
 - This repo is now the source of truth for Material Guardian mobile planning, Apple handoff notes, and shared-client migration assets.
 - It is not a place to improvise product behavior independently from the Android reference app.
+- Local machine repo paths and cross-repo ownership notes live in `docs/local_repo_map_2026-04-04.md`.
 
 ## Porting rules
 

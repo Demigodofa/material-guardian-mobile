@@ -62,7 +62,7 @@ class JobsScreen extends StatelessWidget {
                     runSpacing: 10,
                     children: [
                       _LandingLinkButton(
-                        label: 'Plans',
+                        label: appState.isSignedIn ? 'Plans and Billing' : 'Plans',
                         onPressed: () {
                           Navigator.pushNamed(context, AppRoutes.sales);
                         },
@@ -138,14 +138,14 @@ class _AccessBanner extends StatelessWidget {
     final title = switch (entitlement.accessState) {
       'trial' => 'Free trial active',
       'no_seat' => 'No seat assigned yet',
-      'locked' => 'Choose a plan to keep going',
+      'locked' => 'Choose a plan to keep creating reports',
       _ => 'Account update',
     };
     final message = switch (entitlement.accessState) {
       'trial' =>
         'You have ${entitlement.trialRemaining} free jobs remaining. When the trial runs out, come back here to pick a plan and keep the same workflow.',
       'no_seat' =>
-        'Your business account is in the system, but this user does not have a seat assigned yet. Contact your admin.',
+        'Your company workspace is active, but this user is not holding a report seat yet. Ask an owner or admin to assign one.',
       'locked' =>
         'Your free jobs are used up. Pick the plan that fits your shop and come right back to work.',
       _ => '',
@@ -170,7 +170,7 @@ class _AccessBanner extends StatelessWidget {
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: onViewPlans,
-                child: const Text('View Plans'),
+                child: const Text('Choose Plan'),
               ),
             ],
           ],

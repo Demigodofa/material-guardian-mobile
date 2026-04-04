@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../app/brand_assets.dart';
 import '../app/material_guardian_state.dart';
+import '../app/routes.dart';
 import '../services/backend_api_service.dart';
 import '../util/formatting.dart';
 
@@ -19,6 +20,7 @@ class _SalesScreenState extends State<SalesScreen> {
   final _emailController = TextEditingController();
   final _displayNameController = TextEditingController();
   final _codeController = TextEditingController();
+  var _showPlanOptionsForActiveSubscription = false;
 
   MaterialGuardianAppState get appState => widget.appState;
 
@@ -126,12 +128,25 @@ class _SalesScreenState extends State<SalesScreen> {
                       onOpenJobs: () {
                         Navigator.popUntil(context, (route) => route.isFirst);
                       },
+                      onOpenAccount: () {
+                        Navigator.pushNamed(context, AppRoutes.account);
+                      },
                     ),
                   ],
                   const SizedBox(height: 16),
                   const _HowPlansWorkCard(),
                   const SizedBox(height: 16),
-                  _PlansCard(appState: appState),
+                  _PlansCard(
+                    appState: appState,
+                    showPlanOptionsForActiveSubscription:
+                        _showPlanOptionsForActiveSubscription,
+                    onTogglePlanOptions: () {
+                      setState(() {
+                        _showPlanOptionsForActiveSubscription =
+                            !_showPlanOptionsForActiveSubscription;
+                      });
+                    },
+                  ),
                   if (!isSignedIn) ...[
                     const SizedBox(height: 16),
                     const _ReturningUserCard(),
@@ -176,14 +191,14 @@ class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = isSignedIn
-        ? 'Pick the right plan for your shop'
+        ? 'Your plan and workspace access'
         : 'Start free with 6 jobs';
     final subtitle = isSignedIn
-        ? 'Your account is already in the system. Choose the plan that matches how your shop actually runs.'
+        ? 'Check what this account already has, then go back to work or upgrade only if you need more access.'
         : 'Verify your email once, use 6 jobs free, and upgrade only if the app earns a place in your workflow.';
     final trialLine = isSignedIn && accessState == 'trial'
         ? 'You still have $trialRemaining free jobs remaining on this account.'
-        : 'Local-first stays the default today. Cloud-backed access can be added later without changing how the core workflow feels.';
+        : 'Plans control account access, company ownership, and report seats. Your receiving workflow stays the same.';
 
     return Card(
       child: Padding(
@@ -214,10 +229,10 @@ class _HowPlansWorkCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const bullets = [
-      'Individual gives one shop the full workspace: logo, B16, surface-finish defaults, signatures, and local report exports.',
-      'Business adds a shared company workspace with managed branding, report defaults, and up to 5 assignable report seats.',
-      'Admins can run the company without taking a report seat. Assign a seat only when that person needs to create receiving reports.',
-      'MTR capture, photos, scans, and receiving reports all happen natively on the phone instead of through a separate scanner workflow.',
+      'Individual is for one person running the app and reports under a single account.',
+      'Business adds a company workspace with shared branding, defaults, and assignable report seats.',
+      'Owners and admins manage the company. Seats are only for people who need to create receiving reports.',
+      'You can upgrade later if you need more seats or a different billing option.',
     ];
 
     return Card(
@@ -403,10 +418,15 @@ class _ReplaceSessionCard extends StatelessWidget {
 }
 
 class _SignedInStatusCard extends StatelessWidget {
-  const _SignedInStatusCard({required this.appState, required this.onOpenJobs});
+  const _SignedInStatusCard({
+    required this.appState,
+    required this.onOpenJobs,
+    required this.onOpenAccount,
+  });
 
   final MaterialGuardianAppState appState;
   final VoidCallback onOpenJobs;
+  final VoidCallback onOpenAccount;
 
   @override
   Widget build(BuildContext context) {
@@ -430,7 +450,25 @@ class _SignedInStatusCard extends StatelessWidget {
             if (entitlement.accessState == 'trial')
               Text('Free jobs remaining: ${entitlement.trialRemaining}'),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onOpenJobs, child: const Text('Open Jobs')),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                FilledButton(
+                  onPressed: onOpenJobs,
+                  child: const Text('Back to Jobs'),
+                ),
+                if (appState.hasAdminLikeWorkspaceAccess)
+                  OutlinedButton(
+                    onPressed: onOpenAccount,
+                    child: Text(
+                      appState.hasBusinessMembership
+                          ? 'Manage Seats and Invites'
+                          : 'Open Account',
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -439,9 +477,15 @@ class _SignedInStatusCard extends StatelessWidget {
 }
 
 class _PlansCard extends StatelessWidget {
-  const _PlansCard({required this.appState});
+  const _PlansCard({
+    required this.appState,
+    required this.showPlanOptionsForActiveSubscription,
+    required this.onTogglePlanOptions,
+  });
 
   final MaterialGuardianAppState appState;
+  final bool showPlanOptionsForActiveSubscription;
+  final VoidCallback onTogglePlanOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -458,6 +502,7 @@ class _PlansCard extends StatelessWidget {
     }
     final hasActivePaidPlan =
         activeEntitlement?.accessState == 'paid' && activePlan != null;
+    final activeOrganization = appState.backendOrganization;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -467,26 +512,25 @@ class _PlansCard extends StatelessWidget {
             Text('Plans', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             const Text(
-              'Choose the plan that fits how many people need report access, not just how many people work at the company.',
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Yearly plans should read as the better value. Business admins can invite people later, keep branding consistent, and assign seats only to the people who actually need report creation.',
+              'Choose based on who needs to create reports. Owners and admins can still manage the workspace without handing everyone a seat.',
             ),
             const SizedBox(height: 12),
             if (hasActivePaidPlan) ...[
-              _CurrentPlanCard(plan: activePlan),
+              _CurrentPlanCard(
+                plan: activePlan,
+                organization: activeOrganization,
+              ),
               const SizedBox(height: 12),
             ],
             Wrap(
               spacing: 10,
               runSpacing: 10,
               children: [
-                FilledButton(
+                OutlinedButton(
                   onPressed: appState.isLoadingPurchaseCatalog
                       ? null
                       : () => appState.loadPurchaseCatalog(),
-                  child: const Text('Refresh Plans'),
+                  child: const Text('Reload Pricing'),
                 ),
                 if (appState.isSignedIn)
                   OutlinedButton(
@@ -498,12 +542,27 @@ class _PlansCard extends StatelessWidget {
                         : () => appState.restorePurchases(),
                     child: Text(
                       appState.isRestoringPurchases
-                          ? 'Checking Purchases...'
-                          : 'Restore Purchases',
+                          ? 'Checking Store Purchases...'
+                          : 'Restore App Store Purchases',
+                    ),
+                  ),
+                if (hasActivePaidPlan)
+                  FilledButton(
+                    onPressed: onTogglePlanOptions,
+                    child: Text(
+                      showPlanOptionsForActiveSubscription
+                          ? 'Hide Plan Options'
+                          : 'Upgrade or Change Plan',
                     ),
                   ),
               ],
             ),
+            if (appState.isSignedIn) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Use restore only if this device was replaced, the app was reinstalled, or your paid access did not show up yet.',
+              ),
+            ],
             if (appState.purchaseStatusMessage != null &&
                 appState.purchaseStatusMessage!.trim().isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -518,9 +577,15 @@ class _PlansCard extends StatelessWidget {
             if (plans.isEmpty)
               const Text('Plan catalog is still loading.')
             else if (hasActivePaidPlan)
-              const Text(
-                'This account already has an active subscription. Use Restore Purchases if the store and backend ever need to be re-linked on this device.',
-              )
+              if (!showPlanOptionsForActiveSubscription)
+                const Text(
+                  'This account already has an active plan. Use the button above only if you want to upgrade, change billing, or compare options.',
+                )
+              else
+                for (final plan in plans) ...[
+                  _SalesPlanTile(appState: appState, plan: plan),
+                  if (plan != plans.last) const Divider(height: 24),
+                ]
             else
               for (final plan in plans) ...[
                 _SalesPlanTile(appState: appState, plan: plan),
@@ -534,9 +599,10 @@ class _PlansCard extends StatelessWidget {
 }
 
 class _CurrentPlanCard extends StatelessWidget {
-  const _CurrentPlanCard({required this.plan});
+  const _CurrentPlanCard({required this.plan, required this.organization});
 
   final BackendPlanSnapshot plan;
+  final BackendOrganizationSummary? organization;
 
   @override
   Widget build(BuildContext context) {
@@ -570,6 +636,16 @@ class _CurrentPlanCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(plan.displayPrice),
+          if (plan.isBusiness && organization != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Seats in use: ${organization!.seatsAssigned}/${organization!.seatLimit}',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text('Open seats: ${organization!.seatsRemaining}'),
+          ],
           if (savingsLine != null && savingsLine.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
@@ -610,7 +686,7 @@ class _SalesPlanTile extends StatelessWidget {
     final helperLine = !appState.isSignedIn
         ? 'Verify your email first to start the 6-job trial or buy a plan.'
         : needsOrganization && !hasOrganization
-        ? 'Create the company organization in Account first, then this purchase becomes that company workspace.'
+        ? 'Create the company in Account first, then buy the business plan for that workspace.'
         : storeProduct == null
         ? 'Store pricing has not loaded for this plan yet.'
         : null;
@@ -667,7 +743,7 @@ class _SalesPlanTile extends StatelessWidget {
               ? () => appState.purchasePlan(planCode: plan.planCode)
               : null,
           child: Text(
-            appState.isSignedIn ? 'Choose This Plan' : 'Sign In First',
+            appState.isSignedIn ? 'Select Plan' : 'Sign In First',
           ),
         ),
       ],
@@ -729,17 +805,17 @@ List<String> _planHighlights(BackendPlanSnapshot plan) {
         ? 'Company admins can manage seats, branding, and report defaults.'
         : 'Up to $adminLimit admins can manage seats, branding, and report defaults.';
     return [
-      'Includes up to ${plan.seatLimit} assignable seats for report creators.',
+      'Includes up to ${plan.seatLimit} report seats.',
       adminLine,
-      'Admins can also occupy a seat when they need to create receiving reports themselves.',
-      'Shared logo, B16, and surface-finish defaults stay under admin control.',
-      'MTRs and receiving reports are captured natively on the phone, not through a separate scanner workflow.',
+      'Assign seats only to the people who need to create reports.',
+      'Shared logo, report defaults, and invites stay under admin control.',
+      'Owners or admins can still create reports themselves by taking a seat when needed.',
     ];
   }
 
   return [
-    'One full workspace for one shop or owner-operator.',
-    'Logo, B16, surface-finish defaults, and saved signatures stay available to the person paying for the plan.',
-    'Use the same phone workflow for MTR scans and receiving reports without needing shared seats.',
+    'One full workspace for one person.',
+    'Logo, report defaults, and saved signatures stay with that account.',
+    'Use the same phone workflow for scans, photos, and receiving reports without shared seats.',
   ];
 }

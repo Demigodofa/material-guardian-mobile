@@ -59,7 +59,7 @@ class _AccountScreenState extends State<AccountScreen> {
             title: const Text('Account'),
             actions: [
               IconButton(
-                tooltip: 'Refresh backend health',
+                tooltip: 'Refresh status',
                 onPressed: appState.isCheckingBackendHealth
                     ? null
                     : () => appState.refreshBackendHealth(),
@@ -217,6 +217,9 @@ class _AccountScreenState extends State<AccountScreen> {
                               organizationId: organization.id,
                               membershipId: membershipId,
                             ),
+                        onOpenPlans: () {
+                          Navigator.pushNamed(context, AppRoutes.sales);
+                        },
                         onToggleSeat: (membership) =>
                             appState.updateOrganizationMemberSeat(
                               organizationId: organization.id,
@@ -464,10 +467,10 @@ class _AccountSummaryCard extends StatelessWidget {
               Text(me.user.displayName),
             const SizedBox(height: 8),
             Text(
-              'Access: ${entitlement?.accessState ?? me.activeEntitlement.accessState}',
+              'Access: ${_humanizeValue(entitlement?.accessState ?? me.activeEntitlement.accessState)}',
             ),
             Text(
-              'Plan: ${entitlement?.planCode ?? me.activeEntitlement.planCode ?? 'None'}',
+              'Plan: ${_humanizePlanCode(entitlement?.planCode ?? me.activeEntitlement.planCode)}',
             ),
             const SizedBox(height: 4),
             Text(
@@ -488,7 +491,7 @@ class _AccountSummaryCard extends StatelessWidget {
                 ),
                 OutlinedButton(
                   onPressed: isRefreshing ? null : onOpenPlans,
-                  child: const Text('Plans'),
+                  child: const Text('Plans and Billing'),
                 ),
               ],
             ),
@@ -516,7 +519,7 @@ class _RecoveryHelpCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'If this phone is replaced, reset, or loses app data, sign back in with the same email and a fresh code. Business teams should keep at least one trusted admin active.',
+              'If this phone is replaced, reset, or loses app data, sign in again with the same email. Business workspaces should keep at least one owner or admin active.',
             ),
           ],
         ),
@@ -551,11 +554,11 @@ class _MembershipsCard extends StatelessWidget {
     final pendingMemberships = memberships.where((item) => !item.isAccepted);
     final hasMemberships = memberships.isNotEmpty;
     final createOrganizationHeading = hasMemberships
-        ? 'Create Another Organization'
-        : 'Create Organization';
+        ? 'Create Another Workspace'
+        : 'Create Workspace';
     final createOrganizationHelp = hasMemberships
         ? 'Use another organization if you need a separate company workspace or a different business subscription.'
-        : 'Create an organization before buying a business plan.';
+        : 'Create the company workspace here before buying a business plan.';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -563,14 +566,14 @@ class _MembershipsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Organizations',
+              'Company Workspaces',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             if (!hasMemberships)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [const Text('No organization memberships yet.')],
+                children: [const Text('No company workspaces yet.')],
               )
             else
               for (final membership in memberships) ...[
@@ -578,7 +581,7 @@ class _MembershipsCard extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   title: Text(membership.organizationName),
                   subtitle: Text(
-                    '${_titleCase(membership.role)} · ${_titleCase(membership.seatStatus)} seat · ${membership.isAccepted ? 'Accepted' : 'Pending'}',
+                    '${_humanizeMembershipRole(membership.role)} · ${membership.isAccepted ? 'Joined' : 'Invite pending'} · ${_humanizeSeatStatus(membership.seatStatus)}',
                   ),
                 ),
                 if (membership != memberships.last) const Divider(),
@@ -594,12 +597,12 @@ class _MembershipsCard extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: organizationNameController,
-              textInputAction: TextInputAction.done,
-              inputFormatters: [LengthLimitingTextInputFormatter(60)],
-              decoration: const InputDecoration(labelText: 'Organization Name'),
-            ),
+              TextField(
+                controller: organizationNameController,
+                textInputAction: TextInputAction.done,
+                inputFormatters: [LengthLimitingTextInputFormatter(60)],
+                decoration: const InputDecoration(labelText: 'Workspace Name'),
+              ),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: isBusy ? null : onCreateOrganization,
@@ -608,12 +611,12 @@ class _MembershipsCard extends StatelessWidget {
             if (pendingMemberships.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
-                'Redeem Organization Access Code',
+                'Join Workspace from Invite',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 4),
               Text(
-                'Use the organization ID and access code from the invite email.',
+                'Use the workspace ID and invite code from the email.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -621,19 +624,19 @@ class _MembershipsCard extends StatelessWidget {
                 controller: organizationIdController,
                 textInputAction: TextInputAction.next,
                 inputFormatters: [LengthLimitingTextInputFormatter(64)],
-                decoration: const InputDecoration(labelText: 'Organization ID'),
+                decoration: const InputDecoration(labelText: 'Workspace ID'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: codeController,
                 textInputAction: TextInputAction.done,
                 inputFormatters: [LengthLimitingTextInputFormatter(24)],
-                decoration: const InputDecoration(labelText: 'Access Code'),
+                decoration: const InputDecoration(labelText: 'Invite Code'),
               ),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: isBusy ? null : onRedeem,
-                child: const Text('Redeem Access Code'),
+                child: const Text('Join Workspace'),
               ),
             ],
           ],
@@ -652,6 +655,7 @@ class _OrganizationCard extends StatelessWidget {
     required this.isBusy,
     required this.onInviteRoleChanged,
     required this.onInvite,
+    required this.onOpenPlans,
     required this.onResend,
     required this.onToggleSeat,
     required this.onRemove,
@@ -664,6 +668,7 @@ class _OrganizationCard extends StatelessWidget {
   final bool isBusy;
   final ValueChanged<String> onInviteRoleChanged;
   final Future<void> Function() onInvite;
+  final VoidCallback onOpenPlans;
   final Future<void> Function(String membershipId) onResend;
   final Future<void> Function(BackendOrganizationMemberSnapshot member)
   onToggleSeat;
@@ -683,19 +688,29 @@ class _OrganizationCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Plan: ${organization.planCode ?? 'None'}',
+              'Current plan: ${_humanizePlanCode(organization.planCode)}',
             ),
             Text(
               'Seats: ${organization.seatsAssigned}/${organization.seatLimit} assigned · Members: ${organization.userCount}',
             ),
+            Text('Open seats: ${organization.seatsRemaining}'),
             const SizedBox(height: 8),
             const Text(
-              'Admins can manage the company without using a report seat. Assign seats only to people who should create receiving reports.',
+              'Owners and admins manage the company. Only give a report seat to someone who needs to create receiving reports.',
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: isBusy ? null : onOpenPlans,
+              child: const Text('Upgrade or Change Plan'),
             ),
             const SizedBox(height: 16),
             Text(
-              'Invite Member',
+              'Invite to Workspace',
               style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Invite owners or admins only when they need to manage company settings. Report seats are assigned separately below.',
             ),
             const SizedBox(height: 8),
             TextField(
@@ -733,7 +748,7 @@ class _OrganizationCard extends StatelessWidget {
             const SizedBox(height: 12),
             FilledButton(
               onPressed: isBusy ? null : onInvite,
-              child: const Text('Invite Member'),
+              child: const Text('Send Invite'),
             ),
             const SizedBox(height: 16),
             Text(
@@ -746,9 +761,17 @@ class _OrganizationCard extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 title: Text(member.name.isEmpty ? member.email : member.name),
                 subtitle: Text(
-                  '${_titleCase(member.role)} · ${member.seatAssigned ? 'Seat assigned' : 'No seat'} · ${member.acceptedAt == null ? 'Pending' : 'Accepted'}',
+                  '${_humanizeMembershipRole(member.role)} · ${member.acceptedAt == null ? 'Invite pending' : 'Joined'} · ${member.seatAssigned ? 'Report seat assigned' : 'No report seat'}',
                 ),
               ),
+              if ((member.activeDeviceSummary ?? '').trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Last active device: ${member.activeDeviceSummary}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -757,12 +780,14 @@ class _OrganizationCard extends StatelessWidget {
                     onPressed: isBusy
                         ? null
                         : () => onResend(member.membershipId),
-                    child: const Text('Resend'),
+                    child: const Text('Resend Invite'),
                   ),
                   OutlinedButton(
                     onPressed: isBusy ? null : () => onToggleSeat(member),
                     child: Text(
-                      member.seatAssigned ? 'Remove Seat' : 'Assign Seat',
+                      member.seatAssigned
+                          ? 'Remove Report Seat'
+                          : 'Give Report Seat',
                     ),
                   ),
                   OutlinedButton(
@@ -812,4 +837,44 @@ String _titleCase(String value) {
     return value;
   }
   return '${value[0].toUpperCase()}${value.substring(1)}';
+}
+
+String _humanizeValue(String value) {
+  if (value.trim().isEmpty) {
+    return 'None';
+  }
+  return value
+      .split('_')
+      .map(_titleCase)
+      .join(' ');
+}
+
+String _humanizePlanCode(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return 'None';
+  }
+  return value
+      .split('_')
+      .where((part) => part.isNotEmpty && part != 'material' && part != 'guardian')
+      .map(_titleCase)
+      .join(' ');
+}
+
+String _humanizeMembershipRole(String value) {
+  if (value == 'owner') {
+    return 'Owner';
+  }
+  if (value == 'admin') {
+    return 'Admin';
+  }
+  return 'Member';
+}
+
+String _humanizeSeatStatus(String value) {
+  return switch (value) {
+    'assigned' => 'Report seat assigned',
+    'unassigned' => 'No report seat',
+    'pending' => 'Seat pending',
+    _ => _humanizeValue(value),
+  };
 }

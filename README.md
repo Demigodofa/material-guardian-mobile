@@ -40,6 +40,8 @@ Current foundation:
   Current shipping/reference app and original Android-only donor. Use it to port behavior deliberately.
 - `app-platforms-backend`
   Future source of truth for auth, orgs, seats, subscriptions, sessions, trials, and entitlements.
+- local repo map and machine paths
+  See `docs/local_repo_map_2026-04-04.md` for the current Mac paths for `kevin-codex`, this repo, the Android donor repo, the backend repo, and the privacy-policy repo.
 
 ## Suite branding rules
 
@@ -86,4 +88,5 @@ docs/      migration notes and behavior references
 6. `docs/migration_plan.md`
 7. `docs/android_behavior_reference.md`
 8. `docs/android_migration_inventory.md`
-9. `ios/README.md`
+9. `docs/local_repo_map_2026-04-04.md`
+10. `ios/README.md`

@@ -484,8 +484,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
     }
 
     final exportZipPaths = <String>{
-      if (job.exportPath.trim().isNotEmpty) _zipPathForExportRoot(job.exportPath),
-      _zipPathForExportRoot(
+      if (job.exportPath.trim().isNotEmpty)
+        ...zipPathCandidatesForExportRoot(job.exportPath),
+      ...zipPathCandidatesForExportRoot(
         (await appSupportSubdirectory(['exports', safeJobNumber])).path,
       ),
     };
@@ -496,7 +497,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     final downloadsDirectories = <String>{
       'MaterialGuardian/$safeJobNumber',
       if (job.exportPath.trim().isNotEmpty)
-        'MaterialGuardian/${_exportRootBaseName(job.exportPath)}',
+        'MaterialGuardian/${exportRootBaseName(job.exportPath)}',
     };
     for (final downloadsDirectory in downloadsDirectories) {
       try {
@@ -572,28 +573,6 @@ class MaterialGuardianAppState extends ChangeNotifier {
     if (await file.exists()) {
       await file.delete();
     }
-  }
-
-  String _zipPathForExportRoot(String exportRootPath) {
-    final normalized = exportRootPath.trim();
-    if (normalized.isEmpty) {
-      return normalized;
-    }
-    final separator = normalized.endsWith(r'\') || normalized.endsWith('/')
-        ? ''
-        : Platform.pathSeparator;
-    final baseName = _exportRootBaseName(normalized);
-    return '$normalized$separator$baseName.zip';
-  }
-
-  String _exportRootBaseName(String exportRootPath) {
-    final normalized = exportRootPath.trim();
-    if (normalized.isEmpty) {
-      return 'job';
-    }
-    final trimmed = normalized.replaceAll(RegExp(r'[\\/]+$'), '');
-    final segments = trimmed.split(RegExp(r'[\\/]'));
-    return segments.isEmpty ? 'job' : segments.last;
   }
 
   Future<void> updateJob({
@@ -1757,9 +1736,13 @@ class MaterialGuardianAppState extends ChangeNotifier {
     if (job.exportPath.trim().isEmpty) {
       return false;
     }
-    final zipPath =
-        '${job.exportPath}${job.exportPath.endsWith(r'\') || job.exportPath.endsWith('/') ? '' : Platform.pathSeparator}${job.exportPath.split(RegExp(r'[\\/]')).last}.zip';
-    return _exportService.shareZipBundle(zipPath);
+    final zipPathCandidates = zipPathCandidatesForExportRoot(job.exportPath);
+    for (final zipPath in zipPathCandidates) {
+      if (await _exportService.shareZipBundle(zipPath)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<void> _persistSnapshot() {

@@ -426,6 +426,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test('deleteJob removes job support folders and export zip', () async {
+    final appState = MaterialGuardianAppState.seeded();
+    final safeJobNumber = safeBaseName('MG-24031', fallback: 'job');
+    final exportDirectory = await appSupportSubdirectory([
+      'exports',
+      safeJobNumber,
+    ]);
+    await exportDirectory.create(recursive: true);
+    final exportPacket = File('${exportDirectory.path}\\$safeJobNumber.pdf');
+    await exportPacket.writeAsString('packet');
+    final exportZip = File('${exportDirectory.path}\\$safeJobNumber.zip');
+    await exportZip.writeAsString('zip');
+
+    final mediaDirectory = await appSupportSubdirectory([
+      'job_media',
+      safeJobNumber,
+      'photos',
+    ]);
+    await mediaDirectory.create(recursive: true);
+    final mediaFile = File('${mediaDirectory.path}\\v_101_photo_1.jpg');
+    await mediaFile.writeAsString('photo');
+
+    await appState.deleteJob('job-1001');
+
+    expect(await exportDirectory.exists(), isFalse);
+    expect(await exportZip.exists(), isFalse);
+    expect(await mediaDirectory.parent.exists(), isFalse);
+    expect(appState.jobs.where((job) => job.id == 'job-1001'), isEmpty);
+  });
+
   testWidgets(
     'privacy policy reflects backend-managed accounts and local-first data',
     (tester) async {

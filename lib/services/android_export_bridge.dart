@@ -35,4 +35,16 @@ class AndroidExportBridge {
         })) ??
         false;
   }
+
+  static Future<bool> deleteDownloadsExport({
+    required String downloadsSubdirectory,
+  }) async {
+    if (!Platform.isAndroid) {
+      return false;
+    }
+    return (await _channel.invokeMethod<bool>('deleteDownloadsExport', {
+          'downloadsSubdirectory': downloadsSubdirectory,
+        })) ??
+        false;
+  }
 }

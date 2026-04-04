@@ -6,10 +6,12 @@ import 'package:flutter/foundation.dart';
 import '../data/backend_auth_session_store.dart';
 import '../data/customization_store.dart';
 import '../data/material_guardian_snapshot_store.dart';
+import '../services/android_export_bridge.dart';
 import '../services/backend_api_service.dart';
 import '../services/customization_asset_service.dart';
 import '../services/job_export_service.dart';
 import '../services/material_media_service.dart';
+import '../services/storage_utils.dart';
 import '../services/store_purchase_service.dart';
 import 'models.dart';
 
@@ -442,12 +444,156 @@ class MaterialGuardianAppState extends ChangeNotifier {
   }
 
   Future<void> deleteJob(String jobId) async {
+    final existingIndex = _jobs.indexWhere((job) => job.id == jobId);
+    if (existingIndex < 0) {
+      return;
+    }
+    final job = _jobs[existingIndex];
+    final relatedDrafts = _drafts
+        .where((draft) => draft.jobId == jobId)
+        .toList(growable: false);
+    await _deleteJobFiles(job, relatedDrafts);
     _jobs = _jobs.where((job) => job.id != jobId).toList(growable: false);
     _drafts = _drafts
         .where((draft) => draft.jobId != jobId)
         .toList(growable: false);
     notifyListeners();
     await _persistSnapshot();
+  }
+
+  Future<void> _deleteJobFiles(
+    JobRecord job,
+    List<MaterialDraft> relatedDrafts,
+  ) async {
+    final safeJobNumber = safeBaseName(job.jobNumber, fallback: 'job');
+    final cleanupDirectories = <String>{
+      if (job.exportPath.trim().isNotEmpty) job.exportPath.trim(),
+      (await appSupportSubdirectory(['exports', safeJobNumber])).path,
+      (await appSupportSubdirectory(['job_media', safeJobNumber])).path,
+    };
+
+    for (final material in job.materials) {
+      cleanupDirectories.addAll(_jobMediaRootsForMaterialRecord(material));
+    }
+    for (final draft in relatedDrafts) {
+      cleanupDirectories.addAll(_jobMediaRootsForDraft(draft));
+    }
+
+    for (final directoryPath in cleanupDirectories) {
+      await _deleteDirectoryIfPresent(directoryPath);
+    }
+
+    final exportZipPaths = <String>{
+      if (job.exportPath.trim().isNotEmpty) _zipPathForExportRoot(job.exportPath),
+      _zipPathForExportRoot(
+        (await appSupportSubdirectory(['exports', safeJobNumber])).path,
+      ),
+    };
+    for (final zipPath in exportZipPaths) {
+      await _deleteFileIfPresent(zipPath);
+    }
+
+    final downloadsDirectories = <String>{
+      'MaterialGuardian/$safeJobNumber',
+      if (job.exportPath.trim().isNotEmpty)
+        'MaterialGuardian/${_exportRootBaseName(job.exportPath)}',
+    };
+    for (final downloadsDirectory in downloadsDirectories) {
+      try {
+        await AndroidExportBridge.deleteDownloadsExport(
+          downloadsSubdirectory: downloadsDirectory,
+        );
+      } catch (error, stackTrace) {
+        debugPrint('Job delete Downloads cleanup failed: $error\n$stackTrace');
+      }
+    }
+  }
+
+  Set<String> _jobMediaRootsForMaterialRecord(MaterialRecord material) {
+    return {
+      ..._jobMediaRootsFromPaths(material.photoPaths),
+      ..._jobMediaRootsFromPaths(material.scanPaths),
+      if (material.qcSignaturePath.trim().isNotEmpty)
+        ..._jobMediaRootsFromPaths([material.qcSignaturePath]),
+      if (material.qcManagerSignaturePath.trim().isNotEmpty)
+        ..._jobMediaRootsFromPaths([material.qcManagerSignaturePath]),
+    };
+  }
+
+  Set<String> _jobMediaRootsForDraft(MaterialDraft draft) {
+    return {
+      ..._jobMediaRootsFromPaths(draft.photoPaths),
+      ..._jobMediaRootsFromPaths(draft.scanPaths),
+      if (draft.qcSignaturePath.trim().isNotEmpty)
+        ..._jobMediaRootsFromPaths([draft.qcSignaturePath]),
+      if (draft.qcManagerSignaturePath.trim().isNotEmpty)
+        ..._jobMediaRootsFromPaths([draft.qcManagerSignaturePath]),
+    };
+  }
+
+  Set<String> _jobMediaRootsFromPaths(List<String> paths) {
+    final roots = <String>{};
+    for (final rawPath in paths) {
+      final normalized = rawPath.trim();
+      if (normalized.isEmpty) {
+        continue;
+      }
+      final file = File(normalized);
+      final firstParent = file.parent;
+      if (firstParent.path == normalized) {
+        continue;
+      }
+      final secondParent = firstParent.parent;
+      if (secondParent.path == firstParent.path) {
+        continue;
+      }
+      roots.add(secondParent.path);
+    }
+    return roots;
+  }
+
+  Future<void> _deleteDirectoryIfPresent(String path) async {
+    final normalized = path.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    final directory = Directory(normalized);
+    if (await directory.exists()) {
+      await directory.delete(recursive: true);
+    }
+  }
+
+  Future<void> _deleteFileIfPresent(String path) async {
+    final normalized = path.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    final file = File(normalized);
+    if (await file.exists()) {
+      await file.delete();
+    }
+  }
+
+  String _zipPathForExportRoot(String exportRootPath) {
+    final normalized = exportRootPath.trim();
+    if (normalized.isEmpty) {
+      return normalized;
+    }
+    final separator = normalized.endsWith(r'\') || normalized.endsWith('/')
+        ? ''
+        : Platform.pathSeparator;
+    final baseName = _exportRootBaseName(normalized);
+    return '$normalized$separator$baseName.zip';
+  }
+
+  String _exportRootBaseName(String exportRootPath) {
+    final normalized = exportRootPath.trim();
+    if (normalized.isEmpty) {
+      return 'job';
+    }
+    final trimmed = normalized.replaceAll(RegExp(r'[\\/]+$'), '');
+    final segments = trimmed.split(RegExp(r'[\\/]'));
+    return segments.isEmpty ? 'job' : segments.last;
   }
 
   Future<void> updateJob({

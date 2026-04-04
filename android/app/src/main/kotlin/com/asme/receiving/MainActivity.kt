@@ -78,6 +78,27 @@ class MainActivity : FlutterActivity() {
                     }.start()
                 }
 
+                "deleteDownloadsExport" -> {
+                    val downloadsSubdirectory = call.argument<String>("downloadsSubdirectory")
+                    if (downloadsSubdirectory.isNullOrBlank()) {
+                        result.error("bad_args", "Missing export delete arguments.", null)
+                        return@setMethodCallHandler
+                    }
+
+                    Thread {
+                        runCatching {
+                            clearExistingDownloadsExport(downloadsSubdirectory.trim('/'))
+                            true
+                        }.onSuccess { deleted ->
+                            runOnUiThread { result.success(deleted) }
+                        }.onFailure { error ->
+                            runOnUiThread {
+                                result.error("delete_failed", error.message, null)
+                            }
+                        }
+                    }.start()
+                }
+
                 else -> result.notImplemented()
             }
         }

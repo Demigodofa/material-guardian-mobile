@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:image/image.dart' as img;
 import 'package:material_guardian_mobile/app/material_guardian_app.dart';
 import 'package:material_guardian_mobile/app/material_guardian_state.dart';
 import 'package:material_guardian_mobile/app/routes.dart';
@@ -18,6 +19,7 @@ import 'package:material_guardian_mobile/screens/material_form_screen.dart';
 import 'package:material_guardian_mobile/screens/privacy_policy_screen.dart';
 import 'package:material_guardian_mobile/screens/sales_screen.dart';
 import 'package:material_guardian_mobile/services/backend_api_service.dart';
+import 'package:material_guardian_mobile/services/storage_utils.dart';
 import 'package:material_guardian_mobile/services/store_purchase_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -653,9 +655,29 @@ void main() {
       expect(updatedMaterial.materialApproval, 'rejected');
       expect(updatedMaterial.qcInspectorDate, DateTime(2026, 4, 2));
       expect(updatedMaterial.qcManagerDate, DateTime(2026, 4, 3));
-      expect(appState.draftsForJob('job-1001'), hasLength(1));
-    },
+    expect(appState.draftsForJob('job-1001'), hasLength(1));
+  },
   );
+
+  test('saving the unsaved draft creates a material without throwing', () async {
+    final appState = MaterialGuardianAppState.seeded();
+    final draft = appState.draftById('draft-001');
+    await appState.saveDraft(
+      draft.copyWith(
+        description: 'Unfinished hanger',
+        productType: '',
+        surfaceFinish: '',
+      ),
+    );
+    await appState.completeDraft(appState.draftById('draft-001'));
+
+    final updatedJob = appState.jobById('job-1001');
+    expect(
+      updatedJob.materials.any((item) => item.description == 'Unfinished hanger'),
+      isTrue,
+    );
+    expect(() => appState.draftById('draft-001'), throwsA(isA<StateError>()));
+  });
 
   test('exporting a job creates packet PDFs and a ZIP bundle', () async {
     final appState = MaterialGuardianAppState.seeded();
@@ -689,6 +711,52 @@ void main() {
     expect(updatedJob.exportedAt, isNotNull);
     expect(updatedMaterial.pdfStatus, 'exported');
     expect(File(updatedMaterial.pdfStoragePath).existsSync(), isTrue);
+  });
+
+  test('exporting a scanned PDF also carries its preview image into export media', () async {
+    final appState = MaterialGuardianAppState.seeded();
+    final probeRoot = Directory(
+      '${Directory.systemTemp.path}/material_guardian_scan_export_probe',
+    )..createSync(recursive: true);
+    final scanPdf = File('${probeRoot.path}/incoming_scan.pdf')
+      ..writeAsBytesSync(const <int>[37, 80, 68, 70, 45, 49, 46, 52]);
+    final previewImage = img.Image(width: 2, height: 2);
+    img.fill(previewImage, color: img.ColorRgb8(240, 240, 240));
+    previewImage.setPixelRgb(0, 0, 180, 180, 180);
+    File(
+      pdfPreviewSiblingPath(scanPdf.path),
+    ).writeAsBytesSync(img.encodeJpg(previewImage, quality: 90));
+
+    final editDraft = await appState.createEditDraft(
+      jobId: 'job-1001',
+      materialId: 'mat-001',
+    );
+    await appState.saveDraft(
+      editDraft.copyWith(scanPaths: [scanPdf.path]),
+    );
+    await appState.completeDraft(appState.draftById(editDraft.id));
+
+    final exportResult = await appState.exportJob('job-1001');
+    final zipArchive = ZipDecoder().decodeBytes(
+      File(exportResult.zipPath).readAsBytesSync(),
+    );
+
+    expect(
+      zipArchive.files.any(
+        (entry) =>
+            entry.isFile &&
+            entry.name.contains('source_media/') &&
+            entry.name.endsWith('_scan_01_preview.jpg'),
+      ),
+      isTrue,
+    );
+    expect(
+      Directory(exportResult.exportRootPath)
+          .listSync(recursive: true)
+          .whereType<File>()
+          .any((file) => file.path.endsWith('_scan_01_preview.jpg')),
+      isTrue,
+    );
   });
 
   test('renaming a job and deleting a material update local state', () async {
@@ -1240,6 +1308,7 @@ void main() {
     },
   );
 }
+
 
 class _FakeStorePurchaseService implements StorePurchaseService {
   const _FakeStorePurchaseService({

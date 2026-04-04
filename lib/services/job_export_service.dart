@@ -219,7 +219,8 @@ class JobExportService {
     );
     final inspectorSignature = await _loadImage(material.qcSignaturePath);
     final managerSignature = await _loadImage(material.qcManagerSignaturePath);
-    final inlineMedia = _inlineMediaPaths(material);
+    final documentScanPages = _documentScanImagePaths(material);
+    final photoAttachments = _photoAttachmentPaths(material);
     final inspectionDateText = _formatExportDate(material.qcInspectorDate);
     final commentsText = [
       material.comments,
@@ -383,13 +384,13 @@ class JobExportService {
       ),
     );
 
-    final inlineMediaItems = <_ExportMediaItem>[];
-    for (final mediaPath in inlineMedia) {
+    final documentScanItems = <_ExportMediaItem>[];
+    for (final mediaPath in documentScanPages) {
       final image = await _loadImage(mediaPath);
       if (image == null) {
         continue;
       }
-      inlineMediaItems.add(
+      documentScanItems.add(
         _ExportMediaItem(
           label: p.basename(mediaPath),
           image: image,
@@ -397,7 +398,48 @@ class JobExportService {
       );
     }
 
-    for (final mediaChunk in _chunked(inlineMediaItems, 4)) {
+    for (final scanItem in documentScanItems) {
+      document.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.letter,
+          margin: const pw.EdgeInsets.all(20),
+          build: (context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'SCANNED DOCUMENT',
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Expanded(
+                child: pw.Center(
+                  child: pw.Image(scanItem.image, fit: pw.BoxFit.contain),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final photoAttachmentItems = <_ExportMediaItem>[];
+    for (final mediaPath in photoAttachments) {
+      final image = await _loadImage(mediaPath);
+      if (image == null) {
+        continue;
+      }
+      photoAttachmentItems.add(
+        _ExportMediaItem(
+          label: p.basename(mediaPath),
+          image: image,
+        ),
+      );
+    }
+
+    for (final mediaChunk in _chunked(photoAttachmentItems, 4)) {
       document.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.letter,
@@ -638,16 +680,39 @@ class JobExportService {
     return targetPath;
   }
 
-  List<String> _inlineMediaPaths(MaterialRecord material) {
-    final paths = <String>[
-      ...material.photoPaths.where(isImagePath),
-      ...material.scanPaths.where(isImagePath),
-    ];
-    for (final scanPath in material.scanPaths.where(isPdfPath)) {
-      final previewPath = pdfPreviewSiblingPath(scanPath);
-      if (File(previewPath).existsSync()) {
-        paths.add(previewPath);
+  List<String> _photoAttachmentPaths(MaterialRecord material) {
+    return material.photoPaths.where(isImagePath).toList(growable: false);
+  }
+
+  List<String> _documentScanImagePaths(MaterialRecord material) {
+    final paths = <String>[];
+    for (final scanPath in material.scanPaths) {
+      if (isImagePath(scanPath)) {
+        paths.add(scanPath);
+        continue;
       }
+      if (!isPdfPath(scanPath)) {
+        continue;
+      }
+      paths.addAll(_pdfPreviewPaths(scanPath));
+    }
+    return paths;
+  }
+
+  List<String> _pdfPreviewPaths(String pdfPath) {
+    final paths = <String>[];
+    for (var pageNumber = 1; pageNumber <= 99; pageNumber++) {
+      final previewPath = pdfPreviewSiblingPath(
+        pdfPath,
+        pageNumber: pageNumber,
+      );
+      if (!File(previewPath).existsSync()) {
+        if (pageNumber == 1) {
+          continue;
+        }
+        break;
+      }
+      paths.add(previewPath);
     }
     return paths;
   }

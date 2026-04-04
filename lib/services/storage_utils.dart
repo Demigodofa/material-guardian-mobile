@@ -64,10 +64,11 @@ Future<String> writeBytesToDirectory({
   return targetPath;
 }
 
-String pdfPreviewSiblingPath(String pdfPath) {
+String pdfPreviewSiblingPath(String pdfPath, {int pageNumber = 1}) {
   final extension = p.extension(pdfPath);
+  final suffix = pageNumber <= 1 ? '_preview.jpg' : '_preview_$pageNumber.jpg';
   if (extension.isEmpty) {
-    return '${pdfPath}_preview.jpg';
+    return '$pdfPath$suffix';
   }
-  return pdfPath.replaceFirst(RegExp('${RegExp.escape(extension)}\$'), '_preview.jpg');
+  return pdfPath.replaceFirst(RegExp('${RegExp.escape(extension)}\$'), suffix);
 }

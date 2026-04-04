@@ -230,8 +230,16 @@ class MaterialMediaService {
       await file.delete();
     }
     if (isPdfPath(normalized)) {
-      final previewFile = File(pdfPreviewSiblingPath(normalized));
-      if (await previewFile.exists()) {
+      for (var pageNumber = 1; pageNumber <= 99; pageNumber++) {
+        final previewFile = File(
+          pdfPreviewSiblingPath(normalized, pageNumber: pageNumber),
+        );
+        if (!await previewFile.exists()) {
+          if (pageNumber == 1) {
+            continue;
+          }
+          break;
+        }
         await previewFile.delete();
       }
     }

@@ -167,19 +167,26 @@ class MainActivity : FlutterActivity() {
     ): List<Map<String, String>> {
         val savedEntries = mutableListOf<Map<String, String>>()
         val pdf = scanResult?.pdf
+        val pageUris = scanResult?.pages?.mapNotNull { it.imageUri } ?: emptyList()
         if (pdf != null) {
             val targetFile = buildScanPdfFile(jobNumber, materialLabel, nextIndex)
             copyUriToFile(pdf.uri, targetFile)
-            val firstPageUri = scanResult.pages?.firstOrNull()?.imageUri
-            if (firstPageUri != null) {
-                val previewFile = buildScanPreviewFile(jobNumber, materialLabel, nextIndex)
-                copyUriToFile(firstPageUri, previewFile)
+            if (pageUris.isNotEmpty()) {
+                pageUris.forEachIndexed { previewIndex, pageUri ->
+                    val previewFile = buildScanPreviewFile(
+                        jobNumber,
+                        materialLabel,
+                        nextIndex,
+                        previewIndex + 1,
+                    )
+                    copyUriToFile(pageUri, previewFile)
+                }
             }
             savedEntries += mapOf("path" to targetFile.absolutePath)
             return savedEntries
         }
 
-        val firstPageUri = scanResult?.pages?.firstOrNull()?.imageUri
+        val firstPageUri = pageUris.firstOrNull()
         if (firstPageUri != null) {
             val fallbackPreview = buildScanImageFile(jobNumber, materialLabel, nextIndex)
             copyUriToFile(firstPageUri, fallbackPreview)
@@ -214,13 +221,15 @@ class MainActivity : FlutterActivity() {
         jobNumber: String,
         materialLabel: String,
         index: Int,
+        pageNumber: Int,
     ): File {
         val safeJob = sanitizeFileComponent(jobNumber)
         val safeLabel = sanitizeFileComponent(materialLabel).ifBlank { "material" }
         val baseName = safeLabel.take(24)
         val folder = File(filesDir, "job_media/$safeJob/scans")
         folder.mkdirs()
-        return File(folder, "${baseName}_scan_${index}_preview.jpg")
+        val suffix = if (pageNumber <= 1) "_preview.jpg" else "_preview_${pageNumber}.jpg"
+        return File(folder, "${baseName}_scan_${index}$suffix")
     }
 
     private fun buildScanImageFile(

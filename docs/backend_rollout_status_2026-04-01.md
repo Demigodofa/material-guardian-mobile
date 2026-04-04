@@ -118,6 +118,8 @@ The Flutter repo already has:
     - Android `Scan MTR/CoC PDFs` now routes through ML Kit document scanning again instead of only the custom camera overlay, with camera fallback still available if the scanner cannot start
     - empty photo/scan slots now show explicit icons and slot numbers instead of reading like blank dead buttons
   - stale edit-draft save safety:
+  - job deletion storage cleanup:
+    - deleting a job now removes the app-state record, app-private `job_media` files, app-private export folders/ZIPs, and the mirrored `Downloads/MaterialGuardian/...` export copy on Android so phones do not accumulate orphaned packet files
     - completing an edit draft no longer throws just because the referenced source material was removed earlier; the app now falls back to saving it as a new material record instead of failing the whole save
   - donor-aligned receiving-form layout cleanup after fresh Samsung and emulator review:
     - narrow-width rows now collapse instead of crushing fields together:

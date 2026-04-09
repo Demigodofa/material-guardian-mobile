@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:pdf/pdf.dart';
@@ -33,6 +34,8 @@ class JobExportResult {
 }
 
 class JobExportService {
+  static Future<pw.ThemeData>? _cachedPdfTheme;
+
   Future<JobExportResult> exportJob({
     required JobRecord job,
     required CustomizationSettings customization,
@@ -211,7 +214,7 @@ class JobExportService {
     required MaterialRecord material,
     required CustomizationSettings customization,
   }) async {
-    final document = pw.Document();
+    final document = pw.Document(theme: await _loadPdfTheme());
     final logo = await _loadImage(
       customization.includeCompanyLogoOnReports
           ? customization.companyLogoPath
@@ -488,6 +491,18 @@ class JobExportService {
     }
 
     return Uint8List.fromList(await document.save());
+  }
+
+  Future<pw.ThemeData> _loadPdfTheme() {
+    return _cachedPdfTheme ??= () async {
+      final regular = pw.Font.ttf(
+        await rootBundle.load('assets/fonts/roboto-regular.ttf'),
+      );
+      final bold = pw.Font.ttf(
+        await rootBundle.load('assets/fonts/roboto-bold.ttf'),
+      );
+      return pw.ThemeData.withFont(base: regular, bold: bold);
+    }();
   }
 
   pw.Widget _reportHeaderBand(String title, {double topSpacing = 0}) {

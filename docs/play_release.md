@@ -20,7 +20,11 @@ keytool -genkeypair -v -keystore keystore\material-guardian-upload.jks -alias up
 ```
 
 3. Fill in the real values in `release-signing.properties`.
-4. Build the Play bundle:
+4. Build the Play bundle.
+
+Internal validation can still target the live dev backend if that is the environment being exercised.
+Do not ship a customer-facing Play release against the default `...backend-dev...` URL by accident.
+For any real release, pass the intended non-dev backend explicitly with `MG_BACKEND_BASE_URL`.
 
 ```powershell
 & 'C:\Users\KevinPenfield\develop\flutter\bin\flutter.bat' build appbundle --release --dart-define=MG_BACKEND_BASE_URL=https://app-platforms-backend-dev-293518443128.us-east4.run.app

@@ -743,6 +743,48 @@ void main() {
     expect(File(updatedMaterial.pdfStoragePath).existsSync(), isTrue);
   });
 
+  test('exporting a job with no saved materials does not mark it exported', () async {
+    final appState = MaterialGuardianAppState.seeded();
+
+    await appState.deleteMaterial(jobId: 'job-1001', materialId: 'mat-001');
+    final exportResult = await appState.exportJob('job-1001');
+    final updatedJob = appState.jobById('job-1001');
+
+    expect(exportResult.packetCount, 0);
+    expect(updatedJob.exportedAt, isNull);
+    expect(updatedJob.exportPath, isEmpty);
+    expect(File(exportResult.zipPath).existsSync(), isTrue);
+    expect(
+      File('${exportResult.exportRootPath}${Platform.pathSeparator}export_info.txt')
+          .existsSync(),
+      isTrue,
+    );
+  });
+
+  test('exporting unicode packet fields succeeds with bundled fonts', () async {
+    final appState = MaterialGuardianAppState.seeded();
+    final editDraft = await appState.createEditDraft(
+      jobId: 'job-1001',
+      materialId: 'mat-001',
+    );
+    await appState.saveDraft(
+      editDraft.copyWith(
+        description: '2" valve – café check',
+        vendor: 'Québec Works',
+        comments: 'Inspector Renée verified µin finish.',
+        qcInspectorName: 'Renée Weld',
+        qcManagerName: 'Jürgen QA',
+        surfaceFinishUnit: 'µin',
+      ),
+    );
+    await appState.completeDraft(appState.draftById(editDraft.id));
+
+    final exportResult = await appState.exportJob('job-1001');
+
+    expect(File(exportResult.packetPathsByMaterialId['mat-001']!).existsSync(), isTrue);
+    expect(File(exportResult.zipPath).existsSync(), isTrue);
+  });
+
   test('exporting a scanned PDF also carries its preview image into export media', () async {
     final appState = MaterialGuardianAppState.seeded();
     final probeRoot = Directory(
@@ -1004,6 +1046,52 @@ void main() {
         appState.purchaseError,
         contains('Play did not return these product IDs'),
       );
+    },
+  );
+
+  test(
+    'restoring a stale backend session clears auth state without surfacing a sales error',
+    () async {
+      final sessionStore = InMemoryBackendAuthSessionStore();
+      await sessionStore.save(
+        const StoredBackendAuthSession(
+          accessToken: 'stale-access',
+          refreshToken: 'stale-refresh',
+        ),
+      );
+
+      final service = BackendApiService(
+        baseUrl:
+            'https://app-platforms-backend-dev-293518443128.us-east4.run.app',
+        client: MockClient((request) async {
+          if (request.url.path.endsWith('/auth/refresh')) {
+            return http.Response(
+              '{"message":"Refresh token is invalid."}',
+              401,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+
+          return http.Response(
+            '{"status":"ok","service":"app-platforms-backend","mode":"postgres"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final appState = MaterialGuardianAppState.seeded(
+        backendApiService: service,
+        authSessionStore: sessionStore,
+      );
+
+      await appState.restoreBackendSession();
+
+      expect(appState.isSignedIn, isFalse);
+      expect(appState.backendAuthSession, isNull);
+      expect(appState.backendAccountError, isNull);
+      expect(appState.shouldSurfaceSalesAuthError, isFalse);
+      expect(await sessionStore.load(), isNull);
     },
   );
 

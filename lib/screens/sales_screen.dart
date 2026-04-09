@@ -71,7 +71,8 @@ class _SalesScreenState extends State<SalesScreen> {
                     trialRemaining: entitlement?.trialRemaining ?? 6,
                     accessState: entitlement?.accessState,
                   ),
-                  if (appState.backendAccountError != null &&
+                  if (appState.shouldSurfaceSalesAuthError &&
+                      appState.backendAccountError != null &&
                       appState.backendAccountError!.trim().isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _ErrorText(message: appState.backendAccountError!),
@@ -593,8 +594,9 @@ class _SalesPlanTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final storeProduct = appState
-        .storeProductsById[(plan.storeProductIdForPlatform('android') ?? '')];
+    final storeProduct = appState.storeProductsById[
+      plan.storeProductIdForPlatform(appState.currentStorePlatform) ?? ''
+    ];
     final needsOrganization = plan.isBusiness;
     final hasOrganization = appState.backendOrganization != null;
     final canPurchase =

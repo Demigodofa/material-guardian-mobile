@@ -1062,6 +1062,9 @@ class BackendApiService {
     String? organizationId,
     String? providerOriginalRef,
     String? rawStatus,
+    String? googlePackageName,
+    String? googleProductId,
+    String? googlePurchaseToken,
   }) async {
     final response = await _client.post(
       _buildUri('purchases/$provider/verify'),
@@ -1072,6 +1075,9 @@ class BackendApiService {
         'providerTransactionRef': providerTransactionRef,
         'providerOriginalRef': providerOriginalRef,
         'rawStatus': rawStatus,
+        'googlePackageName': googlePackageName,
+        'googleProductId': googleProductId,
+        'googlePurchaseToken': googlePurchaseToken,
       }),
     );
     return BackendPurchaseVerificationResult.fromJson(

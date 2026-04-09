@@ -317,6 +317,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
   bool _isPurchasing = false;
   bool _isRestoringPurchases = false;
   bool _isStoreAvailable = false;
+  bool _shouldSurfaceSalesAuthError = false;
   final Map<String, String?> _pendingPurchaseOrganizationIdsByProductId =
       <String, String?>{};
 
@@ -343,6 +344,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
       List.unmodifiable(_backendPlans);
   Map<String, StoreProductSnapshot> get storeProductsById =>
       Map.unmodifiable(_storeProductsById);
+  String get currentStorePlatform => _storePlatform();
   List<String> get lastMissingStoreProductIds =>
       List.unmodifiable(_lastMissingStoreProductIds);
   String? get lastStoreCatalogError => _lastStoreCatalogError;
@@ -355,6 +357,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
   bool get isPurchasing => _isPurchasing;
   bool get isRestoringPurchases => _isRestoringPurchases;
   bool get isStoreAvailable => _isStoreAvailable;
+  bool get shouldSurfaceSalesAuthError => _shouldSurfaceSalesAuthError;
   bool get isSignedIn => _backendAuthSession != null && _backendMe != null;
   bool get hasPendingSessionReplacement => _pendingSessionReplacementId != null;
   BackendEntitlementSnapshot? get effectiveBackendEntitlement =>
@@ -979,7 +982,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     }
 
     _backendAuthSession = storedSession;
-    await refreshBackendAccount();
+    await refreshBackendAccount(showFailureMessage: false);
   }
 
   Future<void> startBackendSignIn({
@@ -999,6 +1002,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     }
 
     _isAuthenticatingBackend = true;
+    _shouldSurfaceSalesAuthError = true;
     _backendAccountError = null;
     _pendingSessionConflict = null;
     _pendingSessionReplacementId = null;
@@ -1032,6 +1036,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     }
 
     _isAuthenticatingBackend = true;
+    _shouldSurfaceSalesAuthError = true;
     _backendAccountError = null;
     notifyListeners();
 
@@ -1070,6 +1075,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     }
 
     _isAuthenticatingBackend = true;
+    _shouldSurfaceSalesAuthError = true;
     _backendAccountError = null;
     notifyListeners();
 
@@ -1120,7 +1126,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     }
   }
 
-  Future<void> refreshBackendAccount() async {
+  Future<void> refreshBackendAccount({bool showFailureMessage = true}) async {
     final session = _backendAuthSession;
     if (session == null) {
       return;
@@ -1140,8 +1146,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
       );
     } catch (error) {
       await _clearBackendAuthState(
-        errorMessage:
-            'Saved backend session could not be refreshed. Sign in again.',
+        errorMessage: showFailureMessage
+            ? 'Saved backend session could not be refreshed. Sign in again.'
+            : null,
       );
     } finally {
       _isRefreshingBackendAccount = false;
@@ -1425,6 +1432,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     _pendingBackendAuthStart = null;
     _pendingSessionConflict = null;
     _pendingSessionReplacementId = null;
+    _shouldSurfaceSalesAuthError = false;
     _backendAuthSession = StoredBackendAuthSession(
       accessToken: accessToken,
       refreshToken: refreshToken,
@@ -1544,6 +1552,10 @@ class MaterialGuardianAppState extends ChangeNotifier {
               '${update.productId}-${DateTime.now().millisecondsSinceEpoch}',
           providerOriginalRef: update.providerOriginalRef ?? update.purchaseId,
           rawStatus: update.status,
+          googleProductId: update.provider == 'google' ? update.productId : null,
+          googlePurchaseToken: update.provider == 'google'
+              ? (update.providerOriginalRef ?? update.purchaseId)
+              : null,
         );
         await _hydrateBackendAccount(accessToken: session.accessToken);
         _purchaseStatusMessage = update.isRestored
@@ -1601,6 +1613,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     _pendingBackendAuthStart = null;
     _pendingSessionConflict = null;
     _pendingSessionReplacementId = null;
+    _shouldSurfaceSalesAuthError = false;
     _backendMe = null;
     _backendEntitlement = null;
     _backendOrganization = null;
@@ -1717,6 +1730,10 @@ class MaterialGuardianAppState extends ChangeNotifier {
       job: job,
       customization: _customization,
     );
+
+    if (exportResult.packetCount == 0) {
+      return exportResult;
+    }
 
     final updatedJob = job.copyWith(
       exportedAt: DateTime.now(),

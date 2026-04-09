@@ -338,6 +338,16 @@ class JobDetailScreen extends StatelessWidget {
                     constraints: const BoxConstraints(maxWidth: 320),
                     child: FilledButton.icon(
                       onPressed: () async {
+                        if (job.materials.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Add and save at least one receiving report before exporting this job.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
                         final confirmed = await _showExportJobDialog(
                           context,
                           alreadyExported: job.exportedAt != null,
@@ -347,6 +357,16 @@ class JobDetailScreen extends StatelessWidget {
                         }
                         final result = await appState.exportJob(jobId);
                         if (!context.mounted) {
+                          return;
+                        }
+                        if (result.packetCount == 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'No saved receiving reports were available to export.',
+                              ),
+                            ),
+                          );
                           return;
                         }
                         ScaffoldMessenger.of(context).showSnackBar(

@@ -23,7 +23,8 @@
         android:label="Material Guardian"
         android:name="${applicationName}"
         android:icon="@drawable/material_guardian_192"
-        android:roundIcon="@drawable/material_guardian_192">
+        android:roundIcon="@drawable/material_guardian_192"
+        android:allowBackup="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"

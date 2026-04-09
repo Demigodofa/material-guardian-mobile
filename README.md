@@ -67,6 +67,14 @@ docs/      migration notes and behavior references
 5. harden the new account/admin shell around real device validation and store/privacy readiness
 6. complete Apple-specific identifiers, permissions, and file/share validation on the Mac
 7. finalize store metadata, privacy wording, and release signing with backend scope reflected accurately
+8. before App Store or Play submission, read the current official Apple and Google policy/review materials again and verify the product, metadata, branding, trademark usage, subscriptions, offer/promo handling, privacy text, screenshots, and account/deletion/compliance copy all match current platform rules
+
+## Store compliance follow-up
+
+- Treat official Apple and Google policy/review guidance as a required pre-release read, not a one-time assumption.
+- Re-check current App Store Review Guidelines, Apple Human Interface / metadata rules, trademark/branding wording requirements, and any Apple subscription/account-management requirements before iPhone submission.
+- Re-check current Google Play policy center guidance, subscriptions/billing rules, privacy/account wording, screenshots/store listing requirements, and trademark/branding requirements before Android release submission.
+- Keep a repo note or release checklist with the exact official pages reviewed for that release so policy verification is durable instead of living only in chat memory.
 
 ## Play release
 
@@ -78,6 +86,7 @@ docs/      migration notes and behavior references
 
 ## Read first
 
+1. `docs/release_handoff_2026-04-09.md`
 1. `docs/material_guardian_flutter_source_of_truth.md`
 2. `docs/backend_rollout_status_2026-04-01.md`
 3. `docs/privacy_store_readiness_2026-04-01.md`

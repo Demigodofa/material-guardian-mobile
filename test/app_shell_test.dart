@@ -100,7 +100,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Plans'), findsOneWidget);
-    expect(find.text('Start free with 6 jobs'), findsOneWidget);
+    expect(find.text('Start free with 6 real jobs'), findsOneWidget);
     expect(find.text('Create Job'), findsNothing);
   });
 
@@ -149,7 +149,7 @@ void main() {
     }
 
     final emailField = textFieldByLabel('Email');
-    final nameField = textFieldByLabel('Name (optional)');
+    final nameField = textFieldByLabel('Your Name (optional)');
 
     await tester.enterText(emailField, 'a' * 150);
     await tester.enterText(nameField, 'b' * 60);
@@ -1383,7 +1383,7 @@ void main() {
       final scrollable = find.byType(Scrollable).first;
       final createOrgButton = find.widgetWithText(
         FilledButton,
-        'Create Another Organization',
+        'Create Another Company Workspace',
       );
       await tester.scrollUntilVisible(
         createOrgButton,

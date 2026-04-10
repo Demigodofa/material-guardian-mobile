@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -206,14 +207,15 @@ class MaterialGuardianAppState extends ChangeNotifier {
       storePurchaseService: storePurchaseService,
     );
     final signedInAt = DateTime(2026, 4, 3, 12);
+    const organizationId = 'debug_org_granite';
     final activeEntitlement = BackendEntitlementSnapshot(
-      productCode: 'material_guardian',
-      planCode: 'material_guardian_individual_yearly',
+      productCode: 'material_guardian_business',
+      planCode: 'material_guardian_business_5_yearly',
       accessState: 'paid',
       seatAvailability: 'assigned',
       subscriptionState: 'active',
       trialRemaining: 0,
-      organizationId: null,
+      organizationId: organizationId,
       startsAt: signedInAt,
       endsAt: null,
     );
@@ -224,15 +226,25 @@ class MaterialGuardianAppState extends ChangeNotifier {
     appState._backendMe = BackendMeSnapshot(
       user: BackendUserSummary(
         id: 'debug_user',
-        email: 'debug@materialguardian.test',
-        displayName: 'Debug Solo User',
+        email: 'granitemfgllc@gmail.com',
+        displayName: 'Demigodofa',
         status: 'active',
         createdAt: signedInAt,
         lastLoginAt: signedInAt,
       ),
-      memberships: const <BackendMembershipSummary>[],
-      currentSeatOrganizationId: null,
-      currentSeatStatus: 'not_applicable',
+      memberships: <BackendMembershipSummary>[
+        BackendMembershipSummary(
+          id: 'debug_membership_owner',
+          organizationId: organizationId,
+          organizationName: 'Granite MFG LLC',
+          role: 'owner',
+          seatStatus: 'assigned',
+          invitedAt: signedInAt,
+          acceptedAt: signedInAt,
+        ),
+      ],
+      currentSeatOrganizationId: organizationId,
+      currentSeatStatus: 'assigned',
       trialState: null,
       activeEntitlement: activeEntitlement,
       activeSession: BackendSessionSnapshot(
@@ -246,6 +258,46 @@ class MaterialGuardianAppState extends ChangeNotifier {
       ),
     );
     appState._backendEntitlement = activeEntitlement;
+    appState._backendOrganization = BackendOrganizationSummary(
+      id: organizationId,
+      name: 'Granite MFG LLC',
+      status: 'active',
+      planCode: 'material_guardian_business_5_yearly',
+      seatLimit: 5,
+      seatsAssigned: 2,
+      seatsRemaining: 3,
+      userCount: 2,
+      members: <BackendOrganizationMemberSnapshot>[
+        BackendOrganizationMemberSnapshot(
+          membershipId: 'debug_membership_owner',
+          userId: 'debug_user',
+          name: 'Demigodofa',
+          email: 'granitemfgllc@gmail.com',
+          userStatus: 'active',
+          role: 'owner',
+          seatStatus: 'assigned',
+          seatAssigned: true,
+          invitedAt: signedInAt,
+          acceptedAt: signedInAt,
+          lastActive: signedInAt,
+          activeDeviceSummary: 'android:Debug Seeded Session',
+        ),
+        BackendOrganizationMemberSnapshot(
+          membershipId: 'debug_membership_admin',
+          userId: 'debug_pending_admin',
+          name: 'Pending Admin',
+          email: 'kpenfield@nemoinc.net',
+          userStatus: 'pending',
+          role: 'admin',
+          seatStatus: 'assigned',
+          seatAssigned: true,
+          invitedAt: signedInAt,
+          acceptedAt: null,
+          lastActive: null,
+          activeDeviceSummary: null,
+        ),
+      ],
+    );
     return appState;
   }
 
@@ -253,6 +305,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     BackendApiService? backendApiService,
     BackendAuthSessionStore? authSessionStore,
     StorePurchaseService? storePurchaseService,
+    StoredBackendAuthSession? debugBootstrapSession,
   }) async {
     final snapshotStore = MaterialGuardianSnapshotStore();
     final customizationStore = CustomizationStore();
@@ -274,7 +327,24 @@ class MaterialGuardianAppState extends ChangeNotifier {
       exportService: JobExportService(),
     );
     await appState.refreshBackendHealth();
-    await appState.restoreBackendSession();
+    if (debugBootstrapSession != null) {
+      debugPrint('MG debug bootstrap: saving provided backend session.');
+      appState._backendAuthSession = debugBootstrapSession;
+      await appState._authSessionStore.save(debugBootstrapSession);
+      try {
+        debugPrint('MG debug bootstrap: hydrating account from access token.');
+        await appState._hydrateBackendAccount(
+          accessToken: debugBootstrapSession.accessToken,
+        );
+        debugPrint('MG debug bootstrap: hydrate succeeded.');
+      } catch (error, stackTrace) {
+        debugPrint('MG debug bootstrap failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+        await appState._clearBackendAuthState();
+      }
+    } else {
+      await appState.restoreBackendSession();
+    }
     await appState.loadPurchaseCatalog();
     return appState;
   }
@@ -487,7 +557,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
     }
 
     final exportZipPaths = <String>{
-      if (job.exportPath.trim().isNotEmpty) _zipPathForExportRoot(job.exportPath),
+      if (job.exportPath.trim().isNotEmpty)
+        _zipPathForExportRoot(job.exportPath),
       _zipPathForExportRoot(
         (await appSupportSubdirectory(['exports', safeJobNumber])).path,
       ),
@@ -1144,7 +1215,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
         refreshed,
         hydrateFromAccessToken: true,
       );
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint('MG refreshBackendAccount failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
       await _clearBackendAuthState(
         errorMessage: showFailureMessage
             ? 'Saved backend session could not be refreshed. Sign in again.'
@@ -1248,6 +1321,33 @@ class MaterialGuardianAppState extends ChangeNotifier {
       // Clear local auth state even if the server-side revoke request fails.
     } finally {
       await _clearBackendAuthState();
+      _isAuthenticatingBackend = false;
+      notifyListeners();
+    }
+  }
+
+  Future<BackendDeleteAccountResult?> deleteBackendAccount() async {
+    final session = _backendAuthSession;
+    if (session == null) {
+      _backendAccountError = 'Sign in before deleting your account.';
+      notifyListeners();
+      return null;
+    }
+
+    _isAuthenticatingBackend = true;
+    _backendAccountError = null;
+    notifyListeners();
+
+    try {
+      final result = await _backendApiService.deleteAccount(
+        accessToken: session.accessToken,
+      );
+      await _clearBackendAuthState();
+      return result;
+    } catch (error) {
+      _backendAccountError = _describeBackendRequestError(error);
+      return null;
+    } finally {
       _isAuthenticatingBackend = false;
       notifyListeners();
     }
@@ -1445,6 +1545,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
   }
 
   Future<void> _hydrateBackendAccount({required String accessToken}) async {
+    debugPrint('MG hydrate account: requesting /me and entitlement.');
     final me = await _backendApiService.fetchMe(accessToken: accessToken);
     final entitlement = await _backendApiService.fetchCurrentEntitlement(
       accessToken: accessToken,
@@ -1467,6 +1568,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
     _backendEntitlement = entitlement;
     _backendOrganization = organization;
     _backendAccountError = null;
+    debugPrint(
+      'MG hydrate account: success for ${me.user.email} with ${entitlement.planCode}.',
+    );
   }
 
   Future<void> _handleStorePurchaseUpdates(
@@ -1552,7 +1656,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
               '${update.productId}-${DateTime.now().millisecondsSinceEpoch}',
           providerOriginalRef: update.providerOriginalRef ?? update.purchaseId,
           rawStatus: update.status,
-          googleProductId: update.provider == 'google' ? update.productId : null,
+          googleProductId: update.provider == 'google'
+              ? update.productId
+              : null,
           googlePurchaseToken: update.provider == 'google'
               ? (update.providerOriginalRef ?? update.purchaseId)
               : null,
@@ -1604,6 +1710,27 @@ class MaterialGuardianAppState extends ChangeNotifier {
         case 500:
           return 'The backend hit an internal error while signing in. Start sign-in again. If it repeats, stop here.';
       }
+    }
+    return error.toString();
+  }
+
+  String _describeBackendRequestError(Object error) {
+    if (error is BackendApiException) {
+      final responseBody = error.responseBody;
+      if (responseBody != null && responseBody.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(responseBody);
+          if (decoded is Map<String, dynamic>) {
+            final message = decoded['message'];
+            if (message is String && message.trim().isNotEmpty) {
+              return message;
+            }
+          }
+        } catch (_) {
+          // Fall through to the generic backend message.
+        }
+      }
+      return error.message;
     }
     return error.toString();
   }

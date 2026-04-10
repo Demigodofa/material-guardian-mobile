@@ -61,12 +61,6 @@ class JobsScreen extends StatelessWidget {
                     spacing: 10,
                     runSpacing: 10,
                     children: [
-                      _LandingLinkButton(
-                        label: 'Plans',
-                        onPressed: () {
-                          Navigator.pushNamed(context, AppRoutes.sales);
-                        },
-                      ),
                       if (appState.shouldShowAccountEntry)
                         _LandingLinkButton(
                           label: 'Account',
@@ -78,6 +72,12 @@ class JobsScreen extends StatelessWidget {
                         label: 'Customization',
                         onPressed: () {
                           Navigator.pushNamed(context, AppRoutes.customization);
+                        },
+                      ),
+                      _LandingLinkButton(
+                        label: 'Plans',
+                        onPressed: () {
+                          Navigator.pushNamed(context, AppRoutes.sales);
                         },
                       ),
                       _LandingLinkButton(

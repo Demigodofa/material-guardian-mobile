@@ -22,6 +22,11 @@ class PrivacyPolicyScreen extends StatelessWidget {
           'Material Guardian can use an email-code account for sign-in, subscriptions, organization membership, and seat access. The app remembers the signed-in session on this device until you sign out or clear app data.',
     ),
     (
+      title: 'Email delivery and service providers',
+      body:
+          'Email sign-in codes and some support or invite emails can be delivered through the Material Guardian backend service and its configured email provider. Subscription and entitlement state may also be checked against Google Play or the App Store when store-backed access is active.',
+    ),
+    (
       title: 'Local job data and cloud status',
       body:
           'Report content still stays local-first in this release. The developer service tracks account identity, organization membership, seats, and subscription state, but your jobs, reports, photos, scans, and signatures are not yet synced into a customer cloud workspace. Future cloud storage is expected to be an explicit upgrade with clearer recovery and cross-device access wording.',
@@ -42,9 +47,14 @@ class PrivacyPolicyScreen extends StatelessWidget {
           'You control local data on the device. You can keep drafts, delete drafts, delete jobs, or remove exported files from device storage. Android backup and device-to-device transfer are disabled for app data in this release.',
     ),
     (
+      title: 'Account deletion',
+      body:
+          'If account deletion is available for your release channel, use the in-app account deletion flow to remove the backend login tied to your email. Active store subscriptions may still need to be canceled in Google Play or the App Store separately. Business workspace records can require additional retention or ownership handling before deletion is allowed.',
+    ),
+    (
       title: 'Contact',
       body:
-          'For support or privacy questions, use the contact details published with the store listing or your company deployment channel.',
+          'For support or privacy questions, use the contact details published with the store listing, privacy policy URL, or your company deployment channel.',
     ),
   ];
 

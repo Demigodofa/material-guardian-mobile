@@ -72,6 +72,24 @@ void main() {
         .setMockMethodCallHandler(_sharedPreferencesChannel, null);
   });
 
+  test('sequential exports keep unique export root paths', () async {
+    final probeMediaDirectory = Directory(
+      p.join(
+        Directory.systemTemp.path,
+        'material_guardian_mobile_export_probe_assets',
+        'sequential_export_uniqueness',
+      ),
+    );
+    await probeMediaDirectory.create(recursive: true);
+
+    final firstResult = await _runPlainExportProbe(probeMediaDirectory);
+    final secondResult = await _runPlainExportProbe(probeMediaDirectory);
+
+    expect(firstResult.exportRootPath, isNot(secondResult.exportRootPath));
+    expect(await Directory(firstResult.exportRootPath as String).exists(), isTrue);
+    expect(await Directory(secondResult.exportRootPath as String).exists(), isTrue);
+  });
+
   test(
     'manual export probe copies full seeded export variants to Desktop',
     () async {

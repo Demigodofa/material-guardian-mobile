@@ -222,13 +222,9 @@ class JobExportService {
     );
     final inspectorSignature = await _loadImage(material.qcSignaturePath);
     final managerSignature = await _loadImage(material.qcManagerSignaturePath);
-    final documentScanPages = _documentScanImagePaths(material);
+    final documentScanItems = _documentScanExportItems(material);
     final photoAttachments = _photoAttachmentPaths(material);
     final inspectionDateText = _formatExportDate(material.qcInspectorDate);
-    final commentsText = [
-      material.comments,
-      material.description,
-    ].where((value) => value.trim().isNotEmpty).join(' | ');
 
     document.addPage(
       pw.MultiPage(
@@ -240,8 +236,9 @@ class JobExportService {
               pw.Align(
                 alignment: pw.Alignment.centerRight,
                 child: pw.Container(
-                  margin: const pw.EdgeInsets.only(bottom: 6),
-                  child: pw.Image(logo, height: 30, fit: pw.BoxFit.contain),
+                  margin: const pw.EdgeInsets.only(bottom: 8),
+                  constraints: const pw.BoxConstraints(maxHeight: 44, maxWidth: 180),
+                  child: pw.Image(logo, fit: pw.BoxFit.contain),
                 ),
               ),
             _reportHeaderBand('RECEIVING INSPECTION REPORT'),
@@ -331,9 +328,14 @@ class JobExportService {
                 flex: 1,
               ),
             ]),
-            _reportGridRow([
-              _ReportCell('Comments', commentsText),
-            ]),
+            if (material.description.trim().isNotEmpty)
+              _reportGridRow([
+                _ReportCell('Description', material.description),
+              ]),
+            if (material.comments.trim().isNotEmpty)
+              _reportGridRow([
+                _ReportCell('Comments', material.comments),
+              ]),
             _reportGridRow([
               _ReportCell(
                 'Material Approval',
@@ -387,21 +389,11 @@ class JobExportService {
       ),
     );
 
-    final documentScanItems = <_ExportMediaItem>[];
-    for (final mediaPath in documentScanPages) {
-      final image = await _loadImage(mediaPath);
-      if (image == null) {
-        continue;
-      }
-      documentScanItems.add(
-        _ExportMediaItem(
-          label: p.basename(mediaPath),
-          image: image,
-        ),
-      );
-    }
-
     for (final scanItem in documentScanItems) {
+      final image =
+          scanItem.previewPath == null
+              ? null
+              : await _loadImage(scanItem.previewPath!);
       document.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.letter,
@@ -416,11 +408,44 @@ class JobExportService {
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                scanItem.label,
+                style: const pw.TextStyle(fontSize: 9),
+              ),
               pw.SizedBox(height: 10),
               pw.Expanded(
-                child: pw.Center(
-                  child: pw.Image(scanItem.image, fit: pw.BoxFit.contain),
-                ),
+                child:
+                    image != null
+                        ? pw.Center(
+                          child: pw.Image(image, fit: pw.BoxFit.contain),
+                        )
+                        : pw.Container(
+                          width: double.infinity,
+                          padding: const pw.EdgeInsets.all(16),
+                          decoration: pw.BoxDecoration(
+                            border: pw.Border.all(color: PdfColors.grey600),
+                          ),
+                          child: pw.Column(
+                            mainAxisAlignment: pw.MainAxisAlignment.center,
+                            crossAxisAlignment: pw.CrossAxisAlignment.center,
+                            children: [
+                              pw.Text(
+                                'Preview unavailable',
+                                style: pw.TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: pw.FontWeight.bold,
+                                ),
+                              ),
+                              pw.SizedBox(height: 8),
+                              pw.Text(
+                                'The original PDF scan is still attached in source_media for this export.',
+                                textAlign: pw.TextAlign.center,
+                                style: const pw.TextStyle(fontSize: 9),
+                              ),
+                            ],
+                          ),
+                        ),
               ),
             ],
           ),
@@ -436,13 +461,15 @@ class JobExportService {
       }
       photoAttachmentItems.add(
         _ExportMediaItem(
-          label: p.basename(mediaPath),
+          label:
+              'Photo ${photoAttachmentItems.length + 1}${p.basename(mediaPath).trim().isEmpty ? '' : ' - ${p.basename(mediaPath)}'}',
           image: image,
         ),
       );
     }
 
     for (final mediaChunk in _chunked(photoAttachmentItems, 4)) {
+      final rowChunks = _chunked<_ExportMediaItem>(mediaChunk, 2);
       document.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.letter,
@@ -461,25 +488,25 @@ class JobExportService {
               pw.Expanded(
                 child: pw.Column(
                   children: [
-                    for (var rowIndex = 0; rowIndex < 2; rowIndex++) ...[
+                    for (var rowIndex = 0; rowIndex < rowChunks.length; rowIndex++) ...[
                       pw.Expanded(
                         child: pw.Row(
                           children: [
-                            for (var columnIndex = 0; columnIndex < 2; columnIndex++) ...[
+                            for (
+                              var index = 0;
+                              index < rowChunks[rowIndex].length;
+                              index++
+                            ) ...[
                               pw.Expanded(
-                                child: _mediaTile(
-                                  _chunkItemAt(
-                                    mediaChunk,
-                                    rowIndex * 2 + columnIndex,
-                                  ),
-                                ),
+                                child: _mediaTile(rowChunks[rowIndex][index]),
                               ),
-                              if (columnIndex == 0) pw.SizedBox(width: 10),
+                              if (index < rowChunks[rowIndex].length - 1)
+                                pw.SizedBox(width: 10),
                             ],
                           ],
                         ),
                       ),
-                      if (rowIndex == 0) pw.SizedBox(height: 10),
+                      if (rowIndex < rowChunks.length - 1) pw.SizedBox(height: 10),
                     ],
                   ],
                 ),
@@ -589,7 +616,7 @@ class JobExportService {
         pw.Text('Date: $dateText', style: const pw.TextStyle(fontSize: 8)),
         pw.SizedBox(height: 4),
         pw.Container(
-          height: 44,
+          height: 78,
           decoration: pw.BoxDecoration(border: pw.Border.all()),
           alignment: pw.Alignment.center,
           child: image == null
@@ -618,7 +645,7 @@ class JobExportService {
           pw.Text(
             item.label,
             style: const pw.TextStyle(fontSize: 8),
-            maxLines: 1,
+            maxLines: 2,
           ),
           pw.SizedBox(height: 4),
           pw.Expanded(
@@ -638,13 +665,6 @@ class JobExportService {
       chunks.add(items.sublist(index, end));
     }
     return chunks;
-  }
-
-  T? _chunkItemAt<T>(List<T> items, int index) {
-    if (index < 0 || index >= items.length) {
-      return null;
-    }
-    return items[index];
   }
 
   Future<pw.MemoryImage?> _loadImage(String path) async {
@@ -699,19 +719,46 @@ class JobExportService {
     return material.photoPaths.where(isImagePath).toList(growable: false);
   }
 
-  List<String> _documentScanImagePaths(MaterialRecord material) {
-    final paths = <String>[];
+  List<_DocumentScanExportItem> _documentScanExportItems(MaterialRecord material) {
+    final items = <_DocumentScanExportItem>[];
     for (final scanPath in material.scanPaths) {
       if (isImagePath(scanPath)) {
-        paths.add(scanPath);
+        items.add(
+          _DocumentScanExportItem(
+            label: p.basename(scanPath),
+            previewPath: scanPath,
+          ),
+        );
         continue;
       }
       if (!isPdfPath(scanPath)) {
         continue;
       }
-      paths.addAll(_pdfPreviewPaths(scanPath));
+      final previewPaths = _pdfPreviewPaths(scanPath);
+      if (previewPaths.isEmpty) {
+        items.add(
+          _DocumentScanExportItem(
+            label: p.basename(scanPath),
+            previewPath: null,
+          ),
+        );
+        continue;
+      }
+      for (var pageIndex = 0; pageIndex < previewPaths.length; pageIndex++) {
+        final previewPath = previewPaths[pageIndex];
+        final pageLabel =
+            previewPaths.length <= 1
+                ? p.basename(scanPath)
+                : '${p.basename(scanPath)} - Page ${pageIndex + 1}';
+        items.add(
+          _DocumentScanExportItem(
+            label: pageLabel,
+            previewPath: previewPath,
+          ),
+        );
+      }
     }
-    return paths;
+    return items;
   }
 
   List<String> _pdfPreviewPaths(String pdfPath) {
@@ -750,7 +797,11 @@ class JobExportService {
 
   String _timestampSegment(DateTime dateTime) {
     String two(int value) => value.toString().padLeft(2, '0');
-    return '${dateTime.year}${two(dateTime.month)}${two(dateTime.day)}_${two(dateTime.hour)}${two(dateTime.minute)}${two(dateTime.second)}';
+    final milliseconds = dateTime.millisecond.toString().padLeft(3, '0');
+    final microseconds = dateTime.microsecond.toString().padLeft(3, '0');
+    return '${dateTime.year}${two(dateTime.month)}${two(dateTime.day)}_'
+        '${two(dateTime.hour)}${two(dateTime.minute)}${two(dateTime.second)}_'
+        '$milliseconds$microseconds';
   }
 
   String _fittingValue(MaterialRecord material) {
@@ -800,6 +851,16 @@ class _ExportMediaItem {
 
   final String label;
   final pw.MemoryImage image;
+}
+
+class _DocumentScanExportItem {
+  const _DocumentScanExportItem({
+    required this.label,
+    required this.previewPath,
+  });
+
+  final String label;
+  final String? previewPath;
 }
 
 class _ReportCell {

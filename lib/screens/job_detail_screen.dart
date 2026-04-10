@@ -205,13 +205,6 @@ class JobDetailScreen extends StatelessWidget {
                       label: const Text('Edit Job'),
                     ),
                     OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pushNamed(context, AppRoutes.customization);
-                      },
-                      icon: const Icon(Icons.tune_rounded),
-                      label: const Text('Customization'),
-                    ),
-                    OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Theme.of(context).colorScheme.error,
                       ),

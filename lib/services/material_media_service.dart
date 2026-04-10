@@ -137,6 +137,9 @@ class MaterialMediaService {
               targetDirectory: targetDirectory,
               targetBaseName: targetBaseName,
             );
+      if (isPdfPath(targetPath)) {
+        await _ensurePdfPreview(targetPath);
+      }
       imported.add(targetPath);
     }
     return imported;
@@ -277,6 +280,19 @@ class MaterialMediaService {
       }
     }
     return openPath(exportRootPath);
+  }
+
+  Future<void> _ensurePdfPreview(String pdfPath) async {
+    if (!Platform.isAndroid || !isPdfPath(pdfPath)) {
+      return;
+    }
+    try {
+      await _mediaChannel.invokeMethod<void>('renderPdfPreview', {
+        'pdfPath': pdfPath,
+      });
+    } catch (_) {
+      // Keep the generic PDF tile when preview generation is unavailable.
+    }
   }
 
   Future<String?> _resolveOpenTarget(String path) async {

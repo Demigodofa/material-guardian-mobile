@@ -166,7 +166,7 @@ The Flutter repo already has:
 10. consume backend `GET /plans` in customer-facing pricing/paywall screens
 11. validate real Android purchase callbacks on-device and confirm successful backend verification against the live dev backend
 12. keep privacy/store wording aligned with the actual backend-backed release scope
-13. use the next internal-test Play build to confirm whether the current billing blocker is propagation, tester access, or mismatched product visibility
+13. use the next internal-test Play build to confirm real product visibility and produce a real purchase token against the live backend
 
 ### After the first real backend auth pass
 
@@ -208,8 +208,10 @@ The live backend path is now proven far enough for:
 
 The current unresolved Android release blocker is narrower:
 
-- the Play-installed app still is not receiving subscription `ProductDetails`
-- the next internal-test build now includes explicit missing-product/error messaging so the exact Play-side mismatch can be read directly from the account screen instead of inferred from disabled buy buttons
+- this phone currently only has the debug package `com.asme.receiving.dev`, not the Play package `com.asme.receiving`
+- Google Android Publisher auth is now working for `mg-play-verifier@asme-receiving.iam.gserviceaccount.com`
+- the next required proof is a Play-installed internal-test build that can produce a real purchase token against the live backend
+- if the Play-installed app still fails to load subscription `ProductDetails`, the in-app diagnostics should now make that mismatch explicit on the account/plans flow instead of leaving only disabled buy buttons
 
 ## Repo ownership reminder
 

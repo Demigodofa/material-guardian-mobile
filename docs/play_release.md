@@ -32,6 +32,12 @@ For any real release, pass the intended non-dev backend explicitly with `MG_BACK
 
 5. Upload `build/app/outputs/bundle/release/app-release.aab` to Play Console.
 
+Release gate before customer rollout:
+
+- Play Console service-account linkage is now working for `mg-play-verifier@asme-receiving.iam.gserviceaccount.com`.
+- The critical remaining Google billing proof is a real purchase-token smoke, not the older `permissionDenied` API-access blocker.
+- Durable operator note: the working Play Console fix was `API access` for the service account, not only the human-style `Users and permissions` invite flow.
+
 Versioning and naming standard:
 
 - `versionName` should use `major.minor.patch` with no `v` prefix, for example `1.0.2`.

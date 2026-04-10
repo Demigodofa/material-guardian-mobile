@@ -6,21 +6,33 @@ ThemeData buildMaterialGuardianTheme() {
   const divider = Color(0xFFCDD4DE);
   const primaryButton = Color(0xFF22324A);
   const primaryButtonText = Color(0xFFF2F4F7);
+  const primaryContainer = Color(0xFFD9E5F2);
+  const onPrimaryContainer = Color(0xFF17212F);
   const exportButton = Color(0xFF1C3F5B);
+  const secondaryContainer = Color(0xFFE3ECF4);
+  const onSecondaryContainer = Color(0xFF17212F);
   const textPrimary = Color(0xFF1F2937);
   const textSecondary = Color(0xFF566173);
   const deleteButton = Color(0xFFB00020);
   const deleteButtonText = Color(0xFFFFFFFF);
+  const deleteContainer = Color(0xFFC01833);
+  const onDeleteContainer = Color(0xFFFFF4F6);
 
   const scheme = ColorScheme.light(
     primary: primaryButton,
     onPrimary: primaryButtonText,
+    primaryContainer: primaryContainer,
+    onPrimaryContainer: onPrimaryContainer,
     secondary: exportButton,
     onSecondary: Colors.white,
+    secondaryContainer: secondaryContainer,
+    onSecondaryContainer: onSecondaryContainer,
     surface: cardBackground,
     onSurface: textPrimary,
     error: deleteButton,
     onError: deleteButtonText,
+    errorContainer: deleteContainer,
+    onErrorContainer: onDeleteContainer,
     outline: divider,
     outlineVariant: divider,
   );

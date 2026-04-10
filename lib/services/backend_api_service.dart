@@ -757,6 +757,31 @@ class BackendLogoutResult {
   }
 }
 
+class BackendDeleteAccountResult {
+  const BackendDeleteAccountResult({
+    required this.deletedUserId,
+    required this.deletedAt,
+    required this.storeSubscriptionActionRequired,
+    required this.storeSubscriptionActionMessage,
+  });
+
+  final String deletedUserId;
+  final DateTime? deletedAt;
+  final bool storeSubscriptionActionRequired;
+  final String? storeSubscriptionActionMessage;
+
+  factory BackendDeleteAccountResult.fromJson(Map<String, dynamic> json) {
+    return BackendDeleteAccountResult(
+      deletedUserId: json['deletedUserId'] as String? ?? '',
+      deletedAt: _parseDateTime(json['deletedAt']),
+      storeSubscriptionActionRequired:
+          json['storeSubscriptionActionRequired'] as bool? ?? false,
+      storeSubscriptionActionMessage:
+          json['storeSubscriptionActionMessage'] as String?,
+    );
+  }
+}
+
 class BackendPurchaseVerificationResult {
   const BackendPurchaseVerificationResult({
     required this.provider,
@@ -912,6 +937,18 @@ class BackendApiService {
       headers: _authorizedHeaders(accessToken),
     );
     return BackendMeSnapshot.fromJson(
+      _decodeJsonObject(response, endpoint: '/me'),
+    );
+  }
+
+  Future<BackendDeleteAccountResult> deleteAccount({
+    required String accessToken,
+  }) async {
+    final response = await _client.delete(
+      _buildUri('me'),
+      headers: _authorizedHeaders(accessToken),
+    );
+    return BackendDeleteAccountResult.fromJson(
       _decodeJsonObject(response, endpoint: '/me'),
     );
   }

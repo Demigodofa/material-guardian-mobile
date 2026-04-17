@@ -1,12 +1,14 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-const String _defaultBackendBaseUrl = String.fromEnvironment(
+const String _configuredBackendBaseUrl = String.fromEnvironment(
   'MG_BACKEND_BASE_URL',
-  defaultValue:
-      'https://app-platforms-backend-dev-293518443128.us-east4.run.app',
+  defaultValue: '',
 );
+const String _nonReleaseBackendBaseUrl =
+    'https://app-platforms-backend-prod-293518443128.us-east4.run.app';
 
 class BackendHealthSnapshot {
   const BackendHealthSnapshot({
@@ -152,6 +154,27 @@ class BackendEntitlementSnapshot {
       organizationId: json['organizationId'] as String?,
       startsAt: _parseDateTime(json['startsAt']),
       endsAt: _parseDateTime(json['endsAt']),
+    );
+  }
+}
+
+class BackendConsumeTrialJobResult {
+  const BackendConsumeTrialJobResult({
+    required this.trialState,
+    required this.activeEntitlement,
+  });
+
+  final BackendTrialState trialState;
+  final BackendEntitlementSnapshot activeEntitlement;
+
+  factory BackendConsumeTrialJobResult.fromJson(Map<String, dynamic> json) {
+    return BackendConsumeTrialJobResult(
+      trialState: BackendTrialState.fromJson(
+        json['trialState'] as Map<String, dynamic>? ?? const {},
+      ),
+      activeEntitlement: BackendEntitlementSnapshot.fromJson(
+        json['activeEntitlement'] as Map<String, dynamic>? ?? const {},
+      ),
     );
   }
 }
@@ -827,7 +850,7 @@ class BackendPurchaseVerificationResult {
 class BackendApiService {
   BackendApiService({http.Client? client, String? baseUrl})
     : _client = client ?? http.Client(),
-      _baseUri = _normalizedBaseUri(baseUrl ?? _defaultBackendBaseUrl);
+      _baseUri = _normalizedBaseUri(baseUrl ?? _resolveDefaultBackendBaseUrl());
 
   final http.Client _client;
   final Uri _baseUri;
@@ -860,11 +883,16 @@ class BackendApiService {
   Future<BackendAuthStartSnapshot> startAuth({
     required String email,
     String? displayName,
+    String? authEmailBrand,
   }) async {
     final response = await _client.post(
       _buildUri('auth/start'),
       headers: _jsonHeaders,
-      body: jsonEncode({'email': email, 'displayName': displayName}),
+      body: jsonEncode({
+        'email': email,
+        'displayName': displayName,
+        'authEmailBrand': authEmailBrand,
+      }),
     );
     return BackendAuthStartSnapshot.fromJson(
       _decodeJsonObject(response, endpoint: '/auth/start'),
@@ -962,6 +990,19 @@ class BackendApiService {
     );
     return BackendEntitlementSnapshot.fromJson(
       _decodeJsonObject(response, endpoint: '/entitlements/current'),
+    );
+  }
+
+  Future<BackendConsumeTrialJobResult> consumeTrialJob({
+    required String accessToken,
+  }) async {
+    final response = await _client.post(
+      _buildUri('trials/consume-job'),
+      headers: _authorizedJsonHeaders(accessToken),
+      body: jsonEncode(const {}),
+    );
+    return BackendConsumeTrialJobResult.fromJson(
+      _decodeJsonObject(response, endpoint: '/trials/consume-job'),
     );
   }
 
@@ -1102,6 +1143,7 @@ class BackendApiService {
     String? googlePackageName,
     String? googleProductId,
     String? googlePurchaseToken,
+    String? appleReceiptData,
   }) async {
     final response = await _client.post(
       _buildUri('purchases/$provider/verify'),
@@ -1115,6 +1157,7 @@ class BackendApiService {
         'googlePackageName': googlePackageName,
         'googleProductId': googleProductId,
         'googlePurchaseToken': googlePurchaseToken,
+        'appleReceiptData': appleReceiptData,
       }),
     );
     return BackendPurchaseVerificationResult.fromJson(
@@ -1167,6 +1210,18 @@ class BackendApiService {
     final normalized = trimmed.endsWith('/') ? trimmed : '$trimmed/';
     return Uri.parse(normalized);
   }
+}
+
+String _resolveDefaultBackendBaseUrl() {
+  if (_configuredBackendBaseUrl.trim().isNotEmpty) {
+    return _configuredBackendBaseUrl;
+  }
+  if (!kReleaseMode) {
+    return _nonReleaseBackendBaseUrl;
+  }
+  throw const BackendApiException(
+    'MG_BACKEND_BASE_URL must be set for release builds.',
+  );
 }
 
 class BackendApiException implements Exception {

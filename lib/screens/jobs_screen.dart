@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../app/brand_assets.dart';
 import '../app/material_guardian_state.dart';
 import '../app/routes.dart';
 import '../util/formatting.dart';
@@ -18,14 +17,29 @@ class JobsScreen extends StatelessWidget {
       builder: (context, _) {
         final entitlement = appState.effectiveBackendEntitlement;
         final hasUsableJobAccess = appState.hasUsableJobAccess;
+        final backendRecoveryMessage =
+            appState.hasStoredBackendSession &&
+                appState.backendMe == null &&
+                appState.backendAccountError != null &&
+                appState.backendAccountError!.trim().isNotEmpty
+            ? appState.backendAccountError!
+            : null;
         return Scaffold(
           body: SafeArea(
             child: centeredContent(
               child: ListView(
-                padding: screenListPadding(context).copyWith(top: 24),
+                padding: screenListPadding(context).copyWith(top: 16),
                 children: [
-                  const _LandingLogo(),
-                  const SizedBox(height: 20),
+                  if (backendRecoveryMessage != null) ...[
+                    Card(
+                      color: Theme.of(context).colorScheme.tertiaryContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(backendRecoveryMessage),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   if (entitlement != null &&
                       (appState.isTrialAccess ||
                           appState.isLockedFromSubscription ||
@@ -56,7 +70,7 @@ class JobsScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
@@ -88,7 +102,7 @@ class JobsScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   const Divider(),
                   const SizedBox(height: 14),
                   Text(
@@ -188,104 +202,89 @@ Future<void> _showCreateJobDialog(
   var description = '';
   var notes = '';
 
-  final request = await showDialog<
-    ({String jobNumber, String description, String notes})
-  >(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        scrollable: true,
-        title: const Text('Create New Job'),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                textInputAction: TextInputAction.next,
-                inputFormatters: [LengthLimitingTextInputFormatter(24)],
-                onChanged: (value) {
-                  jobNumber = value;
-                },
-                decoration: const InputDecoration(labelText: 'Job Number'),
+  final request =
+      await showDialog<({String jobNumber, String description, String notes})>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            scrollable: true,
+            title: const Text('Create New Job'),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    textInputAction: TextInputAction.next,
+                    inputFormatters: [LengthLimitingTextInputFormatter(24)],
+                    onChanged: (value) {
+                      jobNumber = value;
+                    },
+                    decoration: const InputDecoration(labelText: 'Job Number'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    textInputAction: TextInputAction.next,
+                    inputFormatters: [LengthLimitingTextInputFormatter(60)],
+                    onChanged: (value) {
+                      description = value;
+                    },
+                    decoration: const InputDecoration(labelText: 'Description'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    textInputAction: TextInputAction.done,
+                    inputFormatters: [LengthLimitingTextInputFormatter(120)],
+                    onChanged: (value) {
+                      notes = value;
+                    },
+                    decoration: const InputDecoration(labelText: 'Notes'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextField(
-                textInputAction: TextInputAction.next,
-                inputFormatters: [LengthLimitingTextInputFormatter(60)],
-                onChanged: (value) {
-                  description = value;
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
                 },
-                decoration: const InputDecoration(labelText: 'Description'),
+                child: const Text('Cancel'),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                textInputAction: TextInputAction.done,
-                inputFormatters: [LengthLimitingTextInputFormatter(120)],
-                onChanged: (value) {
-                  notes = value;
+              FilledButton(
+                onPressed: () async {
+                  if (jobNumber.trim().isEmpty) {
+                    return;
+                  }
+                  Navigator.pop(context, (
+                    jobNumber: jobNumber,
+                    description: description,
+                    notes: notes,
+                  ));
                 },
-                decoration: const InputDecoration(labelText: 'Notes'),
+                child: const Text('Create'),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              if (jobNumber.trim().isEmpty) {
-                return;
-              }
-              Navigator.pop(
-                context,
-                (
-                  jobNumber: jobNumber,
-                  description: description,
-                  notes: notes,
-                ),
-              );
-            },
-            child: const Text('Create'),
-          ),
-        ],
+          );
+        },
       );
-    },
-  );
 
   if (request == null) {
     return;
   }
 
-  await appState.saveJob(
-    jobNumber: request.jobNumber,
-    description: request.description,
-    notes: request.notes,
-  );
-}
-
-class _LandingLogo extends StatelessWidget {
-  const _LandingLogo();
-
-  @override
-  Widget build(BuildContext context) {
-    final logoSize = (MediaQuery.sizeOf(context).height * 0.2).clamp(
-      96.0,
-      160.0,
+  try {
+    await appState.saveJob(
+      jobNumber: request.jobNumber,
+      description: request.description,
+      notes: request.notes,
     );
-    return Center(
-      child: Image.asset(
-        BrandAssets.materialGuardianLogo512,
-        width: logoSize,
-        height: logoSize,
-        fit: BoxFit.contain,
-      ),
-    );
+  } catch (error) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(error.toString())));
   }
 }
 
@@ -305,7 +304,6 @@ class _LandingLinkButton extends StatelessWidget {
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
-            decoration: TextDecoration.underline,
             color: const Color(0xFF1E3A5F),
           ),
         ),
@@ -351,16 +349,13 @@ class _JobLinkRow extends StatelessWidget {
                       'Job# ${job.jobNumber}',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: const Color(0xFF1E3A5F),
-                        decoration: TextDecoration.underline,
                       ),
                     ),
                     if (job.description.trim().isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         job.description,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          decoration: TextDecoration.underline,
-                        ),
+                        style: Theme.of(context).textTheme.bodyLarge,
                       ),
                     ],
                     const SizedBox(height: 6),
@@ -386,17 +381,12 @@ class _JobLinkRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFB00020),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  minimumSize: Size.zero,
-                ),
-                onPressed: () async {
+              PopupMenuButton<_JobCardAction>(
+                tooltip: 'Job actions',
+                onSelected: (action) async {
+                  if (action != _JobCardAction.delete) {
+                    return;
+                  }
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (context) {
@@ -431,7 +421,12 @@ class _JobLinkRow extends StatelessWidget {
                   }
                   await appState.deleteJob(job.id);
                 },
-                child: const Text('Delete'),
+                itemBuilder: (context) => const [
+                  PopupMenuItem<_JobCardAction>(
+                    value: _JobCardAction.delete,
+                    child: Text('Delete Job'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -440,3 +435,5 @@ class _JobLinkRow extends StatelessWidget {
     );
   }
 }
+
+enum _JobCardAction { delete }

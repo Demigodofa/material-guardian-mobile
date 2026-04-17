@@ -1,8 +1,20 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+class NormalizedImageAsset {
+  const NormalizedImageAsset({
+    required this.bytes,
+    required this.extension,
+  });
+
+  final Uint8List bytes;
+  final String extension;
+}
 
 Future<Directory> appSupportSubdirectory(List<String> segments) async {
   final root = await getApplicationSupportDirectory();
@@ -24,7 +36,9 @@ bool isImagePath(String path) {
   return extension == '.png' ||
       extension == '.jpg' ||
       extension == '.jpeg' ||
-      extension == '.webp';
+      extension == '.webp' ||
+      extension == '.heic' ||
+      extension == '.heif';
 }
 
 bool isPdfPath(String path) {
@@ -71,4 +85,34 @@ String pdfPreviewSiblingPath(String pdfPath, {int pageNumber = 1}) {
     return '$pdfPath$suffix';
   }
   return pdfPath.replaceFirst(RegExp('${RegExp.escape(extension)}\$'), suffix);
+}
+
+Future<NormalizedImageAsset?> normalizeImageAsset(Uint8List bytes) async {
+  final decoded = img.decodeImage(bytes);
+  if (decoded != null) {
+    final baked = img.bakeOrientation(decoded);
+    return NormalizedImageAsset(
+      bytes: Uint8List.fromList(img.encodeJpg(baked, quality: 92)),
+      extension: '.jpg',
+    );
+  }
+
+  try {
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final pngBytes = await frame.image.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+    frame.image.dispose();
+    codec.dispose();
+    if (pngBytes == null) {
+      return null;
+    }
+    return NormalizedImageAsset(
+      bytes: pngBytes.buffer.asUint8List(),
+      extension: '.png',
+    );
+  } catch (_) {
+    return null;
+  }
 }

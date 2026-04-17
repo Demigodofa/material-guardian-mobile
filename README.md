@@ -16,7 +16,7 @@ The app was started from the Android-only `MaterialGuardian_Android` repo and is
 Current foundation:
 
 - the backend contract still needs to stay ahead of hard-coded client assumptions
-- the backend repo now has a runnable scaffold plus the first Postgres migration foundation, but mobile should still treat account/entitlement features as in-progress until real persistent auth and store verification land
+- the backend repo now has a runnable scaffold plus the first Postgres migration foundation, and the mobile client already depends on live backend-backed auth, session restore, entitlements, trials, and purchase verification
 - the shared Flutter client now has a first real backend account shell: token-backed sign-in, session restore, account summary, membership summary, access-code redemption, and a simple org-admin surface for invites and seat/member actions
 - the current Android app is still the real implementation to copy behavior from
 - the initial iOS handoff docs and Android reference assets were copied here so migration can continue without splitting product truth across repos
@@ -32,7 +32,7 @@ Current foundation:
 - first live Samsung phone validation is now complete for install, launch, and home-screen rendering; the initial bottom safe-area overlap was found on-device and fixed in shared screen padding
 - active work is currently focused on debugging and hardening the Flutter app against real Android behavior, especially launch/splash behavior, export-open behavior, and on-device interaction details
 - the shared Flutter direction is right for both Android and iPhone, but Apple-specific validation, permissions, export behavior, and signing are still tracked separately under `ios/`
-- future account-backed releases will require updated privacy/store wording; the current shipped Android local-only policy language should not be reused blindly once backend auth/entitlements ship
+- privacy/store wording must stay aligned to the current backend-backed account release: account, session, organization, seat, trial, and subscription state are backend-managed, while jobs/reports/media remain local unless explicitly exported
 
 ## Relationship to the other repos
 
@@ -86,13 +86,14 @@ docs/      migration notes and behavior references
 
 ## Read first
 
-1. `docs/release_handoff_2026-04-09.md`
-1. `docs/material_guardian_flutter_source_of_truth.md`
-2. `docs/backend_rollout_status_2026-04-01.md`
-3. `docs/privacy_store_readiness_2026-04-01.md`
-4. `docs/flutter_cross_platform_build_plan.md`
-5. `docs/mobile_architecture.md`
-6. `docs/migration_plan.md`
-7. `docs/android_behavior_reference.md`
-8. `docs/android_migration_inventory.md`
-9. `ios/README.md`
+1. `docs/release_handoff_2026-04-17.md`
+2. `docs/release_handoff_2026-04-09.md`
+3. `docs/material_guardian_flutter_source_of_truth.md`
+4. `docs/backend_rollout_status_2026-04-01.md`
+5. `docs/privacy_store_readiness_2026-04-01.md`
+6. `docs/flutter_cross_platform_build_plan.md`
+7. `docs/mobile_architecture.md`
+8. `docs/migration_plan.md`
+9. `docs/android_behavior_reference.md`
+10. `docs/android_migration_inventory.md`
+11. `ios/README.md`

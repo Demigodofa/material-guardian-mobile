@@ -33,6 +33,20 @@ class JobExportResult {
   final int scanCount;
 }
 
+class _LoadedExportImage {
+  const _LoadedExportImage({
+    required this.image,
+    required this.width,
+    required this.height,
+  });
+
+  final pw.MemoryImage image;
+  final int width;
+  final int height;
+
+  bool get isPortrait => height > width;
+}
+
 class JobExportService {
   static Future<pw.ThemeData>? _cachedPdfTheme;
 
@@ -86,7 +100,11 @@ class JobExportService {
         '${jobBaseName}_${materialIndex}_$materialBaseName',
       )..createSync(recursive: true);
 
-      for (var photoIndex = 0; photoIndex < material.photoPaths.length; photoIndex++) {
+      for (
+        var photoIndex = 0;
+        photoIndex < material.photoPaths.length;
+        photoIndex++
+      ) {
         final photoPath = material.photoPaths[photoIndex];
         final copied = await _copyIfPresent(
           sourcePath: photoPath,
@@ -101,7 +119,11 @@ class JobExportService {
         }
       }
 
-      for (var scanIndex = 0; scanIndex < material.scanPaths.length; scanIndex++) {
+      for (
+        var scanIndex = 0;
+        scanIndex < material.scanPaths.length;
+        scanIndex++
+      ) {
         final scanPath = material.scanPaths[scanIndex];
         final copied = await _copyIfPresent(
           sourcePath: scanPath,
@@ -174,9 +196,7 @@ class JobExportService {
       return false;
     }
     await SharePlus.instance.share(
-      ShareParams(
-        files: packetFiles.map(XFile.new).toList(growable: false),
-      ),
+      ShareParams(files: packetFiles.map(XFile.new).toList(growable: false)),
     );
     return true;
   }
@@ -185,11 +205,7 @@ class JobExportService {
     if (zipPath.trim().isEmpty || !await File(zipPath).exists()) {
       return false;
     }
-    await SharePlus.instance.share(
-      ShareParams(
-        files: [XFile(zipPath)],
-      ),
-    );
+    await SharePlus.instance.share(ShareParams(files: [XFile(zipPath)]));
     return true;
   }
 
@@ -237,7 +253,10 @@ class JobExportService {
                 alignment: pw.Alignment.centerRight,
                 child: pw.Container(
                   margin: const pw.EdgeInsets.only(bottom: 8),
-                  constraints: const pw.BoxConstraints(maxHeight: 44, maxWidth: 180),
+                  constraints: const pw.BoxConstraints(
+                    maxHeight: 44,
+                    maxWidth: 180,
+                  ),
                   child: pw.Image(logo, fit: pw.BoxFit.contain),
                 ),
               ),
@@ -253,7 +272,11 @@ class JobExportService {
             _reportGridRow([
               _ReportCell('Quantity', material.quantity, flex: 1),
               _ReportCell('Product', material.productType, flex: 2),
-              _ReportCell('Specification', material.specificationPrefix, flex: 1),
+              _ReportCell(
+                'Specification',
+                material.specificationPrefix,
+                flex: 1,
+              ),
               _ReportCell('Grade/Type', material.gradeType, flex: 1),
               _ReportCell('Fitting', _fittingValue(material), flex: 1),
             ]),
@@ -274,12 +297,12 @@ class JobExportService {
                 material.surfaceFinishReading.trim().isNotEmpty ||
                 material.surfaceFinishUnit.trim().isNotEmpty)
               _reportGridRow([
-                _ReportCell('Surface Finish', material.surfaceFinishCode, flex: 2),
                 _ReportCell(
-                  'Reading',
-                  material.surfaceFinishReading,
+                  'Surface Finish',
+                  material.surfaceFinishCode,
                   flex: 2,
                 ),
+                _ReportCell('Reading', material.surfaceFinishReading, flex: 2),
                 _ReportCell('Unit', material.surfaceFinishUnit, flex: 1),
               ]),
             if (material.b16DimensionsAcceptable.trim().isNotEmpty)
@@ -333,9 +356,7 @@ class JobExportService {
                 _ReportCell('Description', material.description),
               ]),
             if (material.comments.trim().isNotEmpty)
-              _reportGridRow([
-                _ReportCell('Comments', material.comments),
-              ]),
+              _reportGridRow([_ReportCell('Comments', material.comments)]),
             _reportGridRow([
               _ReportCell(
                 'Material Approval',
@@ -347,16 +368,28 @@ class JobExportService {
               _ReportCell('QC Inspector', material.qcInspectorName, flex: 2),
               _ReportCell(
                 'Initials / Date',
-                '${_valueOrDash(material.qcInspectorName)} / $inspectionDateText',
+                _signoffValue(material.qcInspectorName, inspectionDateText),
                 flex: 3,
+                allowBlank: true,
               ),
             ]),
             _reportGridRow([
-              _ReportCell('QC Manager', material.qcManagerName, flex: 2),
+              _ReportCell(
+                'QC Manager',
+                material.qcManagerName,
+                flex: 2,
+                allowBlank: true,
+              ),
               _ReportCell(
                 'Initials / Date',
-                '${_valueOrDash(material.qcManagerName)} / ${_formatExportDate(material.qcManagerDate)}',
+                _signoffValue(
+                  material.qcManagerName,
+                  material.qcManagerDateEnabled
+                      ? _formatExportDate(material.qcManagerDate)
+                      : '',
+                ),
                 flex: 3,
+                allowBlank: true,
               ),
             ]),
             pw.SizedBox(height: 8),
@@ -379,7 +412,9 @@ class JobExportService {
                     'QC Manager Signature',
                     managerSignature,
                     printedName: material.qcManagerName,
-                    dateText: _formatExportDate(material.qcManagerDate),
+                    dateText: material.qcManagerDateEnabled
+                        ? _formatExportDate(material.qcManagerDate)
+                        : '',
                   ),
                 ),
               ],
@@ -390,14 +425,15 @@ class JobExportService {
     );
 
     for (final scanItem in documentScanItems) {
-      final image =
-          scanItem.previewPath == null
-              ? null
-              : await _loadImage(scanItem.previewPath!);
+      final image = scanItem.previewPath == null
+          ? null
+          : await _loadExportImage(scanItem.previewPath!);
       document.addPage(
         pw.Page(
-          pageFormat: PdfPageFormat.letter,
-          margin: const pw.EdgeInsets.all(20),
+          pageFormat: image?.isPortrait == true
+              ? PdfPageFormat.letter
+              : PdfPageFormat.letter.landscape,
+          margin: const pw.EdgeInsets.all(16),
           build: (context) => pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -409,43 +445,41 @@ class JobExportService {
                 ),
               ),
               pw.SizedBox(height: 4),
-              pw.Text(
-                scanItem.label,
-                style: const pw.TextStyle(fontSize: 9),
-              ),
-              pw.SizedBox(height: 10),
+              pw.Text(scanItem.label, style: const pw.TextStyle(fontSize: 9)),
+              pw.SizedBox(height: 6),
               pw.Expanded(
-                child:
-                    image != null
-                        ? pw.Center(
-                          child: pw.Image(image, fit: pw.BoxFit.contain),
-                        )
-                        : pw.Container(
-                          width: double.infinity,
-                          padding: const pw.EdgeInsets.all(16),
-                          decoration: pw.BoxDecoration(
-                            border: pw.Border.all(color: PdfColors.grey600),
-                          ),
-                          child: pw.Column(
-                            mainAxisAlignment: pw.MainAxisAlignment.center,
-                            crossAxisAlignment: pw.CrossAxisAlignment.center,
-                            children: [
-                              pw.Text(
-                                'Preview unavailable',
-                                style: pw.TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: pw.FontWeight.bold,
-                                ),
-                              ),
-                              pw.SizedBox(height: 8),
-                              pw.Text(
-                                'The original PDF scan is still attached in source_media for this export.',
-                                textAlign: pw.TextAlign.center,
-                                style: const pw.TextStyle(fontSize: 9),
-                              ),
-                            ],
-                          ),
+                child: image != null
+                    ? pw.Container(
+                        width: double.infinity,
+                        alignment: pw.Alignment.center,
+                        child: pw.Image(image.image, fit: pw.BoxFit.contain),
+                      )
+                    : pw.Container(
+                        width: double.infinity,
+                        padding: const pw.EdgeInsets.all(16),
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(color: PdfColors.grey600),
                         ),
+                        child: pw.Column(
+                          mainAxisAlignment: pw.MainAxisAlignment.center,
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
+                          children: [
+                            pw.Text(
+                              'Preview unavailable',
+                              style: pw.TextStyle(
+                                fontSize: 12,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                            pw.SizedBox(height: 8),
+                            pw.Text(
+                              'The original PDF scan is still attached in source_media for this export.',
+                              textAlign: pw.TextAlign.center,
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
+                          ],
+                        ),
+                      ),
               ),
             ],
           ),
@@ -456,14 +490,14 @@ class JobExportService {
     final photoAttachmentItems = <_ExportMediaItem>[];
     for (final mediaPath in photoAttachments) {
       final image = await _loadImage(mediaPath);
-      if (image == null) {
-        continue;
-      }
       photoAttachmentItems.add(
         _ExportMediaItem(
           label:
               'Photo ${photoAttachmentItems.length + 1}${p.basename(mediaPath).trim().isEmpty ? '' : ' - ${p.basename(mediaPath)}'}',
           image: image,
+          renderWarning: image == null
+              ? 'Preview unavailable in export. Original file is kept in source_media.'
+              : null,
         ),
       );
     }
@@ -472,8 +506,8 @@ class JobExportService {
       final rowChunks = _chunked<_ExportMediaItem>(mediaChunk, 2);
       document.addPage(
         pw.Page(
-          pageFormat: PdfPageFormat.letter,
-          margin: const pw.EdgeInsets.all(20),
+          pageFormat: PdfPageFormat.letter.landscape,
+          margin: const pw.EdgeInsets.all(16),
           build: (context) => pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -484,11 +518,15 @@ class JobExportService {
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 8),
               pw.Expanded(
                 child: pw.Column(
                   children: [
-                    for (var rowIndex = 0; rowIndex < rowChunks.length; rowIndex++) ...[
+                    for (
+                      var rowIndex = 0;
+                      rowIndex < rowChunks.length;
+                      rowIndex++
+                    ) ...[
                       pw.Expanded(
                         child: pw.Row(
                           children: [
@@ -501,12 +539,13 @@ class JobExportService {
                                 child: _mediaTile(rowChunks[rowIndex][index]),
                               ),
                               if (index < rowChunks[rowIndex].length - 1)
-                                pw.SizedBox(width: 10),
+                                pw.SizedBox(width: 8),
                             ],
                           ],
                         ),
                       ),
-                      if (rowIndex < rowChunks.length - 1) pw.SizedBox(height: 10),
+                      if (rowIndex < rowChunks.length - 1)
+                        pw.SizedBox(height: 8),
                     ],
                   ],
                 ),
@@ -579,7 +618,9 @@ class JobExportService {
                     ),
                     pw.SizedBox(height: 1),
                     pw.Text(
-                      _valueOrDash(cell.value),
+                      cell.allowBlank
+                          ? cell.value.trim()
+                          : _valueOrDash(cell.value),
                       style: const pw.TextStyle(fontSize: 8.2),
                     ),
                   ],
@@ -609,18 +650,22 @@ class JobExportService {
       children: [
         pw.Text(title, style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
         pw.SizedBox(height: 4),
-        if (printedName.trim().isNotEmpty) ...[
-          pw.Text('Printed Name: $printedName', style: const pw.TextStyle(fontSize: 8)),
-          pw.SizedBox(height: 2),
-        ],
-        pw.Text('Date: $dateText', style: const pw.TextStyle(fontSize: 8)),
+        pw.Text(
+          'Printed Name: ${printedName.trim()}',
+          style: const pw.TextStyle(fontSize: 8),
+        ),
+        pw.SizedBox(height: 2),
+        pw.Text(
+          'Date: ${dateText.trim()}',
+          style: const pw.TextStyle(fontSize: 8),
+        ),
         pw.SizedBox(height: 4),
         pw.Container(
           height: 78,
           decoration: pw.BoxDecoration(border: pw.Border.all()),
           alignment: pw.Alignment.center,
           child: image == null
-              ? pw.Text('No signature attached', style: const pw.TextStyle(fontSize: 8))
+              ? pw.SizedBox.expand()
               : pw.Padding(
                   padding: const pw.EdgeInsets.all(4),
                   child: pw.Image(image, fit: pw.BoxFit.contain),
@@ -630,28 +675,71 @@ class JobExportService {
     );
   }
 
+  String _signoffValue(String name, String dateText) {
+    final values = <String>[
+      if (name.trim().isNotEmpty) name.trim(),
+      if (dateText.trim().isNotEmpty) dateText.trim(),
+    ];
+    return values.join(' / ');
+  }
+
   pw.Widget _mediaTile(_ExportMediaItem? item) {
     if (item == null) {
       return pw.Container(
-        decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey400)),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColors.grey400),
+        ),
       );
     }
     return pw.Container(
-      padding: const pw.EdgeInsets.all(6),
-      decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey700)),
+      padding: const pw.EdgeInsets.all(4),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey700),
+      ),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
             item.label,
-            style: const pw.TextStyle(fontSize: 8),
-            maxLines: 2,
+            style: const pw.TextStyle(fontSize: 7.5),
+            maxLines: 1,
           ),
-          pw.SizedBox(height: 4),
+          pw.SizedBox(height: 3),
           pw.Expanded(
-            child: pw.Center(
-              child: pw.Image(item.image, fit: pw.BoxFit.contain),
-            ),
+            child: item.image != null
+                ? pw.Center(
+                    child: pw.Image(item.image!, fit: pw.BoxFit.contain),
+                  )
+                : pw.Container(
+                    width: double.infinity,
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.grey100,
+                      border: pw.Border.all(color: PdfColors.grey400),
+                    ),
+                    child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.Text(
+                          'Preview unavailable',
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(
+                            fontSize: 10,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        if ((item.renderWarning ?? '').trim().isNotEmpty) ...[
+                          pw.SizedBox(height: 6),
+                          pw.Text(
+                            item.renderWarning!,
+                            textAlign: pw.TextAlign.center,
+                            style: const pw.TextStyle(fontSize: 8),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
@@ -676,19 +764,37 @@ class JobExportService {
     if (!await file.exists()) {
       return null;
     }
-    if (!isImagePath(normalized)) {
+    final bytes = await file.readAsBytes();
+    final normalizedAsset = await normalizeImageAsset(bytes);
+    if (normalizedAsset == null) {
+      return null;
+    }
+    return pw.MemoryImage(normalizedAsset.bytes);
+  }
+
+  Future<_LoadedExportImage?> _loadExportImage(String path) async {
+    final normalized = path.trim();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    final file = File(normalized);
+    if (!await file.exists()) {
       return null;
     }
     final bytes = await file.readAsBytes();
-    final decoded = img.decodeImage(bytes);
-    if (decoded == null) {
-      return pw.MemoryImage(bytes);
+    final normalizedAsset = await normalizeImageAsset(bytes);
+    if (normalizedAsset == null) {
+      return null;
     }
-    final baked = img.bakeOrientation(decoded);
-    final encoded = normalized.toLowerCase().endsWith('.png')
-        ? img.encodePng(baked)
-        : img.encodeJpg(baked, quality: 92);
-    return pw.MemoryImage(Uint8List.fromList(encoded));
+    final decoded = img.decodeImage(normalizedAsset.bytes);
+    if (decoded == null) {
+      return null;
+    }
+    return _LoadedExportImage(
+      image: pw.MemoryImage(normalizedAsset.bytes),
+      width: decoded.width,
+      height: decoded.height,
+    );
   }
 
   Future<String?> _copyIfPresent({
@@ -706,7 +812,8 @@ class JobExportService {
     }
     await targetDirectory.create(recursive: true);
     final extension = p.extension(sourceFile.path);
-    final targetFileName = targetBaseName == null || targetBaseName.trim().isEmpty
+    final targetFileName =
+        targetBaseName == null || targetBaseName.trim().isEmpty
         ? sourceFile.uri.pathSegments.last
         : '${targetBaseName.trim()}$extension';
     final targetPath =
@@ -716,10 +823,14 @@ class JobExportService {
   }
 
   List<String> _photoAttachmentPaths(MaterialRecord material) {
-    return material.photoPaths.where(isImagePath).toList(growable: false);
+    return material.photoPaths
+        .where((path) => path.trim().isNotEmpty)
+        .toList(growable: false);
   }
 
-  List<_DocumentScanExportItem> _documentScanExportItems(MaterialRecord material) {
+  List<_DocumentScanExportItem> _documentScanExportItems(
+    MaterialRecord material,
+  ) {
     final items = <_DocumentScanExportItem>[];
     for (final scanPath in material.scanPaths) {
       if (isImagePath(scanPath)) {
@@ -746,15 +857,11 @@ class JobExportService {
       }
       for (var pageIndex = 0; pageIndex < previewPaths.length; pageIndex++) {
         final previewPath = previewPaths[pageIndex];
-        final pageLabel =
-            previewPaths.length <= 1
-                ? p.basename(scanPath)
-                : '${p.basename(scanPath)} - Page ${pageIndex + 1}';
+        final pageLabel = previewPaths.length <= 1
+            ? p.basename(scanPath)
+            : '${p.basename(scanPath)} - Page ${pageIndex + 1}';
         items.add(
-          _DocumentScanExportItem(
-            label: pageLabel,
-            previewPath: previewPath,
-          ),
+          _DocumentScanExportItem(label: pageLabel, previewPath: previewPath),
         );
       }
     }
@@ -814,7 +921,8 @@ class JobExportService {
       return standard;
     }
     if (standard == 'B16') {
-      return '$standard.$suffix';
+      final detailed = formatB16StandardReportLabel(suffix);
+      return detailed.isEmpty ? '$standard.$suffix' : detailed;
     }
     return '$standard $suffix';
   }
@@ -847,10 +955,15 @@ class JobExportService {
 }
 
 class _ExportMediaItem {
-  const _ExportMediaItem({required this.label, required this.image});
+  const _ExportMediaItem({
+    required this.label,
+    required this.image,
+    this.renderWarning,
+  });
 
   final String label;
-  final pw.MemoryImage image;
+  final pw.MemoryImage? image;
+  final String? renderWarning;
 }
 
 class _DocumentScanExportItem {
@@ -864,9 +977,15 @@ class _DocumentScanExportItem {
 }
 
 class _ReportCell {
-  const _ReportCell(this.label, this.value, {this.flex = 1});
+  const _ReportCell(
+    this.label,
+    this.value, {
+    this.flex = 1,
+    this.allowBlank = false,
+  });
 
   final String label;
   final String value;
   final int flex;
+  final bool allowBlank;
 }

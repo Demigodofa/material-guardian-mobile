@@ -20,6 +20,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
   MaterialGuardianAppState._({
     required List<JobRecord> jobs,
     required List<MaterialDraft> drafts,
+    required int localTrialJobsConsumed,
     required CustomizationSettings customization,
     required MaterialGuardianSnapshotStore snapshotStore,
     required CustomizationStore customizationStore,
@@ -31,6 +32,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     required JobExportService exportService,
   }) : _jobs = jobs,
        _drafts = drafts,
+       _localTrialJobsConsumed = localTrialJobsConsumed,
        _customization = customization,
        _snapshotStore = snapshotStore,
        _customizationStore = customizationStore,
@@ -51,6 +53,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
   }) {
     final customization = CustomizationSettings(
       receiveAsmeB16Parts: true,
+      preferredB16Standards: List<String>.from(kDefaultPreferredB16Standards),
       surfaceFinishRequired: true,
       surfaceFinishUnit: 'u-in',
       defaultQcInspectorName: 'Kevin Penfield',
@@ -111,6 +114,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
             qcInspectorDate: DateTime(2026, 3, 31),
             qcManagerName: 'Shop QA',
             qcManagerDate: DateTime(2026, 3, 31),
+            qcManagerDateEnabled: true,
+            qcManagerDateManual: true,
             qcSignaturePath: '',
             qcManagerSignaturePath: '',
             materialApproval: 'approved',
@@ -170,6 +175,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
         qcInspectorDate: DateTime(2026, 4, 1),
         qcManagerName: customization.defaultQcManagerName,
         qcManagerDate: DateTime(2026, 4, 1),
+        qcManagerDateEnabled: false,
+        qcManagerDateManual: false,
         qcSignaturePath: '',
         qcManagerSignaturePath: '',
         materialApproval: 'approved',
@@ -183,6 +190,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     return MaterialGuardianAppState._(
       jobs: jobs,
       drafts: drafts,
+      localTrialJobsConsumed: jobs.length,
       customization: customization,
       snapshotStore: MaterialGuardianSnapshotStore(),
       customizationStore: CustomizationStore(),
@@ -314,6 +322,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
     final appState = MaterialGuardianAppState._(
       jobs: snapshot.jobs,
       drafts: snapshot.drafts,
+      localTrialJobsConsumed: snapshot.localTrialJobsConsumed > 0
+          ? snapshot.localTrialJobsConsumed
+          : snapshot.jobs.length,
       customization: customization,
       snapshotStore: snapshotStore,
       customizationStore: customizationStore,
@@ -362,6 +373,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
 
   List<JobRecord> _jobs;
   List<MaterialDraft> _drafts;
+  int _localTrialJobsConsumed;
   CustomizationSettings _customization;
   BackendHealthSnapshot? _backendHealth;
   String? _backendHealthError;
@@ -390,6 +402,9 @@ class MaterialGuardianAppState extends ChangeNotifier {
   bool _shouldSurfaceSalesAuthError = false;
   final Map<String, String?> _pendingPurchaseOrganizationIdsByProductId =
       <String, String?>{};
+  final List<StorePurchaseUpdate> _deferredStorePurchaseUpdates =
+      <StorePurchaseUpdate>[];
+  Future<void> _snapshotWriteQueue = Future<void>.value();
 
   List<JobRecord> get jobs => List.unmodifiable(_jobs);
   List<MaterialDraft> get drafts => List.unmodifiable(_drafts);
@@ -428,6 +443,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
   bool get isRestoringPurchases => _isRestoringPurchases;
   bool get isStoreAvailable => _isStoreAvailable;
   bool get shouldSurfaceSalesAuthError => _shouldSurfaceSalesAuthError;
+  bool get hasStoredBackendSession => _backendAuthSession != null;
   bool get isSignedIn => _backendAuthSession != null && _backendMe != null;
   bool get hasPendingSessionReplacement => _pendingSessionReplacementId != null;
   BackendEntitlementSnapshot? get effectiveBackendEntitlement =>
@@ -438,12 +454,23 @@ class MaterialGuardianAppState extends ChangeNotifier {
   bool get isBusinessAdmin => activeOrganizationMembership?.isAdmin ?? false;
   bool get hasAdminLikeWorkspaceAccess =>
       !hasBusinessMembership || isBusinessAdmin;
-  bool get shouldShowAccountEntry => isSignedIn && hasAdminLikeWorkspaceAccess;
+  bool get shouldShowAccountEntry => isSignedIn;
   bool get shouldShowCustomizationEntry => isSignedIn;
-  bool get shouldUseSalesLaunch => !isSignedIn;
+  bool get shouldUseSalesLaunch => !hasStoredBackendSession;
+  bool get canManageBillingActions =>
+      isSignedIn && (!hasBusinessMembership || isBusinessAdmin);
   bool get hasUsableJobAccess {
-    final accessState = effectiveBackendEntitlement?.accessState;
-    return accessState == 'paid' || accessState == 'trial';
+    final entitlement = effectiveBackendEntitlement;
+    if (entitlement == null) {
+      return false;
+    }
+    if (entitlement.accessState == 'paid') {
+      return !isSeatBlocked;
+    }
+    if (entitlement.accessState == 'trial') {
+      return entitlement.trialRemaining > 0;
+    }
+    return false;
   }
 
   bool get isTrialAccess => effectiveBackendEntitlement?.accessState == 'trial';
@@ -489,6 +516,12 @@ class MaterialGuardianAppState extends ChangeNotifier {
     final existingIndex = _jobs.indexWhere(
       (item) => item.jobNumber == cleanJobNumber,
     );
+    final isNewJob = existingIndex < 0;
+    if (isNewJob) {
+      _ensureFallbackLocalTrialAccessForSave();
+      _ensureBackendJobAccessForSave();
+      await _consumeTrialJobForNewJobIfNeeded();
+    }
     final nextJob = JobRecord(
       id: existingIndex >= 0
           ? _jobs[existingIndex].id
@@ -510,10 +543,80 @@ class MaterialGuardianAppState extends ChangeNotifier {
       _jobs = updated;
     } else {
       _jobs = [..._jobs, nextJob];
+      if (effectiveBackendEntitlement == null) {
+        _localTrialJobsConsumed += 1;
+      }
     }
 
     notifyListeners();
     await _persistSnapshot();
+  }
+
+  void _ensureBackendJobAccessForSave() {
+    if (!isSignedIn) {
+      return;
+    }
+    if (isSeatBlocked) {
+      throw const BackendApiException(
+        'This account does not currently have an assigned report user seat.',
+      );
+    }
+    if (hasUsableJobAccess) {
+      return;
+    }
+    throw const BackendApiException(
+      'This account does not currently have access to create new jobs.',
+    );
+  }
+
+  void _ensureFallbackLocalTrialAccessForSave() {
+    final entitlement = effectiveBackendEntitlement;
+    if (entitlement != null) {
+      if (entitlement.accessState == 'locked' ||
+          (entitlement.accessState == 'trial' &&
+              entitlement.trialRemaining <= 0)) {
+        throw const BackendApiException(
+          'The 6-job free trial has been used up. Pick a plan to create another job.',
+        );
+      }
+      return;
+    }
+    if (_localTrialJobsConsumed >= 6) {
+      throw const BackendApiException(
+        'The 6-job free trial has been used up. Pick a plan to create another job.',
+      );
+    }
+  }
+
+  Future<void> _consumeTrialJobForNewJobIfNeeded() async {
+    final session = _backendAuthSession;
+    final me = _backendMe;
+    if (session == null || me == null || !isTrialAccess) {
+      return;
+    }
+
+    try {
+      final result = await _backendApiService.consumeTrialJob(
+        accessToken: session.accessToken,
+      );
+      _backendEntitlement = result.activeEntitlement;
+      _backendMe = BackendMeSnapshot(
+        user: me.user,
+        memberships: me.memberships,
+        currentSeatOrganizationId: me.currentSeatOrganizationId,
+        currentSeatStatus: me.currentSeatStatus,
+        trialState: result.trialState,
+        activeEntitlement: result.activeEntitlement,
+        activeSession: me.activeSession,
+      );
+    } catch (error) {
+      try {
+        await _hydrateBackendAccount(accessToken: session.accessToken);
+      } catch (_) {
+        // Keep the original consume failure as the surfaced error.
+      }
+      rethrow;
+    }
   }
 
   Future<void> deleteJob(String jobId) async {
@@ -612,6 +715,10 @@ class MaterialGuardianAppState extends ChangeNotifier {
       if (normalized.isEmpty) {
         continue;
       }
+      final pathSegments = normalized.replaceAll('\\', '/').split('/');
+      if (!pathSegments.contains('job_media')) {
+        continue;
+      }
       final file = File(normalized);
       final firstParent = file.parent;
       if (firstParent.path == normalized) {
@@ -653,11 +760,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
     if (normalized.isEmpty) {
       return normalized;
     }
-    final separator = normalized.endsWith(r'\') || normalized.endsWith('/')
-        ? ''
-        : Platform.pathSeparator;
     final baseName = _exportRootBaseName(normalized);
-    return '$normalized$separator$baseName.zip';
+    return '${Directory(normalized).parent.path}${Platform.pathSeparator}$baseName.zip';
   }
 
   String _exportRootBaseName(String exportRootPath) {
@@ -701,6 +805,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
   }
 
   Future<MaterialDraft> createBlankDraft({required String jobId}) async {
+    _ensureDraftAccess();
     final draft = MaterialDraft(
       id: 'draft-${DateTime.now().microsecondsSinceEpoch}',
       jobId: jobId,
@@ -744,6 +849,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
       qcInspectorDate: DateTime.now(),
       qcManagerName: _customization.defaultQcManagerName,
       qcManagerDate: DateTime.now(),
+      qcManagerDateEnabled: false,
+      qcManagerDateManual: false,
       qcSignaturePath: '',
       qcManagerSignaturePath: '',
       materialApproval: 'approved',
@@ -763,6 +870,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     required String jobId,
     required String materialId,
   }) async {
+    _ensureDraftAccess();
     final existingDraftIndex = _drafts.indexWhere(
       (draft) => draft.jobId == jobId && draft.sourceMaterialId == materialId,
     );
@@ -814,6 +922,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
       qcInspectorDate: material.qcInspectorDate,
       qcManagerName: material.qcManagerName,
       qcManagerDate: material.qcManagerDate,
+      qcManagerDateEnabled: material.qcManagerDateEnabled,
+      qcManagerDateManual: material.qcManagerDateManual,
       qcSignaturePath: material.qcSignaturePath,
       qcManagerSignaturePath: material.qcManagerSignaturePath,
       materialApproval: material.materialApproval,
@@ -844,6 +954,18 @@ class MaterialGuardianAppState extends ChangeNotifier {
   }
 
   Future<void> deleteDraft(String draftId) async {
+    final draftIndex = _drafts.indexWhere((draft) => draft.id == draftId);
+    final draft = draftIndex >= 0 ? _drafts[draftIndex] : null;
+    if (draft != null) {
+      final cleanupPaths = _materialMediaPathsForDraft(draft).where((path) {
+        final normalizedSegments = path.replaceAll('\\', '/').split('/');
+        return normalizedSegments.contains('job_media');
+      });
+      for (final mediaPath in cleanupPaths) {
+        await _mediaService.deletePath(mediaPath);
+        await _deleteEmptyJobMediaParentsForPath(mediaPath);
+      }
+    }
     _drafts = _drafts
         .where((draft) => draft.id != draftId)
         .toList(growable: false);
@@ -852,6 +974,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
   }
 
   Future<void> completeDraft(MaterialDraft draft) async {
+    _ensureDraftAccess();
     final existingMaterialId = draft.sourceMaterialId.trim();
     final job = jobById(draft.jobId);
     MaterialRecord? existingMaterial;
@@ -913,6 +1036,8 @@ class MaterialGuardianAppState extends ChangeNotifier {
       qcInspectorDate: draft.qcInspectorDate,
       qcManagerName: draft.qcManagerName.trim(),
       qcManagerDate: draft.qcManagerDate,
+      qcManagerDateEnabled: draft.qcManagerDateEnabled,
+      qcManagerDateManual: draft.qcManagerDateManual,
       qcSignaturePath: draft.qcSignaturePath.trim(),
       qcManagerSignaturePath: draft.qcManagerSignaturePath.trim(),
       materialApproval: draft.materialApproval.trim().isEmpty
@@ -949,18 +1074,41 @@ class MaterialGuardianAppState extends ChangeNotifier {
     required String jobId,
     required String materialId,
   }) async {
-    _jobs = _jobs
-        .map((job) {
-          if (job.id != jobId) {
-            return job;
-          }
-          return job.copyWith(
-            materials: job.materials
-                .where((material) => material.id != materialId)
-                .toList(growable: false),
-          );
-        })
+    final jobIndex = _jobs.indexWhere((job) => job.id == jobId);
+    if (jobIndex < 0) {
+      return;
+    }
+    final job = _jobs[jobIndex];
+    MaterialRecord? materialToDelete;
+    for (final material in job.materials) {
+      if (material.id == materialId) {
+        materialToDelete = material;
+        break;
+      }
+    }
+    if (materialToDelete == null) {
+      return;
+    }
+    final relatedDrafts = _drafts
+        .where(
+          (draft) =>
+              draft.jobId == jobId &&
+              (draft.sourceMaterialId == materialId || draft.id == materialId),
+        )
         .toList(growable: false);
+    await _deleteMaterialFiles(job, materialToDelete, relatedDrafts);
+
+    final updatedJob = job.copyWith(
+      exportPath: '',
+      exportedAt: null,
+      materials: job.materials
+          .where((material) => material.id != materialId)
+          .toList(growable: false),
+    );
+    _jobs = [
+      for (final existing in _jobs)
+        if (existing.id == jobId) updatedJob else existing,
+    ];
 
     _drafts = _drafts
         .where(
@@ -970,6 +1118,97 @@ class MaterialGuardianAppState extends ChangeNotifier {
         .toList(growable: false);
     notifyListeners();
     await _persistSnapshot();
+  }
+
+  Future<void> _deleteMaterialFiles(
+    JobRecord job,
+    MaterialRecord material,
+    List<MaterialDraft> relatedDrafts,
+  ) async {
+    final cleanupPaths = <String>{..._materialMediaPathsForRecord(material)};
+    for (final draft in relatedDrafts) {
+      cleanupPaths.addAll(_materialMediaPathsForDraft(draft));
+    }
+    for (final mediaPath in cleanupPaths) {
+      await _mediaService.deletePath(mediaPath);
+      await _deleteEmptyJobMediaParentsForPath(mediaPath);
+    }
+
+    await _deleteFileIfPresent(material.pdfStoragePath);
+    if (job.exportPath.trim().isNotEmpty) {
+      await _deleteDirectoryIfPresent(job.exportPath);
+      await _deleteFileIfPresent(_zipPathForExportRoot(job.exportPath));
+      try {
+        await AndroidExportBridge.deleteDownloadsExport(
+          downloadsSubdirectory:
+              'MaterialGuardian/${_exportRootBaseName(job.exportPath)}',
+        );
+      } catch (error, stackTrace) {
+        debugPrint(
+          'Material delete Downloads cleanup failed: $error\n$stackTrace',
+        );
+      }
+    }
+  }
+
+  Set<String> _materialMediaPathsForRecord(MaterialRecord material) {
+    return {
+      ...material.photoPaths
+          .map((path) => path.trim())
+          .where((path) => path.isNotEmpty),
+      ...material.scanPaths
+          .map((path) => path.trim())
+          .where((path) => path.isNotEmpty),
+      if (material.qcSignaturePath.trim().isNotEmpty)
+        material.qcSignaturePath.trim(),
+      if (material.qcManagerSignaturePath.trim().isNotEmpty)
+        material.qcManagerSignaturePath.trim(),
+    };
+  }
+
+  Set<String> _materialMediaPathsForDraft(MaterialDraft draft) {
+    return {
+      ...draft.photoPaths
+          .map((path) => path.trim())
+          .where((path) => path.isNotEmpty),
+      ...draft.scanPaths
+          .map((path) => path.trim())
+          .where((path) => path.isNotEmpty),
+      if (draft.qcSignaturePath.trim().isNotEmpty) draft.qcSignaturePath.trim(),
+      if (draft.qcManagerSignaturePath.trim().isNotEmpty)
+        draft.qcManagerSignaturePath.trim(),
+    };
+  }
+
+  Future<void> _deleteEmptyJobMediaParentsForPath(String rawPath) async {
+    final normalized = rawPath.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    final normalizedSegments = normalized.replaceAll('\\', '/').split('/');
+    final jobMediaIndex = normalizedSegments.indexOf('job_media');
+    if (jobMediaIndex < 0) {
+      return;
+    }
+
+    var current = File(normalized).parent;
+    while (true) {
+      final currentSegments = current.path.replaceAll('\\', '/').split('/');
+      if (currentSegments.indexOf('job_media') != jobMediaIndex ||
+          currentSegments.length <= jobMediaIndex + 1) {
+        return;
+      }
+      if (!await current.exists()) {
+        current = current.parent;
+        continue;
+      }
+      final hasEntries = current.listSync().isNotEmpty;
+      if (hasEntries) {
+        return;
+      }
+      await current.delete();
+      current = current.parent;
+    }
   }
 
   Future<void> saveCustomization(CustomizationSettings nextSettings) async {
@@ -1001,7 +1240,10 @@ class MaterialGuardianAppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final plans = await _backendApiService.fetchPlans();
+      final backendPlans = await _backendApiService.fetchPlans();
+      final plans = backendPlans
+          .where(_isMaterialGuardianPlan)
+          .toList(growable: false);
       final storeAvailable = await _storePurchaseService.isAvailable();
       final productIds = plans
           .map((plan) => plan.storeProductIdForPlatform(_storePlatform()))
@@ -1042,6 +1284,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
       _purchaseError = error.toString();
     } finally {
       _isLoadingPurchaseCatalog = false;
+      await _drainDeferredStorePurchaseUpdatesIfReady();
       notifyListeners();
     }
   }
@@ -1054,6 +1297,14 @@ class MaterialGuardianAppState extends ChangeNotifier {
 
     _backendAuthSession = storedSession;
     await refreshBackendAccount(showFailureMessage: false);
+    if (_backendAuthSession != null &&
+        _backendMe == null &&
+        (_backendAccountError == null ||
+            _backendAccountError!.trim().isEmpty)) {
+      _backendAccountError =
+          'Saved account data is temporarily unavailable. Your local work is still on this device. Try refreshing again in a moment.';
+      notifyListeners();
+    }
   }
 
   Future<void> startBackendSignIn({
@@ -1085,6 +1336,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
         displayName: displayName?.trim().isEmpty ?? true
             ? null
             : displayName!.trim(),
+        authEmailBrand: 'material_guardian',
       );
     } catch (error) {
       _backendAccountError = error.toString();
@@ -1218,11 +1470,33 @@ class MaterialGuardianAppState extends ChangeNotifier {
     } catch (error, stackTrace) {
       debugPrint('MG refreshBackendAccount failed: $error');
       debugPrintStack(stackTrace: stackTrace);
-      await _clearBackendAuthState(
-        errorMessage: showFailureMessage
-            ? 'Saved backend session could not be refreshed. Sign in again.'
-            : null,
-      );
+      if (_isInvalidRefreshSessionError(error)) {
+        await _clearBackendAuthState(
+          errorMessage: showFailureMessage
+              ? 'Saved backend session could not be refreshed. Sign in again.'
+              : null,
+        );
+      } else {
+        try {
+          await _hydrateBackendAccount(accessToken: session.accessToken);
+        } catch (hydrateError, hydrateStackTrace) {
+          debugPrint(
+            'MG refreshBackendAccount hydrate fallback failed: $hydrateError',
+          );
+          debugPrintStack(stackTrace: hydrateStackTrace);
+          if (_isInvalidRefreshSessionError(hydrateError)) {
+            await _clearBackendAuthState(
+              errorMessage: showFailureMessage
+                  ? 'Saved backend session could not be refreshed. Sign in again.'
+                  : null,
+            );
+          } else {
+            _backendAccountError = showFailureMessage || _backendMe == null
+                ? 'The backend could not be refreshed right now. Try again in a moment.'
+                : null;
+          }
+        }
+      }
     } finally {
       _isRefreshingBackendAccount = false;
       notifyListeners();
@@ -1294,14 +1568,51 @@ class MaterialGuardianAppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _storePurchaseService.restorePurchases();
-      _purchaseStatusMessage = null;
+      final result = await _storePurchaseService.restorePurchases();
+      final errorMessage = result.errorMessage?.trim();
+      if (errorMessage != null && errorMessage.isNotEmpty) {
+        _purchaseStatusMessage = null;
+        _purchaseError = errorMessage;
+        return;
+      }
+
+      if (result.updates.isNotEmpty) {
+        await _handleStorePurchaseUpdates(result.updates);
+        return;
+      }
+
+      final session = _backendAuthSession;
+      if (session != null) {
+        try {
+          await _hydrateBackendAccount(accessToken: session.accessToken);
+        } catch (_) {
+          _purchaseStatusMessage = null;
+          _purchaseError =
+              'Google Play restore finished, but the backend account could not be refreshed right now. Try Restore Purchases again in a moment.';
+          return;
+        }
+
+        final entitlement = effectiveBackendEntitlement;
+        if (entitlement != null &&
+            (entitlement.accessState == 'paid' ||
+                entitlement.accessState == 'no_seat')) {
+          _purchaseStatusMessage = _storePlatform() == 'google'
+              ? 'No active Google Play purchases were returned on this device. Your backend access is still active, but the store subscription was not re-linked here.'
+              : 'No purchases were returned to re-link on this device. Your backend access is still active.';
+          return;
+        }
+      }
+      _purchaseStatusMessage = _storePlatform() == 'google'
+          ? 'No active Google Play purchases were found to restore on this device.'
+          : 'No purchases were available to restore.';
     } catch (error) {
       _purchaseStatusMessage = null;
       _purchaseError = error.toString();
     } finally {
-      _isRestoringPurchases = false;
-      notifyListeners();
+      if (_isRestoringPurchases) {
+        _isRestoringPurchases = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -1542,6 +1853,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     if (hydrateFromAccessToken) {
       await _hydrateBackendAccount(accessToken: accessToken);
     }
+    await _drainDeferredStorePurchaseUpdatesIfReady();
   }
 
   Future<void> _hydrateBackendAccount({required String accessToken}) async {
@@ -1571,6 +1883,7 @@ class MaterialGuardianAppState extends ChangeNotifier {
     debugPrint(
       'MG hydrate account: success for ${me.user.email} with ${entitlement.planCode}.',
     );
+    await _drainDeferredStorePurchaseUpdatesIfReady();
   }
 
   Future<void> _handleStorePurchaseUpdates(
@@ -1621,21 +1934,32 @@ class MaterialGuardianAppState extends ChangeNotifier {
       final session = _backendAuthSession;
       BackendPlanSnapshot? plan;
       for (final currentPlan in _backendPlans) {
-        if (currentPlan.storeProductIdForPlatform(_storePlatform()) ==
-            update.productId) {
+        final expectedProductId = switch (update.provider) {
+          'google' => currentPlan.googleStoreProductId,
+          'apple' => currentPlan.appleStoreProductId,
+          _ => currentPlan.storeProductIdForPlatform(_storePlatform()),
+        };
+        if (expectedProductId == update.productId) {
           plan = currentPlan;
           break;
         }
       }
       if (session == null || plan == null) {
+        if (_shouldDeferStorePurchaseUpdate(session: session, plan: plan)) {
+          _deferStorePurchaseUpdate(update);
+          _isPurchasing = false;
+          _isRestoringPurchases = false;
+          _purchaseStatusMessage =
+              'Finishing store verification after account and billing data load.';
+          _purchaseError = null;
+          notifyListeners();
+          continue;
+        }
         _isPurchasing = false;
         _isRestoringPurchases = false;
         _purchaseError =
-            'Purchase completed in the store, but the app could not match it to a signed-in plan.';
+            'The store purchase could not be matched to a signed-in Material Guardian plan yet. Do not buy again. Use Restore Purchases after the billing catalog or sign-in state is corrected.';
         _purchaseStatusMessage = null;
-        if (update.pendingCompletePurchase) {
-          await _storePurchaseService.completePurchase(update.productId);
-        }
         notifyListeners();
         continue;
       }
@@ -1656,28 +1980,41 @@ class MaterialGuardianAppState extends ChangeNotifier {
               '${update.productId}-${DateTime.now().millisecondsSinceEpoch}',
           providerOriginalRef: update.providerOriginalRef ?? update.purchaseId,
           rawStatus: update.status,
+          googlePackageName: update.provider == 'google'
+              ? _googlePackageName()
+              : null,
           googleProductId: update.provider == 'google'
               ? update.productId
               : null,
           googlePurchaseToken: update.provider == 'google'
               ? (update.providerOriginalRef ?? update.purchaseId)
               : null,
+          appleReceiptData: update.provider == 'apple'
+              ? update.verificationServerData
+              : null,
         );
         await _hydrateBackendAccount(accessToken: session.accessToken);
-        _purchaseStatusMessage = update.isRestored
-            ? 'Purchase restored and verified.'
-            : 'Purchase verified. Your backend access has been refreshed.';
+        final refreshedEntitlement = effectiveBackendEntitlement;
+        if (refreshedEntitlement?.accessState == 'no_seat' || isSeatBlocked) {
+          _purchaseStatusMessage =
+              'Purchase verified. A report user seat still needs to be assigned before this account can create receiving reports.';
+        } else {
+          _purchaseStatusMessage = update.isRestored
+              ? 'Purchase restored and verified.'
+              : 'Purchase verified. Your backend access has been refreshed.';
+        }
         _purchaseError = null;
-      } catch (error) {
-        _purchaseError = error.toString();
-        _purchaseStatusMessage = null;
-      } finally {
-        _isPurchasing = false;
-        _isRestoringPurchases = false;
         _pendingPurchaseOrganizationIdsByProductId.remove(update.productId);
         if (update.pendingCompletePurchase) {
           await _storePurchaseService.completePurchase(update.productId);
         }
+      } catch (error) {
+        _purchaseError =
+            'The store purchase was captured, but backend verification did not finish. Do not buy again. Use Restore Purchases after the backend issue is fixed. ${error.toString()}';
+        _purchaseStatusMessage = null;
+      } finally {
+        _isPurchasing = false;
+        _isRestoringPurchases = false;
         notifyListeners();
       }
     }
@@ -1804,6 +2141,73 @@ class MaterialGuardianAppState extends ChangeNotifier {
     return 'unknown';
   }
 
+  bool _isMaterialGuardianPlan(BackendPlanSnapshot plan) {
+    return plan.productCode == 'material_guardian' ||
+        plan.planCode.startsWith('material_guardian_');
+  }
+
+  String? _googlePackageName() {
+    if (kIsWeb || !Platform.isAndroid) {
+      return null;
+    }
+    return 'com.asme.receiving';
+  }
+
+  bool _isInvalidRefreshSessionError(Object error) {
+    return error is BackendApiException &&
+        (error.statusCode == 401 || error.statusCode == 403);
+  }
+
+  void _ensureDraftAccess() {
+    _ensureFallbackLocalTrialAccessForSave();
+    _ensureBackendJobAccessForSave();
+  }
+
+  bool _shouldDeferStorePurchaseUpdate({
+    required StoredBackendAuthSession? session,
+    required BackendPlanSnapshot? plan,
+  }) {
+    final waitingOnAuth =
+        session == null &&
+        (_isAuthenticatingBackend ||
+            _isRefreshingBackendAccount ||
+            _pendingBackendAuthStart != null);
+    final waitingOnCatalog =
+        plan == null && (_isLoadingPurchaseCatalog || _backendPlans.isEmpty);
+    return waitingOnAuth || waitingOnCatalog;
+  }
+
+  void _deferStorePurchaseUpdate(StorePurchaseUpdate update) {
+    final existingIndex = _deferredStorePurchaseUpdates.indexWhere(
+      (candidate) =>
+          candidate.productId == update.productId &&
+          candidate.purchaseId == update.purchaseId &&
+          candidate.status == update.status,
+    );
+    if (existingIndex >= 0) {
+      _deferredStorePurchaseUpdates[existingIndex] = update;
+      return;
+    }
+    _deferredStorePurchaseUpdates.add(update);
+  }
+
+  Future<void> _drainDeferredStorePurchaseUpdatesIfReady() async {
+    if (_deferredStorePurchaseUpdates.isEmpty ||
+        _isAuthenticatingBackend ||
+        _isRefreshingBackendAccount ||
+        _isLoadingPurchaseCatalog ||
+        _backendAuthSession == null ||
+        _backendPlans.isEmpty) {
+      return;
+    }
+
+    final readyUpdates = List<StorePurchaseUpdate>.from(
+      _deferredStorePurchaseUpdates,
+    );
+    _deferredStorePurchaseUpdates.clear();
+    await _handleStorePurchaseUpdates(readyUpdates);
+  }
+
   @override
   void dispose() {
     _storePurchaseUpdatesSubscription.cancel();
@@ -1901,15 +2305,19 @@ class MaterialGuardianAppState extends ChangeNotifier {
     if (job.exportPath.trim().isEmpty) {
       return false;
     }
-    final zipPath =
-        '${job.exportPath}${job.exportPath.endsWith(r'\') || job.exportPath.endsWith('/') ? '' : Platform.pathSeparator}${job.exportPath.split(RegExp(r'[\\/]')).last}.zip';
-    return _exportService.shareZipBundle(zipPath);
+    return _exportService.shareZipBundle(_zipPathForExportRoot(job.exportPath));
   }
 
   Future<void> _persistSnapshot() {
-    return _snapshotStore.save(
-      MaterialGuardianSnapshot(jobs: _jobs, drafts: _drafts),
+    final snapshot = MaterialGuardianSnapshot(
+      jobs: _jobs,
+      drafts: _drafts,
+      localTrialJobsConsumed: _localTrialJobsConsumed,
     );
+    _snapshotWriteQueue = _snapshotWriteQueue
+        .catchError((_) {})
+        .then((_) => _snapshotStore.save(snapshot));
+    return _snapshotWriteQueue;
   }
 }
 

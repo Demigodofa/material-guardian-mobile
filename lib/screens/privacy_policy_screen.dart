@@ -9,52 +9,52 @@ class PrivacyPolicyScreen extends StatelessWidget {
     (
       title: 'Overview',
       body:
-          'Material Guardian is an offline-first receiving inspection app. Jobs, receiving reports, photos, scans, signatures, and exported packet files stay on your device in the current release. Cloud storage and cross-device recovery are planned for a later opt-in upgrade.',
+          'Material Guardian, published by Welders Helper, is a receiving inspection app. In the current Android release, jobs, receiving reports, photos, scans, signatures, and exported packet files remain on your device unless you choose to export or share them. The service currently uses backend features for sign-in, account access, organization membership, seats, and subscription status.',
     ),
     (
-      title: 'Camera and document scanning',
+      title: 'Data handled by the service',
       body:
-          'If you choose to capture material photos or scan MTR/CoC documents, the app uses the device camera and document scanner only for that workflow.',
+          'When you create or use an account, the service may process your email address, optional display name, organization and seat information, authentication challenges, active session tokens, and subscription or entitlement status. Google Play billing data that Google processes to complete a purchase stays under Google Play\'s own payment flow, but Material Guardian does receive subscription status needed to grant or restore access.',
     ),
     (
-      title: 'Accounts and sign-in',
+      title: 'Data that stays on your device',
       body:
-          'Material Guardian can use an email-code account for sign-in, subscriptions, organization membership, and seat access. The app remembers the signed-in session on this device until you sign out or clear app data.',
+          'In the current release, your job content, receiving reports, attached photos, scanned documents, signatures, and exported packet files remain local to your device unless you intentionally export or share them. Cloud file sync and cross-device recovery for those files are not part of the current release behavior.',
     ),
     (
-      title: 'Email delivery and service providers',
+      title: 'Permissions and device access',
       body:
-          'Email sign-in codes and some support or invite emails can be delivered through the Material Guardian backend service and its configured email provider. Subscription and entitlement state may also be checked against Google Play or the App Store when store-backed access is active.',
+          'Material Guardian requests camera access only when you choose to capture photos or scan MTR/CoC documents. Export actions may write files to app storage and to a device-accessible folder such as Downloads/MaterialGuardian so you can keep or share the exported packet.',
     ),
     (
-      title: 'Local job data and cloud status',
+      title: 'How data is used',
       body:
-          'Report content still stays local-first in this release. The developer service tracks account identity, organization membership, seats, and subscription state, but your jobs, reports, photos, scans, and signatures are not yet synced into a customer cloud workspace. Future cloud storage is expected to be an explicit upgrade with clearer recovery and cross-device access wording.',
+          'We use account and subscription data to authenticate users, deliver sign-in codes, manage workspace membership and seats, verify eligibility for paid access, respond to support requests, and protect the service from misuse. We do not use the current Android release for advertising or third-party analytics tracking.',
     ),
     (
-      title: 'Organizations and billing',
+      title: 'Sharing and service providers',
       body:
-          'Business plans can include organization membership, admin controls, and seat assignment. Subscription and entitlement state may be verified against the app store and the Material Guardian backend service.',
+          'Material Guardian does not automatically publish your reports or media. Data is shared only when you choose an export or share destination, or when service providers are needed to operate the app. Current providers can include Google Play for subscriptions, the configured email delivery provider for sign-in or invite emails, and backend hosting or database providers that run account and billing features.',
     ),
     (
-      title: 'Sharing and exports',
+      title: 'Security',
       body:
-          'When you export a job, the app writes packet files to app storage and a copy under Downloads/MaterialGuardian on your device. If you use share actions, the selected files are shared only to the destination you choose.',
+          'We use reasonable administrative and technical safeguards for the service, including HTTPS or TLS for data in transit and access controls around backend-managed account systems. Local files that stay on your device are also subject to the security settings and protections of that device.',
     ),
     (
-      title: 'Retention and control',
+      title: 'Retention and deletion',
       body:
-          'You control local data on the device. You can keep drafts, delete drafts, delete jobs, or remove exported files from device storage. Android backup and device-to-device transfer are disabled for app data in this release.',
+          'Local jobs, reports, photos, scans, signatures, and exported files remain on the device until you delete them, uninstall the app, or clear app data. Backend account records are retained while the account is active and may be retained for a limited period where needed for security, fraud prevention, legal compliance, billing, or workspace ownership resolution. Android backup for app data is disabled in this release.',
     ),
     (
       title: 'Account deletion',
       body:
-          'If account deletion is available for your release channel, use the in-app account deletion flow to remove the backend login tied to your email. Active store subscriptions may still need to be canceled in Google Play or the App Store separately. Business workspace records can require additional retention or ownership handling before deletion is allowed.',
+          'If you created a Material Guardian account, you can request deletion through the in-app Delete Account flow and through the public delete-account page published with the app\'s privacy policy. Deleting the backend account does not automatically cancel an active Google Play subscription, so store billing must still be canceled in Google Play. Workspace ownership or active team subscriptions can delay deletion until those obligations are resolved.',
     ),
     (
       title: 'Contact',
       body:
-          'For support or privacy questions, use the contact details published with the store listing, privacy policy URL, or your company deployment channel.',
+          'For privacy, support, or account questions, contact granitemfgllc@gmail.com.',
     ),
   ];
 
@@ -79,7 +79,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'This screen should match the real product behavior: local-first report data today, backend-managed account access now, and future cloud storage only as an explicit later upgrade.',
+                      'Last updated: April 13, 2026. This policy summarizes the current Android release and should stay aligned with the public privacy policy URL and Google Play disclosures.',
                     ),
                   ],
                 ),

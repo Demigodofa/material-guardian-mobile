@@ -80,6 +80,7 @@ void main() {
     final authStart = await service.startAuth(
       email: 'shop-admin@materialguardian.test',
       displayName: 'Shop Admin',
+      authEmailBrand: 'material_guardian',
     );
     final auth = await service.completeAuth(
       flowId: authStart.flowId,
@@ -130,5 +131,84 @@ void main() {
     for (final request in authedPaths) {
       expect(request.headers['authorization'], 'Bearer access-123');
     }
+    final authStartRequest = requests.firstWhere(
+      (request) => request.url.path == '/auth/start',
+    );
+    expect(
+      authStartRequest.body,
+      contains('"authEmailBrand":"material_guardian"'),
+    );
+  });
+
+  test('purchase verification sends Apple receipt data when present', () async {
+    http.Request? capturedRequest;
+    final service = BackendApiService(
+      baseUrl: 'https://backend.example.test',
+      client: MockClient((request) async {
+        capturedRequest = request;
+        return http.Response(
+          '{"provider":"apple","purchaseEventId":"purchase_1","subscriptionId":"subscription_1","entitlementId":"entitlement_1","planCode":"material_guardian_individual_yearly","productCode":"material_guardian","targetType":"user","organizationId":null,"activeEntitlement":{"productCode":"material_guardian","planCode":"material_guardian_individual_yearly","accessState":"paid","seatAvailability":"not_applicable","subscriptionState":"active","trialRemaining":0,"organizationId":null,"startsAt":"2026-04-02T12:00:00.000Z","endsAt":"2027-04-02T12:00:00.000Z"}}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await service.verifyPurchase(
+      provider: 'apple',
+      accessToken: 'access-123',
+      planCode: 'material_guardian_individual_yearly',
+      providerTransactionRef: '100000099900001',
+      providerOriginalRef: '100000099900000',
+      appleReceiptData: 'base64-apple-receipt',
+    );
+
+    expect(capturedRequest, isNotNull);
+    expect(capturedRequest!.headers['authorization'], 'Bearer access-123');
+    expect(
+      capturedRequest!.url.toString(),
+      'https://backend.example.test/purchases/apple/verify',
+    );
+    expect(
+      capturedRequest!.body,
+      contains('"appleReceiptData":"base64-apple-receipt"'),
+    );
+  });
+
+  test('purchase verification sends Google package metadata when present', () async {
+    http.Request? capturedRequest;
+    final service = BackendApiService(
+      baseUrl: 'https://backend.example.test',
+      client: MockClient((request) async {
+        capturedRequest = request;
+        return http.Response(
+          '{"provider":"google","purchaseEventId":"purchase_2","subscriptionId":"subscription_2","entitlementId":"entitlement_2","planCode":"material_guardian_business_5_yearly","productCode":"material_guardian","targetType":"organization","organizationId":"org_1","activeEntitlement":{"productCode":"material_guardian","planCode":"material_guardian_business_5_yearly","accessState":"paid","seatAvailability":"assigned","subscriptionState":"active","trialRemaining":0,"organizationId":"org_1","startsAt":"2026-04-02T12:00:00.000Z","endsAt":"2027-04-02T12:00:00.000Z"}}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await service.verifyPurchase(
+      provider: 'google',
+      accessToken: 'access-123',
+      planCode: 'material_guardian_business_5_yearly',
+      organizationId: 'org_1',
+      providerTransactionRef: 'GPA.1234-5678-9012-34567',
+      providerOriginalRef: 'purchase-token-123',
+      googlePackageName: 'com.asme.receiving',
+      googleProductId: 'material_guardian_business_5_yearly',
+      googlePurchaseToken: 'purchase-token-123',
+    );
+
+    expect(capturedRequest, isNotNull);
+    expect(
+      capturedRequest!.body,
+      contains('"googlePackageName":"com.asme.receiving"'),
+    );
+    expect(
+      capturedRequest!.body,
+      contains('"googlePurchaseToken":"purchase-token-123"'),
+    );
   });
 }

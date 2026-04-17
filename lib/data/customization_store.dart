@@ -7,6 +7,9 @@ class CustomizationStore {
     final preferences = await SharedPreferences.getInstance();
     return CustomizationSettings(
       receiveAsmeB16Parts: preferences.getBool(_receiveAsmeB16PartsKey) ?? true,
+      preferredB16Standards:
+          preferences.getStringList(_preferredB16StandardsKey) ??
+          List<String>.from(kDefaultPreferredB16Standards),
       surfaceFinishRequired:
           preferences.getBool(_surfaceFinishRequiredKey) ?? false,
       surfaceFinishUnit: preferences.getString(_surfaceFinishUnitKey) ?? 'u-in',
@@ -29,6 +32,10 @@ class CustomizationStore {
     await preferences.setBool(
       _receiveAsmeB16PartsKey,
       settings.receiveAsmeB16Parts,
+    );
+    await preferences.setStringList(
+      _preferredB16StandardsKey,
+      settings.preferredB16Standards,
     );
     await preferences.setBool(
       _surfaceFinishRequiredKey,
@@ -63,6 +70,7 @@ class CustomizationStore {
 }
 
 const _receiveAsmeB16PartsKey = 'receive_asme_b16_parts';
+const _preferredB16StandardsKey = 'preferred_b16_standards';
 const _surfaceFinishRequiredKey = 'surface_finish_required';
 const _surfaceFinishUnitKey = 'surface_finish_unit';
 const _defaultQcInspectorNameKey = 'default_qc_inspector_name';

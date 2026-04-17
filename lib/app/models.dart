@@ -12,6 +12,208 @@ enum UnitSystem {
   }
 }
 
+class B16StandardOption {
+  const B16StandardOption({
+    required this.suffix,
+    required this.shortLabel,
+    required this.scope,
+  });
+
+  final String suffix;
+  final String shortLabel;
+  final String scope;
+
+  String get code => 'B16.$suffix';
+  String get dropdownLabel => '$code  $shortLabel';
+  String get reportLabel => '$code $shortLabel';
+}
+
+const List<B16StandardOption> kB16StandardCatalog = [
+  B16StandardOption(
+    suffix: '1',
+    shortLabel: 'Gray iron flanges/fittings',
+    scope: 'Gray iron flanges/flanged fittings, Cl 25/125/250.',
+  ),
+  B16StandardOption(
+    suffix: '3',
+    shortLabel: 'Malleable iron THD fittings',
+    scope: 'Malleable iron THD fittings, Cl 150/300.',
+  ),
+  B16StandardOption(
+    suffix: '4',
+    shortLabel: 'Gray iron THD fittings',
+    scope: 'Gray iron THD fittings, Cl 125/250.',
+  ),
+  B16StandardOption(
+    suffix: '5',
+    shortLabel: 'Flanges <=24 NPS',
+    scope: 'Pipe flanges/flanged fittings, NPS 1/2-24.',
+  ),
+  B16StandardOption(
+    suffix: '9',
+    shortLabel: 'BW fittings 1/2-48',
+    scope: 'Factory-made wrought BW fittings, NPS 1/2-48.',
+  ),
+  B16StandardOption(
+    suffix: '10',
+    shortLabel: 'Valve face-to-face',
+    scope: 'Valve face-to-face / end-to-end dimensions.',
+  ),
+  B16StandardOption(
+    suffix: '11',
+    shortLabel: 'Forged fittings 2M-9M',
+    scope: 'Forged SW/THD fittings; THD Cl 2000/3000/6000, SW Cl 3000/6000/9000.',
+  ),
+  B16StandardOption(
+    suffix: '14',
+    shortLabel: 'Plugs/bushings/locknuts',
+    scope: 'Ferrous plugs, bushings, locknuts, pipe threads.',
+  ),
+  B16StandardOption(
+    suffix: '15',
+    shortLabel: 'Cast Cu THD fittings',
+    scope: 'Cast Cu alloy THD fittings, Cl 125/250.',
+  ),
+  B16StandardOption(
+    suffix: '18',
+    shortLabel: 'Cast Cu solder fittings',
+    scope: 'Cast Cu alloy solder-joint pressure fittings.',
+  ),
+  B16StandardOption(
+    suffix: '20',
+    shortLabel: 'Metallic flange gaskets',
+    scope: 'Metallic gaskets for pipe flanges.',
+  ),
+  B16StandardOption(
+    suffix: '21',
+    shortLabel: 'Nonmetallic flange gaskets',
+    scope: 'Nonmetallic flat gaskets for pipe flanges.',
+  ),
+  B16StandardOption(
+    suffix: '22',
+    shortLabel: 'Wrought Cu solder fittings',
+    scope: 'Wrought Cu / Cu alloy solder-joint pressure fittings.',
+  ),
+  B16StandardOption(
+    suffix: '24',
+    shortLabel: 'Cast Cu flanges/valves',
+    scope: 'Cast Cu alloy flanges, flanged fittings, and valves, Cl 150-2500.',
+  ),
+  B16StandardOption(
+    suffix: '25',
+    shortLabel: 'BW end prep / bevels',
+    scope: 'Buttwelding end prep / bevels.',
+  ),
+  B16StandardOption(
+    suffix: '26',
+    shortLabel: 'Cast Cu flared fittings',
+    scope: 'Cast Cu alloy fittings for flared Cu tube.',
+  ),
+  B16StandardOption(
+    suffix: '28',
+    shortLabel: 'Historical short-radius elbows',
+    scope: 'Historical: short-radius elbows/returns; now included in B16.9.',
+  ),
+  B16StandardOption(
+    suffix: '33',
+    shortLabel: 'Gas valves 1/2-2',
+    scope: 'Metallic gas valves, NPS 1/2-2, up to 175 psi.',
+  ),
+  B16StandardOption(
+    suffix: '34',
+    shortLabel: 'Valves flanged/THD/WE',
+    scope: 'Valves - flanged, threaded, welding end.',
+  ),
+  B16StandardOption(
+    suffix: '36',
+    shortLabel: 'Orifice flanges',
+    scope: 'Orifice flanges.',
+  ),
+  B16StandardOption(
+    suffix: '38',
+    shortLabel: 'Large gas valves',
+    scope: 'Large metallic gas valves, NPS 2 1/2-12, 125 psig max.',
+  ),
+  B16StandardOption(
+    suffix: '39',
+    shortLabel: 'Malleable iron unions',
+    scope: 'Malleable iron THD unions, Cl 150/250/300.',
+  ),
+  B16StandardOption(
+    suffix: '40',
+    shortLabel: 'Thermoplastic gas valves',
+    scope: 'Thermoplastic gas shutoffs/valves for gas distribution.',
+  ),
+  B16StandardOption(
+    suffix: '42',
+    shortLabel: 'Ductile iron flanges',
+    scope: 'Ductile iron flanges/flanged fittings, Cl 150/300.',
+  ),
+  B16StandardOption(
+    suffix: '44',
+    shortLabel: 'Aboveground gas valves',
+    scope: 'Aboveground metallic gas valves, up to 5 psi.',
+  ),
+  B16StandardOption(
+    suffix: '47',
+    shortLabel: 'Large steel flanges',
+    scope: 'Large-diameter steel flanges, NPS 26-60.',
+  ),
+  B16StandardOption(
+    suffix: '48',
+    shortLabel: 'Line blanks',
+    scope: 'Line blanks, NPS 1/2-24, Cl 150-2500.',
+  ),
+  B16StandardOption(
+    suffix: '49',
+    shortLabel: 'Induction bends',
+    scope: 'Factory-made wrought steel induction bends for transportation/distribution.',
+  ),
+  B16StandardOption(
+    suffix: '50',
+    shortLabel: 'Braze-joint Cu fittings',
+    scope: 'Wrought Cu / Cu alloy braze-joint pressure fittings.',
+  ),
+  B16StandardOption(
+    suffix: '51',
+    shortLabel: 'Press-connect Cu fittings',
+    scope: 'Cu / Cu alloy press-connect pressure fittings.',
+  ),
+  B16StandardOption(
+    suffix: '52',
+    shortLabel: 'Nonferrous forged fittings',
+    scope: 'Forged nonferrous SW/THD fittings (Ti / Al alloys).',
+  ),
+];
+
+const List<String> kDefaultPreferredB16Standards = ['5', '9', '11', '34'];
+
+B16StandardOption? b16StandardBySuffix(String suffix) {
+  final normalized = suffix.trim();
+  for (final option in kB16StandardCatalog) {
+    if (option.suffix == normalized) {
+      return option;
+    }
+  }
+  return null;
+}
+
+String formatB16StandardDropdownLabel(String suffix) {
+  final option = b16StandardBySuffix(suffix);
+  if (option == null) {
+    return suffix.trim().isEmpty ? 'N/A' : 'B16.$suffix';
+  }
+  return option.dropdownLabel;
+}
+
+String formatB16StandardReportLabel(String suffix) {
+  final option = b16StandardBySuffix(suffix);
+  if (option == null) {
+    return suffix.trim().isEmpty ? '' : 'B16.$suffix';
+  }
+  return option.reportLabel;
+}
+
 class JobRecord {
   const JobRecord({
     required this.id,
@@ -130,6 +332,8 @@ class MaterialRecord {
     required this.qcInspectorDate,
     required this.qcManagerName,
     required this.qcManagerDate,
+    required this.qcManagerDateEnabled,
+    required this.qcManagerDateManual,
     required this.qcSignaturePath,
     required this.qcManagerSignaturePath,
     required this.materialApproval,
@@ -181,6 +385,8 @@ class MaterialRecord {
   final DateTime qcInspectorDate;
   final String qcManagerName;
   final DateTime qcManagerDate;
+  final bool qcManagerDateEnabled;
+  final bool qcManagerDateManual;
   final String qcSignaturePath;
   final String qcManagerSignaturePath;
   final String materialApproval;
@@ -233,6 +439,8 @@ class MaterialRecord {
       'qcInspectorDate': qcInspectorDate.toIso8601String(),
       'qcManagerName': qcManagerName,
       'qcManagerDate': qcManagerDate.toIso8601String(),
+      'qcManagerDateEnabled': qcManagerDateEnabled,
+      'qcManagerDateManual': qcManagerDateManual,
       'qcSignaturePath': qcSignaturePath,
       'qcManagerSignaturePath': qcManagerSignaturePath,
       'materialApproval': materialApproval,
@@ -247,6 +455,19 @@ class MaterialRecord {
   }
 
   factory MaterialRecord.fromJson(Map<String, dynamic> json) {
+    final qcManagerName = json['qcManagerName'] as String? ?? '';
+    final qcManagerSignaturePath =
+        json['qcManagerSignaturePath'] as String? ?? '';
+    final qcManagerDate =
+        DateTime.tryParse(json['qcManagerDate'] as String? ?? '') ??
+        DateTime.now();
+    final qcManagerDateEnabled =
+        json['qcManagerDateEnabled'] as bool? ??
+        qcManagerName.trim().isNotEmpty ||
+            qcManagerSignaturePath.trim().isNotEmpty ||
+            json.containsKey('qcManagerDate');
+    final qcManagerDateManual =
+        json['qcManagerDateManual'] as bool? ?? qcManagerDateEnabled;
     return MaterialRecord(
       id: json['id'] as String? ?? '',
       tag: json['tag'] as String? ?? '',
@@ -288,12 +509,12 @@ class MaterialRecord {
       qcInspectorDate:
           DateTime.tryParse(json['qcInspectorDate'] as String? ?? '') ??
           DateTime.now(),
-      qcManagerName: json['qcManagerName'] as String? ?? '',
-      qcManagerDate:
-          DateTime.tryParse(json['qcManagerDate'] as String? ?? '') ??
-          DateTime.now(),
+      qcManagerName: qcManagerName,
+      qcManagerDate: qcManagerDate,
+      qcManagerDateEnabled: qcManagerDateEnabled,
+      qcManagerDateManual: qcManagerDateManual,
       qcSignaturePath: json['qcSignaturePath'] as String? ?? '',
-      qcManagerSignaturePath: json['qcManagerSignaturePath'] as String? ?? '',
+      qcManagerSignaturePath: qcManagerSignaturePath,
       materialApproval: json['materialApproval'] as String? ?? 'approved',
       offloadStatus: json['offloadStatus'] as String? ?? '',
       pdfStatus: json['pdfStatus'] as String? ?? '',
@@ -351,6 +572,8 @@ class MaterialRecord {
     DateTime? qcInspectorDate,
     String? qcManagerName,
     DateTime? qcManagerDate,
+    bool? qcManagerDateEnabled,
+    bool? qcManagerDateManual,
     String? qcSignaturePath,
     String? qcManagerSignaturePath,
     String? materialApproval,
@@ -404,6 +627,8 @@ class MaterialRecord {
       qcInspectorDate: qcInspectorDate ?? this.qcInspectorDate,
       qcManagerName: qcManagerName ?? this.qcManagerName,
       qcManagerDate: qcManagerDate ?? this.qcManagerDate,
+      qcManagerDateEnabled: qcManagerDateEnabled ?? this.qcManagerDateEnabled,
+      qcManagerDateManual: qcManagerDateManual ?? this.qcManagerDateManual,
       qcSignaturePath: qcSignaturePath ?? this.qcSignaturePath,
       qcManagerSignaturePath:
           qcManagerSignaturePath ?? this.qcManagerSignaturePath,
@@ -463,6 +688,8 @@ class MaterialDraft {
     required this.qcInspectorDate,
     required this.qcManagerName,
     required this.qcManagerDate,
+    required this.qcManagerDateEnabled,
+    required this.qcManagerDateManual,
     required this.qcSignaturePath,
     required this.qcManagerSignaturePath,
     required this.materialApproval,
@@ -514,6 +741,8 @@ class MaterialDraft {
   final DateTime qcInspectorDate;
   final String qcManagerName;
   final DateTime qcManagerDate;
+  final bool qcManagerDateEnabled;
+  final bool qcManagerDateManual;
   final String qcSignaturePath;
   final String qcManagerSignaturePath;
   final String materialApproval;
@@ -566,6 +795,8 @@ class MaterialDraft {
       'qcInspectorDate': qcInspectorDate.toIso8601String(),
       'qcManagerName': qcManagerName,
       'qcManagerDate': qcManagerDate.toIso8601String(),
+      'qcManagerDateEnabled': qcManagerDateEnabled,
+      'qcManagerDateManual': qcManagerDateManual,
       'qcSignaturePath': qcSignaturePath,
       'qcManagerSignaturePath': qcManagerSignaturePath,
       'materialApproval': materialApproval,
@@ -577,6 +808,19 @@ class MaterialDraft {
   }
 
   factory MaterialDraft.fromJson(Map<String, dynamic> json) {
+    final qcManagerName = json['qcManagerName'] as String? ?? '';
+    final qcManagerSignaturePath =
+        json['qcManagerSignaturePath'] as String? ?? '';
+    final qcManagerDate =
+        DateTime.tryParse(json['qcManagerDate'] as String? ?? '') ??
+        DateTime.now();
+    final qcManagerDateEnabled =
+        json['qcManagerDateEnabled'] as bool? ??
+        qcManagerName.trim().isNotEmpty ||
+            qcManagerSignaturePath.trim().isNotEmpty ||
+            json.containsKey('qcManagerDate');
+    final qcManagerDateManual =
+        json['qcManagerDateManual'] as bool? ?? qcManagerDateEnabled;
     return MaterialDraft(
       id: json['id'] as String? ?? '',
       jobId: json['jobId'] as String? ?? '',
@@ -621,12 +865,12 @@ class MaterialDraft {
       qcInspectorDate:
           DateTime.tryParse(json['qcInspectorDate'] as String? ?? '') ??
           DateTime.now(),
-      qcManagerName: json['qcManagerName'] as String? ?? '',
-      qcManagerDate:
-          DateTime.tryParse(json['qcManagerDate'] as String? ?? '') ??
-          DateTime.now(),
+      qcManagerName: qcManagerName,
+      qcManagerDate: qcManagerDate,
+      qcManagerDateEnabled: qcManagerDateEnabled,
+      qcManagerDateManual: qcManagerDateManual,
       qcSignaturePath: json['qcSignaturePath'] as String? ?? '',
-      qcManagerSignaturePath: json['qcManagerSignaturePath'] as String? ?? '',
+      qcManagerSignaturePath: qcManagerSignaturePath,
       materialApproval: json['materialApproval'] as String? ?? 'approved',
       photoPaths: ((json['photoPaths'] as List<dynamic>?) ?? const [])
           .map((item) => item.toString())
@@ -684,6 +928,8 @@ class MaterialDraft {
     DateTime? qcInspectorDate,
     String? qcManagerName,
     DateTime? qcManagerDate,
+    bool? qcManagerDateEnabled,
+    bool? qcManagerDateManual,
     String? qcSignaturePath,
     String? qcManagerSignaturePath,
     String? materialApproval,
@@ -736,6 +982,8 @@ class MaterialDraft {
       qcInspectorDate: qcInspectorDate ?? this.qcInspectorDate,
       qcManagerName: qcManagerName ?? this.qcManagerName,
       qcManagerDate: qcManagerDate ?? this.qcManagerDate,
+      qcManagerDateEnabled: qcManagerDateEnabled ?? this.qcManagerDateEnabled,
+      qcManagerDateManual: qcManagerDateManual ?? this.qcManagerDateManual,
       qcSignaturePath: qcSignaturePath ?? this.qcSignaturePath,
       qcManagerSignaturePath:
           qcManagerSignaturePath ?? this.qcManagerSignaturePath,
@@ -751,6 +999,7 @@ class MaterialDraft {
 class CustomizationSettings {
   const CustomizationSettings({
     required this.receiveAsmeB16Parts,
+    required this.preferredB16Standards,
     required this.surfaceFinishRequired,
     required this.surfaceFinishUnit,
     required this.defaultQcInspectorName,
@@ -762,6 +1011,7 @@ class CustomizationSettings {
   });
 
   final bool receiveAsmeB16Parts;
+  final List<String> preferredB16Standards;
   final bool surfaceFinishRequired;
   final String surfaceFinishUnit;
   final String defaultQcInspectorName;
@@ -774,6 +1024,7 @@ class CustomizationSettings {
   Map<String, Object?> toJson() {
     return {
       'receiveAsmeB16Parts': receiveAsmeB16Parts,
+      'preferredB16Standards': preferredB16Standards,
       'surfaceFinishRequired': surfaceFinishRequired,
       'surfaceFinishUnit': surfaceFinishUnit,
       'defaultQcInspectorName': defaultQcInspectorName,
@@ -786,8 +1037,16 @@ class CustomizationSettings {
   }
 
   factory CustomizationSettings.fromJson(Map<String, Object?> json) {
+    final preferredB16Standards =
+        ((json['preferredB16Standards'] as List<dynamic>?) ?? const [])
+            .map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList(growable: false);
     return CustomizationSettings(
       receiveAsmeB16Parts: json['receiveAsmeB16Parts'] as bool? ?? true,
+      preferredB16Standards: preferredB16Standards.isEmpty
+          ? List<String>.from(kDefaultPreferredB16Standards)
+          : preferredB16Standards,
       surfaceFinishRequired: json['surfaceFinishRequired'] as bool? ?? false,
       surfaceFinishUnit: json['surfaceFinishUnit'] as String? ?? 'u-in',
       defaultQcInspectorName: json['defaultQcInspectorName'] as String? ?? '',
@@ -804,6 +1063,7 @@ class CustomizationSettings {
 
   CustomizationSettings copyWith({
     bool? receiveAsmeB16Parts,
+    List<String>? preferredB16Standards,
     bool? surfaceFinishRequired,
     String? surfaceFinishUnit,
     String? defaultQcInspectorName,
@@ -815,6 +1075,8 @@ class CustomizationSettings {
   }) {
     return CustomizationSettings(
       receiveAsmeB16Parts: receiveAsmeB16Parts ?? this.receiveAsmeB16Parts,
+      preferredB16Standards:
+          preferredB16Standards ?? this.preferredB16Standards,
       surfaceFinishRequired:
           surfaceFinishRequired ?? this.surfaceFinishRequired,
       surfaceFinishUnit: surfaceFinishUnit ?? this.surfaceFinishUnit,

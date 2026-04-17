@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
-import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 
@@ -223,6 +222,25 @@ class MaterialMediaService {
     );
   }
 
+  Future<String> copyExistingSignature({
+    required String sourcePath,
+    required String jobNumber,
+    required String materialLabel,
+    required String targetLabel,
+  }) async {
+    final targetDirectory = await appSupportSubdirectory([
+      'job_media',
+      safeBaseName(jobNumber, fallback: 'job'),
+      'signatures',
+    ]);
+    return copyFileToDirectory(
+      sourcePath: sourcePath,
+      targetDirectory: targetDirectory,
+      targetBaseName:
+          '${safeBaseName(materialLabel, fallback: 'material')}_${safeBaseName(targetLabel)}_signature',
+    );
+  }
+
   Future<void> deletePath(String path) async {
     final normalized = path.trim();
     if (normalized.isEmpty) {
@@ -339,29 +357,19 @@ class MaterialMediaService {
     required String targetBaseName,
   }) async {
     final sourceBytes = await File(sourcePath).readAsBytes();
-    final normalizedBytes = _normalizeImageBytes(sourceBytes);
-    if (normalizedBytes == null) {
+    final normalizedAsset = await normalizeImageAsset(sourceBytes);
+    if (normalizedAsset == null) {
       return copyFileToDirectory(
         sourcePath: sourcePath,
         targetDirectory: targetDirectory,
         targetBaseName: targetBaseName,
-        forcedExtension: '.jpg',
       );
     }
     return writeBytesToDirectory(
-      bytes: normalizedBytes,
+      bytes: normalizedAsset.bytes,
       targetDirectory: targetDirectory,
       targetBaseName: targetBaseName,
-      extension: '.jpg',
+      extension: normalizedAsset.extension,
     );
-  }
-
-  Uint8List? _normalizeImageBytes(Uint8List bytes) {
-    final decoded = img.decodeImage(bytes);
-    if (decoded == null) {
-      return null;
-    }
-    final baked = img.bakeOrientation(decoded);
-    return Uint8List.fromList(img.encodeJpg(baked, quality: 92));
   }
 }

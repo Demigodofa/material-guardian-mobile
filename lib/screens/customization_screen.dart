@@ -20,6 +20,7 @@ class CustomizationScreen extends StatefulWidget {
 
 class _CustomizationScreenState extends State<CustomizationScreen> {
   late bool _receiveAsmeB16Parts;
+  late List<String> _preferredB16Standards;
   late bool _surfaceFinishRequired;
   late String _surfaceFinishUnit;
   late bool _includeCompanyLogoOnReports;
@@ -33,6 +34,9 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
     super.initState();
     final customization = widget.appState.customization;
     _receiveAsmeB16Parts = customization.receiveAsmeB16Parts;
+    _preferredB16Standards = List<String>.from(
+      customization.preferredB16Standards,
+    );
     _surfaceFinishRequired = customization.surfaceFinishRequired;
     _surfaceFinishUnit = customization.surfaceFinishUnit;
     _includeCompanyLogoOnReports = customization.includeCompanyLogoOnReports;
@@ -53,18 +57,18 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
     super.dispose();
   }
 
-  Future<void> _persistCustomizationAssets({
-    String? successMessage,
-  }) async {
+  Future<void> _persistCustomizationAssets({String? successMessage}) async {
     final nextSettings = widget.appState.customization.copyWith(
       receiveAsmeB16Parts: _receiveAsmeB16Parts,
+      preferredB16Standards: _preferredB16Standards,
       surfaceFinishRequired: _surfaceFinishRequired,
       surfaceFinishUnit: _surfaceFinishUnit,
       defaultQcInspectorName: _qcInspectorController.text.trim(),
       defaultQcManagerName: _qcManagerController.text.trim(),
       includeCompanyLogoOnReports: _includeCompanyLogoOnReports,
-      hasSavedInspectorSignature:
-          _savedInspectorSignaturePath.trim().isNotEmpty,
+      hasSavedInspectorSignature: _savedInspectorSignaturePath
+          .trim()
+          .isNotEmpty,
       savedInspectorSignaturePath: _savedInspectorSignaturePath,
       companyLogoPath: _companyLogoPath,
     );
@@ -75,6 +79,82 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(successMessage)));
+  }
+
+  Future<void> _editB16Preferences() async {
+    final workingSelection = <String>{..._preferredB16Standards};
+    final savedSelection = await showDialog<List<String>>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('B16 Dropdown Preferences'),
+              content: SizedBox(
+                width: 560,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Select the B16 standards that should appear in the receiving-form dropdown.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 12),
+                      for (final option in kB16StandardCatalog)
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: workingSelection.contains(option.suffix),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(option.dropdownLabel),
+                          subtitle: Text(option.scope),
+                          onChanged: (selected) {
+                            setDialogState(() {
+                              if (selected ?? false) {
+                                workingSelection.add(option.suffix);
+                              } else {
+                                workingSelection.remove(option.suffix);
+                              }
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: workingSelection.isEmpty
+                      ? null
+                      : () {
+                          final ordered = [
+                            for (final option in kB16StandardCatalog)
+                              if (workingSelection.contains(option.suffix))
+                                option.suffix,
+                          ];
+                          Navigator.pop(context, ordered);
+                        },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (!mounted || savedSelection == null) {
+      return;
+    }
+    setState(() {
+      _preferredB16Standards = savedSelection;
+    });
   }
 
   @override
@@ -94,239 +174,149 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Customization')),
-      body: centeredContent(
-        child: ListView(
-          padding: screenListPadding(context),
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      canManageWorkspaceSettings
-                          ? 'Workspace receiving defaults'
-                          : 'Your receiving defaults',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      canManageWorkspaceSettings
-                          ? 'These defaults drive what the receiving form shows and what new drafts inherit. Material-level Imperial or Metric remains a live choice on each report.'
-                          : 'Your printed inspector name and saved signature stay personal. Company logo and report-setting choices stay under the solo/admin workspace controls.',
-                    ),
-                    const SizedBox(height: 20),
-                    if (canManageWorkspaceSettings) ...[
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: _receiveAsmeB16Parts,
-                        onChanged: (value) {
-                          setState(() {
-                            _receiveAsmeB16Parts = value;
-                          });
-                        },
-                        title: const Text('Receive ASME B16 parts'),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: _surfaceFinishRequired,
-                        onChanged: (value) {
-                          setState(() {
-                            _surfaceFinishRequired = value;
-                          });
-                        },
-                        title: const Text('Surface finish required'),
-                      ),
-                    ],
-                    if (canManageWorkspaceSettings &&
-                        _surfaceFinishRequired) ...[
-                      const SizedBox(height: 12),
+      body: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.only(bottom: 12),
+        child: centeredContent(
+          child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: screenListPadding(context),
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        'Surface finish unit',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        canManageWorkspaceSettings
+                            ? 'Workspace receiving defaults'
+                            : 'Your receiving defaults',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          ChoiceChip(
-                            label: const Text('u-in'),
-                            selected: _surfaceFinishUnit == 'u-in',
-                            onSelected: (_) {
-                              setState(() {
-                                _surfaceFinishUnit = 'u-in';
-                              });
-                            },
-                          ),
-                          ChoiceChip(
-                            label: const Text('Ra'),
-                            selected: _surfaceFinishUnit == 'Ra',
-                            onSelected: (_) {
-                              setState(() {
-                                _surfaceFinishUnit = 'Ra';
-                              });
-                            },
-                          ),
-                        ],
+                      Text(
+                        canManageWorkspaceSettings
+                            ? 'These defaults drive what the receiving form shows and what new drafts inherit. Material-level Imperial or Metric remains a live choice on each report.'
+                            : 'Your printed inspector name and saved signature stay personal. Company logo and report-setting choices stay under the solo/admin workspace controls.',
                       ),
-                    ],
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _qcInspectorController,
-                      inputFormatters: [LengthLimitingTextInputFormatter(20)],
-                      decoration: InputDecoration(
-                        labelText: canManageWorkspaceSettings
-                            ? 'Default QC inspector printed name'
-                            : 'Your QC inspector printed name',
-                      ),
-                    ),
-                    if (canManageWorkspaceSettings) ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _qcManagerController,
-                        inputFormatters: [LengthLimitingTextInputFormatter(20)],
-                        decoration: const InputDecoration(
-                          labelText: 'Default QC manager printed name',
+                      const SizedBox(height: 20),
+                      if (canManageWorkspaceSettings) ...[
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _receiveAsmeB16Parts,
+                          onChanged: (value) {
+                            setState(() {
+                              _receiveAsmeB16Parts = value;
+                            });
+                          },
+                          title: const Text('Receive ASME B16 parts'),
                         ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Text(
-                      canManageWorkspaceSettings
-                          ? 'Saved QC inspector signature'
-                          : 'Your saved inspector signature',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: cardBackground,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: borderColor),
-                      ),
-                      padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                          if (hasSavedSignatureFile) ...[
-                            Center(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  color: const Color(0xFFF8FAFC),
-                                  padding: const EdgeInsets.all(8),
-                                  child: Image.file(
-                                    savedSignatureFile,
-                                    height: 88,
-                                    fit: BoxFit.contain,
+                        if (_receiveAsmeB16Parts) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'B16 dropdown preferences',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Choose which B16 standards appear in the receiving-form dropdown. The selected code shows with a short scope note for the QC.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final suffix in _preferredB16Standards)
+                                Chip(
+                                  label: Text(
+                                    formatB16StandardDropdownLabel(suffix),
                                   ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                          Text(
-                            hasSavedSignature
-                                ? hasSavedSignatureFile
-                                      ? p.basename(_savedInspectorSignaturePath)
-                                      : 'Saved signature file is unavailable. Capture or import it again.'
-                                : 'No reusable inspector signature has been imported yet.',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  fontWeight: hasSavedSignatureFile
-                                      ? FontWeight.w700
-                                      : FontWeight.w400,
-                                ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () async {
-                            final pngBytes = await showSignatureCaptureDialog(
-                              context,
-                              title: 'Capture default QC inspector signature',
-                            );
-                            if (pngBytes == null || !context.mounted) {
-                              return;
-                            }
-                            final nextPath = await widget
-                                .appState
-                                .customizationAssetService
-                                .captureSavedInspectorSignature(pngBytes);
-                            if (!context.mounted) {
-                              return;
-                            }
-                            setState(() {
-                              _savedInspectorSignaturePath = nextPath;
-                            });
-                            await _persistCustomizationAssets(
-                              successMessage: 'Saved inspector signature.',
-                            );
-                          },
-                          icon: const Icon(Icons.draw_outlined),
-                          label: Text(
-                            _savedInspectorSignaturePath.trim().isEmpty
-                                ? 'Capture Signature'
-                                : 'Re-sign',
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () async {
-                            final nextPath = await widget
-                                .appState
-                                .customizationAssetService
-                                .importSavedInspectorSignature();
-                            if (nextPath == null || !context.mounted) {
-                              return;
-                            }
-                            setState(() {
-                              _savedInspectorSignaturePath = nextPath;
-                            });
-                            await _persistCustomizationAssets(
-                              successMessage: 'Imported inspector signature.',
-                            );
-                          },
-                          icon: const Icon(Icons.file_open_outlined),
-                          label: const Text('Import Signature'),
-                        ),
-                        if (hasSavedSignature)
+                          const SizedBox(height: 10),
                           OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: deleteColor,
-                            ),
-                            onPressed: () async {
-                              await widget.appState.customizationAssetService
-                                  .clearAssetPath(_savedInspectorSignaturePath);
-                              if (!context.mounted) {
-                                return;
-                              }
-                              setState(() {
-                                _savedInspectorSignaturePath = '';
-                              });
-                              await _persistCustomizationAssets(
-                                successMessage: 'Removed saved signature.',
-                              );
-                            },
-                            icon: const Icon(Icons.delete_outline_rounded),
-                            label: const Text('Remove Signature'),
+                            onPressed: _editB16Preferences,
+                            icon: const Icon(Icons.tune_rounded),
+                            label: const Text('B16 Dropdown Preferences'),
                           ),
+                          const SizedBox(height: 8),
+                        ],
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _surfaceFinishRequired,
+                          onChanged: (value) {
+                            setState(() {
+                              _surfaceFinishRequired = value;
+                            });
+                          },
+                          title: const Text('Surface finish required'),
+                        ),
                       ],
-                    ),
-                    if (canManageWorkspaceSettings) ...[
-                      const SizedBox(height: 20),
+                      if (canManageWorkspaceSettings &&
+                          _surfaceFinishRequired) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'Surface finish unit',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            ChoiceChip(
+                              label: const Text('u-in'),
+                              selected: _surfaceFinishUnit == 'u-in',
+                              onSelected: (_) {
+                                setState(() {
+                                  _surfaceFinishUnit = 'u-in';
+                                });
+                              },
+                            ),
+                            ChoiceChip(
+                              label: const Text('Ra'),
+                              selected: _surfaceFinishUnit == 'Ra',
+                              onSelected: (_) {
+                                setState(() {
+                                  _surfaceFinishUnit = 'Ra';
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _qcInspectorController,
+                        inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                        decoration: InputDecoration(
+                          labelText: canManageWorkspaceSettings
+                              ? 'Default QC inspector printed name'
+                              : 'Your QC inspector printed name',
+                        ),
+                      ),
+                      if (canManageWorkspaceSettings) ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _qcManagerController,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(20),
+                          ],
+                          decoration: const InputDecoration(
+                            labelText: 'Default QC manager printed name',
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
                       Text(
-                        'Company logo',
+                        canManageWorkspaceSettings
+                            ? 'Saved QC inspector signature'
+                            : 'Your saved inspector signature',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),
@@ -341,16 +331,16 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (hasLogoFile) ...[
+                            if (hasSavedSignatureFile) ...[
                               Center(
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
                                   child: Container(
                                     color: const Color(0xFFF8FAFC),
-                                    padding: const EdgeInsets.all(10),
+                                    padding: const EdgeInsets.all(8),
                                     child: Image.file(
-                                      companyLogoFile,
-                                      height: 120,
+                                      savedSignatureFile,
+                                      height: 88,
                                       fit: BoxFit.contain,
                                     ),
                                   ),
@@ -359,14 +349,16 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                               const SizedBox(height: 12),
                             ],
                             Text(
-                              hasLogo
-                                  ? hasLogoFile
-                                      ? p.basename(_companyLogoPath)
-                                      : 'Saved logo file is unavailable. Import it again.'
-                                  : 'No company logo has been imported yet.',
+                              hasSavedSignature
+                                  ? hasSavedSignatureFile
+                                        ? p.basename(
+                                            _savedInspectorSignaturePath,
+                                          )
+                                        : 'Saved signature file is unavailable. Capture or import it again.'
+                                  : 'No reusable inspector signature has been imported yet.',
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
-                                    fontWeight: hasLogoFile
+                                    fontWeight: hasSavedSignatureFile
                                         ? FontWeight.w700
                                         : FontWeight.w400,
                                   ),
@@ -381,93 +373,228 @@ class _CustomizationScreenState extends State<CustomizationScreen> {
                         children: [
                           OutlinedButton.icon(
                             onPressed: () async {
+                              final pngBytes = await showSignatureCaptureDialog(
+                                context,
+                                title: 'Capture default QC inspector signature',
+                              );
+                              if (pngBytes == null || !context.mounted) {
+                                return;
+                              }
                               final nextPath = await widget
                                   .appState
                                   .customizationAssetService
-                                  .importCompanyLogo();
+                                  .captureSavedInspectorSignature(pngBytes);
+                              if (!context.mounted) {
+                                return;
+                              }
+                              setState(() {
+                                _savedInspectorSignaturePath = nextPath;
+                              });
+                              await _persistCustomizationAssets(
+                                successMessage: 'Saved inspector signature.',
+                              );
+                            },
+                            icon: const Icon(Icons.draw_outlined),
+                            label: Text(
+                              _savedInspectorSignaturePath.trim().isEmpty
+                                  ? 'Capture Signature'
+                                  : 'Re-sign',
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              final nextPath = await widget
+                                  .appState
+                                  .customizationAssetService
+                                  .importSavedInspectorSignature();
                               if (nextPath == null || !context.mounted) {
                                 return;
                               }
                               setState(() {
-                                _companyLogoPath = nextPath;
+                                _savedInspectorSignaturePath = nextPath;
                               });
                               await _persistCustomizationAssets(
-                                successMessage: hasLogo
-                                    ? 'Replaced company logo.'
-                                    : 'Imported company logo.',
+                                successMessage: 'Imported inspector signature.',
                               );
                             },
-                            icon: const Icon(Icons.image_outlined),
-                            label: Text(
-                              hasLogo ? 'Replace Logo' : 'Import Logo',
-                            ),
+                            icon: const Icon(Icons.file_open_outlined),
+                            label: const Text('Import Signature'),
                           ),
-                          if (hasLogo)
+                          if (hasSavedSignature)
                             OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: deleteColor,
                               ),
                               onPressed: () async {
                                 await widget.appState.customizationAssetService
-                                    .clearAssetPath(_companyLogoPath);
+                                    .clearAssetPath(
+                                      _savedInspectorSignaturePath,
+                                    );
                                 if (!context.mounted) {
                                   return;
                                 }
                                 setState(() {
-                                  _companyLogoPath = '';
+                                  _savedInspectorSignaturePath = '';
                                 });
                                 await _persistCustomizationAssets(
-                                  successMessage: 'Removed company logo.',
+                                  successMessage: 'Removed saved signature.',
                                 );
                               },
                               icon: const Icon(Icons.delete_outline_rounded),
-                              label: const Text('Remove Logo'),
+                              label: const Text('Remove Signature'),
                             ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: _includeCompanyLogoOnReports,
-                        onChanged: (value) {
-                          setState(() {
-                            _includeCompanyLogoOnReports = value;
-                          });
-                        },
-                        title: const Text('Include company logo on reports'),
-                      ),
+                      if (canManageWorkspaceSettings) ...[
+                        const SizedBox(height: 20),
+                        Text(
+                          'Company logo',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: cardBackground,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: borderColor),
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (hasLogoFile) ...[
+                                Center(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Container(
+                                      color: const Color(0xFFF8FAFC),
+                                      padding: const EdgeInsets.all(10),
+                                      child: Image.file(
+                                        companyLogoFile,
+                                        height: 120,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                              Text(
+                                hasLogo
+                                    ? hasLogoFile
+                                          ? p.basename(_companyLogoPath)
+                                          : 'Saved logo file is unavailable. Import it again.'
+                                    : 'No company logo has been imported yet.',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: hasLogoFile
+                                          ? FontWeight.w700
+                                          : FontWeight.w400,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () async {
+                                final nextPath = await widget
+                                    .appState
+                                    .customizationAssetService
+                                    .importCompanyLogo();
+                                if (nextPath == null || !context.mounted) {
+                                  return;
+                                }
+                                setState(() {
+                                  _companyLogoPath = nextPath;
+                                });
+                                await _persistCustomizationAssets(
+                                  successMessage: hasLogo
+                                      ? 'Replaced company logo.'
+                                      : 'Imported company logo.',
+                                );
+                              },
+                              icon: const Icon(Icons.image_outlined),
+                              label: Text(
+                                hasLogo ? 'Replace Logo' : 'Import Logo',
+                              ),
+                            ),
+                            if (hasLogo)
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: deleteColor,
+                                ),
+                                onPressed: () async {
+                                  await widget
+                                      .appState
+                                      .customizationAssetService
+                                      .clearAssetPath(_companyLogoPath);
+                                  if (!context.mounted) {
+                                    return;
+                                  }
+                                  setState(() {
+                                    _companyLogoPath = '';
+                                  });
+                                  await _persistCustomizationAssets(
+                                    successMessage: 'Removed company logo.',
+                                  );
+                                },
+                                icon: const Icon(Icons.delete_outline_rounded),
+                                label: const Text('Remove Logo'),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _includeCompanyLogoOnReports,
+                          onChanged: (value) {
+                            setState(() {
+                              _includeCompanyLogoOnReports = value;
+                            });
+                          },
+                          title: const Text('Include company logo on reports'),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: () async {
-                await widget.appState.saveCustomization(
-                  CustomizationSettings(
-                    receiveAsmeB16Parts: _receiveAsmeB16Parts,
-                    surfaceFinishRequired: _surfaceFinishRequired,
-                    surfaceFinishUnit: _surfaceFinishUnit,
-                    defaultQcInspectorName: _qcInspectorController.text.trim(),
-                    defaultQcManagerName: _qcManagerController.text.trim(),
-                    hasSavedInspectorSignature: _savedInspectorSignaturePath
-                        .trim()
-                        .isNotEmpty,
-                    savedInspectorSignaturePath: _savedInspectorSignaturePath,
-                    includeCompanyLogoOnReports: _includeCompanyLogoOnReports,
-                    companyLogoPath: _companyLogoPath,
-                  ),
-                );
-                if (!context.mounted) {
-                  return;
-                }
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.save_outlined),
-              label: const Text('Save Customization'),
-            ),
-          ],
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: () async {
+                  await widget.appState.saveCustomization(
+                    CustomizationSettings(
+                      receiveAsmeB16Parts: _receiveAsmeB16Parts,
+                      preferredB16Standards: _preferredB16Standards,
+                      surfaceFinishRequired: _surfaceFinishRequired,
+                      surfaceFinishUnit: _surfaceFinishUnit,
+                      defaultQcInspectorName: _qcInspectorController.text
+                          .trim(),
+                      defaultQcManagerName: _qcManagerController.text.trim(),
+                      hasSavedInspectorSignature: _savedInspectorSignaturePath
+                          .trim()
+                          .isNotEmpty,
+                      savedInspectorSignaturePath: _savedInspectorSignaturePath,
+                      includeCompanyLogoOnReports: _includeCompanyLogoOnReports,
+                      companyLogoPath: _companyLogoPath,
+                    ),
+                  );
+                  if (!context.mounted) {
+                    return;
+                  }
+                  Navigator.pop(context);
+                },
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Save Customization'),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -23,20 +23,33 @@ keytool -genkeypair -v -keystore keystore\material-guardian-upload.jks -alias up
 4. Build the Play bundle.
 
 Internal validation can still target the live dev backend if that is the environment being exercised.
-Do not ship a customer-facing Play release against the default `...backend-dev...` URL by accident.
-For any real release, pass the intended non-dev backend explicitly with `MG_BACKEND_BASE_URL`.
+The customer-facing Android release should target the production Cloud Run service explicitly.
+Release builds should always pass the intended backend with `MG_BACKEND_BASE_URL` so the artifact is pinned to the launch environment.
 
 ```powershell
-& 'C:\Users\KevinPenfield\develop\flutter\bin\flutter.bat' build appbundle --release --dart-define=MG_BACKEND_BASE_URL=https://app-platforms-backend-dev-293518443128.us-east4.run.app
+& 'C:\Users\KevinPenfield\develop\flutter\bin\flutter.bat' build appbundle --release --dart-define=MG_BACKEND_BASE_URL=https://app-platforms-backend-prod-293518443128.us-east4.run.app
 ```
 
 5. Upload `build/app/outputs/bundle/release/app-release.aab` to Play Console.
+
+Current production backend target:
+
+- `https://app-platforms-backend-prod-293518443128.us-east4.run.app`
+
+Current environment note:
+
+- the production-named and dev-named Cloud Run services currently share the same tested environment shape and are not yet a true fully isolated prod/dev database split
 
 Release gate before customer rollout:
 
 - Play Console service-account linkage is now working for `mg-play-verifier@asme-receiving.iam.gserviceaccount.com`.
 - The critical remaining Google billing proof is a real purchase-token smoke, not the older `permissionDenied` API-access blocker.
 - Durable operator note: the working Play Console fix was `API access` for the service account, not only the human-style `Users and permissions` invite flow.
+- Latest live handset result on 2026-04-17:
+  - signed-in paid Granite MFG state hydrated correctly on the Samsung
+  - `Restore Purchases` now returns `No purchases were returned to re-link on this device. Your backend access is still active.`
+  - prod request logs showed no fresh `POST /purchases/google/verify` for that attempt
+  - the remaining proof gap is therefore Google Play purchase ownership/install context on the device, not a silent backend verify failure
 
 Versioning and naming standard:
 

@@ -4,6 +4,8 @@ import '../app/material_guardian_state.dart';
 import '../app/routes.dart';
 import '../util/formatting.dart';
 
+enum _JobDetailAction { editJob, deleteJob, deleteLatestDraft }
+
 class JobDetailScreen extends StatelessWidget {
   const JobDetailScreen({
     required this.appState,
@@ -24,39 +26,85 @@ class JobDetailScreen extends StatelessWidget {
         final sortedDrafts = [...drafts]
           ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
         final latestDraft = sortedDrafts.isEmpty ? null : sortedDrafts.first;
+        final primaryActionLabel = latestDraft == null
+            ? 'Add Receiving Report'
+            : sortedDrafts.length == 1
+            ? 'Resume Draft'
+            : 'Open Drafts (${sortedDrafts.length})';
         return Scaffold(
-          appBar: AppBar(title: Text(job.jobNumber)),
+          appBar: AppBar(
+            title: Text(job.jobNumber),
+            actions: [
+              PopupMenuButton<_JobDetailAction>(
+                onSelected: (action) async {
+                  switch (action) {
+                    case _JobDetailAction.editJob:
+                      await _showEditJobDialog(context, appState, jobId);
+                    case _JobDetailAction.deleteJob:
+                      final confirmed = await _showDeleteJobDialog(
+                        context,
+                        alreadyExported: job.exportedAt != null,
+                      );
+                      if (confirmed != true) {
+                        return;
+                      }
+                      await appState.deleteJob(jobId);
+                      if (!context.mounted) {
+                        return;
+                      }
+                      Navigator.pop(context);
+                    case _JobDetailAction.deleteLatestDraft:
+                      if (latestDraft == null) {
+                        return;
+                      }
+                      final confirmed = await _showDeleteDraftDialog(
+                        context,
+                        latestDraft.description.trim().isEmpty
+                            ? 'this draft'
+                            : latestDraft.description,
+                      );
+                      if (confirmed != true) {
+                        return;
+                      }
+                      await appState.deleteDraft(latestDraft.id);
+                      if (!context.mounted) {
+                        return;
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Draft deleted.')),
+                      );
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem<_JobDetailAction>(
+                    value: _JobDetailAction.editJob,
+                    child: Text('Edit Job'),
+                  ),
+                  if (latestDraft != null && sortedDrafts.length == 1)
+                    const PopupMenuItem<_JobDetailAction>(
+                      value: _JobDetailAction.deleteLatestDraft,
+                      child: Text('Delete Draft'),
+                    ),
+                  const PopupMenuItem<_JobDetailAction>(
+                    value: _JobDetailAction.deleteJob,
+                    child: Text('Delete Job'),
+                  ),
+                ],
+              ),
+            ],
+          ),
           body: centeredContent(
             child: ListView(
               padding: screenListPadding(context),
               children: [
-                Center(
-                  child: Text(
-                    'JOB DETAILS',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: InkWell(
-                        onTap: () async {
-                          await _showEditJobDialog(context, appState, jobId);
-                        },
-                        child: Text(
-                          'Job# ${job.jobNumber}',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: const Color(0xFF1E3A5F),
-                                decoration: TextDecoration.underline,
-                              ),
-                        ),
+                      child: Text(
+                        'Job# ${job.jobNumber}',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(color: const Color(0xFF1E3A5F)),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -71,20 +119,14 @@ class JobDetailScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-                InkWell(
-                  onTap: () async {
-                    await _showEditJobDialog(context, appState, jobId);
-                  },
-                  child: Text(
-                    job.description.trim().isEmpty
-                        ? 'Add job description'
-                        : job.description,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: job.description.trim().isEmpty
-                          ? const Color(0xFF1E3A5F)
-                          : null,
-                      decoration: TextDecoration.underline,
-                    ),
+                Text(
+                  job.description.trim().isEmpty
+                      ? 'Add job description from the job menu.'
+                      : job.description,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: job.description.trim().isEmpty
+                        ? const Color(0xFF566173)
+                        : null,
                   ),
                 ),
                 if (job.notes.trim().isNotEmpty) ...[
@@ -97,90 +139,46 @@ class JobDetailScreen extends StatelessWidget {
                     constraints: const BoxConstraints(maxWidth: 340),
                     child: FilledButton(
                       onPressed: () async {
-                        final draft = await appState.createBlankDraft(
-                          jobId: jobId,
-                        );
-                        if (!context.mounted) {
+                        if (latestDraft == null) {
+                          final draft = await appState.createBlankDraft(
+                            jobId: jobId,
+                          );
+                          if (!context.mounted) {
+                            return;
+                          }
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.materialForm,
+                            arguments: MaterialFormRouteArgs(
+                              jobId: jobId,
+                              draftId: draft.id,
+                            ),
+                          );
+                          return;
+                        }
+                        if (sortedDrafts.length == 1) {
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.materialForm,
+                            arguments: MaterialFormRouteArgs(
+                              jobId: jobId,
+                              draftId: latestDraft.id,
+                            ),
+                          );
                           return;
                         }
                         Navigator.pushNamed(
                           context,
-                          AppRoutes.materialForm,
-                          arguments: MaterialFormRouteArgs(
-                            jobId: jobId,
-                            draftId: draft.id,
-                          ),
+                          AppRoutes.drafts,
+                          arguments: DraftsRouteArgs(jobId: jobId),
                         );
                       },
-                      child: const Text('Add Receiving Report'),
+                      child: Text(primaryActionLabel),
                     ),
                   ),
                 ),
                 if (latestDraft != null) ...[
                   const SizedBox(height: 10),
-                  if (sortedDrafts.length == 1)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () {
-                              Navigator.pushNamed(
-                                context,
-                                AppRoutes.materialForm,
-                                arguments: MaterialFormRouteArgs(
-                                  jobId: jobId,
-                                  draftId: latestDraft.id,
-                                ),
-                              );
-                            },
-                            child: const Text('Resume Draft'),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        TextButton(
-                          onPressed: () async {
-                            final confirmed = await _showDeleteDraftDialog(
-                              context,
-                              latestDraft.description.trim().isEmpty
-                                  ? 'this draft'
-                                  : latestDraft.description,
-                            );
-                            if (confirmed != true) {
-                              return;
-                            }
-                            await appState.deleteDraft(latestDraft.id);
-                            if (!context.mounted) {
-                              return;
-                            }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Draft deleted.')),
-                            );
-                          },
-                          style: TextButton.styleFrom(
-                            foregroundColor: Theme.of(
-                              context,
-                            ).colorScheme.error,
-                          ),
-                          child: const Text('Delete Draft'),
-                        ),
-                      ],
-                    )
-                  else
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 340),
-                        child: FilledButton(
-                          onPressed: () {
-                            Navigator.pushNamed(
-                              context,
-                              AppRoutes.drafts,
-                              arguments: DraftsRouteArgs(jobId: jobId),
-                            );
-                          },
-                          child: Text('Open Drafts (${sortedDrafts.length})'),
-                        ),
-                      ),
-                    ),
                   const SizedBox(height: 6),
                   Text(
                     latestDraft.description.trim().isEmpty
@@ -192,42 +190,7 @@ class JobDetailScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        await _showEditJobDialog(context, appState, jobId);
-                      },
-                      icon: const Icon(Icons.edit_outlined),
-                      label: const Text('Edit Job'),
-                    ),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Theme.of(context).colorScheme.error,
-                      ),
-                      onPressed: () async {
-                        final confirmed = await _showDeleteJobDialog(
-                          context,
-                          alreadyExported: job.exportedAt != null,
-                        );
-                        if (confirmed != true) {
-                          return;
-                        }
-                        await appState.deleteJob(jobId);
-                        if (!context.mounted) {
-                          return;
-                        }
-                        Navigator.pop(context);
-                      },
-                      icon: const Icon(Icons.delete_outline_rounded),
-                      label: const Text('Delete Job'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
                 Text(
                   'Materials Received',
                   style: Theme.of(context).textTheme.titleLarge,
@@ -294,8 +257,12 @@ class JobDetailScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            TextButton(
-                              onPressed: () async {
+                            PopupMenuButton<String>(
+                              tooltip: 'Receiving report actions',
+                              onSelected: (value) async {
+                                if (value != 'delete') {
+                                  return;
+                                }
                                 final confirmed =
                                     await _showDeleteMaterialDialog(
                                       context,
@@ -311,12 +278,12 @@ class JobDetailScreen extends StatelessWidget {
                                   materialId: material.id,
                                 );
                               },
-                              style: TextButton.styleFrom(
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.error,
-                              ),
-                              child: const Text('Delete'),
+                              itemBuilder: (context) => const [
+                                PopupMenuItem<String>(
+                                  value: 'delete',
+                                  child: Text('Delete Receiving Report'),
+                                ),
+                              ],
                             ),
                           ],
                         ),

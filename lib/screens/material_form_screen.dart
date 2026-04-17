@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:open_filex/open_filex.dart';
 
 import '../app/material_guardian_state.dart';
 import '../app/models.dart';
@@ -34,7 +34,7 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
   static const _vendorMaxLength = 20;
   static const _quantityMaxLength = 6;
   static const _gradeTypeMaxLength = 12;
-  static const _dimensionValueMaxLength = 10;
+  static const _dimensionValueMaxLength = 18;
   static const _qcNameMaxLength = 20;
 
   static const List<String> _productTypeOptions = [
@@ -47,7 +47,6 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
   ];
   static const List<String> _specificationPrefixOptions = ['', 'A', 'SA'];
   static const List<String> _fittingStandardOptions = ['N/A', 'B16'];
-  static const List<String> _fittingSuffixOptions = ['5', '9', '11', '34'];
   static const List<String> _diameterTypeOptions = ['', 'O.D.', 'I.D.'];
   static const List<String> _surfaceFinishOptions = [
     '',
@@ -58,6 +57,7 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
   ];
 
   late final MaterialDraft _initialDraft;
+  late MaterialDraft _savedDraftBaseline;
   late final TextEditingController _materialTagController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _vendorController;
@@ -85,6 +85,8 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
   late final TextEditingController _qcManagerController;
   late DateTime _qcInspectorDate;
   late DateTime _qcManagerDate;
+  late bool _qcManagerDateEnabled;
+  late bool _qcManagerDateManual;
   late UnitSystem _unitSystem;
   late bool _signatureApplied;
   late bool _visualInspectionAcceptable;
@@ -101,6 +103,9 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
   late String _qcSignaturePath;
   late String _qcManagerSignaturePath;
   var _allowImmediatePop = false;
+  Timer? _autosaveDebounce;
+  Future<void> _draftSaveQueue = Future<void>.value();
+  bool _isSubmitting = false;
 
   static const List<String> _acceptanceOptions = ['accept', 'reject'];
   static const List<String> _materialApprovalOptions = ['approved', 'rejected'];
@@ -125,6 +130,15 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
       return description;
     }
     return 'material';
+  }
+
+  List<String> get _preferredB16SuffixOptions {
+    final options = <String>[..._customization.preferredB16Standards];
+    final current = _fittingSuffixController.text.trim();
+    if (current.isNotEmpty && !options.contains(current)) {
+      options.add(current);
+    }
+    return options;
   }
 
   List<TextEditingController> get _autosaveControllers => [
@@ -160,6 +174,7 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
     super.initState();
     final draft = widget.appState.draftById(widget.draftId);
     _initialDraft = draft;
+    _savedDraftBaseline = draft;
     _materialTagController = TextEditingController(text: draft.materialTag);
     _descriptionController = TextEditingController(text: draft.description);
     _vendorController = TextEditingController(text: draft.vendor);
@@ -193,6 +208,8 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
     _qcManagerController = TextEditingController(text: draft.qcManagerName);
     _qcInspectorDate = draft.qcInspectorDate;
     _qcManagerDate = draft.qcManagerDate;
+    _qcManagerDateEnabled = draft.qcManagerDateEnabled;
+    _qcManagerDateManual = draft.qcManagerDateManual;
     _unitSystem = draft.unitSystem;
     _signatureApplied = draft.signatureApplied;
     _visualInspectionAcceptable = draft.visualInspectionAcceptable;
@@ -216,6 +233,7 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
 
   @override
   void dispose() {
+    _autosaveDebounce?.cancel();
     for (final controller in _autosaveControllers) {
       controller.removeListener(_saveDraftSilently);
       controller.dispose();
@@ -269,6 +287,8 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
       qcInspectorDate: _qcInspectorDate,
       qcManagerName: _qcManagerController.text,
       qcManagerDate: _qcManagerDate,
+      qcManagerDateEnabled: _qcManagerDateEnabled,
+      qcManagerDateManual: _qcManagerDateManual,
       qcSignaturePath: _qcSignaturePath,
       qcManagerSignaturePath: _qcManagerSignaturePath,
       photoPaths: _photoPaths,
@@ -278,11 +298,26 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
   }
 
   void _saveDraftSilently() {
-    widget.appState.saveDraft(_currentDraftPayload());
+    _autosaveDebounce?.cancel();
+    _autosaveDebounce = Timer(const Duration(milliseconds: 250), () {
+      _queueDraftSave();
+    });
   }
 
   Future<void> _saveDraftNow() {
-    return widget.appState.saveDraft(_currentDraftPayload());
+    _autosaveDebounce?.cancel();
+    return _queueDraftSave();
+  }
+
+  Future<void> _queueDraftSave() {
+    final payload = _currentDraftPayload();
+    _draftSaveQueue = _draftSaveQueue
+        .catchError((_) {})
+        .then((_) async {
+          await widget.appState.saveDraft(payload);
+          _savedDraftBaseline = payload;
+        });
+    return _draftSaveQueue;
   }
 
   String _formatDateForField(DateTime value) {
@@ -292,8 +327,14 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
     return '$month/$day/${local.year}';
   }
 
+  String get _dimensionHelperText => _unitSystem == UnitSystem.metric
+      ? 'Enter measured dimensions in millimeters. Example: 600 or 12.5.'
+      : 'Enter inches, fractions, or feet/inches. Examples: 23, 23 1/4, or 2\' 3".';
+
   Future<void> _pickQcDate({required bool forManager}) async {
-    final initialDate = forManager ? _qcManagerDate : _qcInspectorDate;
+    final initialDate = forManager
+        ? (_qcManagerDateEnabled ? _qcManagerDate : DateTime.now())
+        : _qcInspectorDate;
     final selectedDate = await showDatePicker(
       context: context,
       initialDate: initialDate,
@@ -306,6 +347,8 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
     setState(() {
       if (forManager) {
         _qcManagerDate = selectedDate;
+        _qcManagerDateEnabled = true;
+        _qcManagerDateManual = true;
       } else {
         _qcInspectorDate = selectedDate;
       }
@@ -313,11 +356,22 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
     await _saveDraftNow();
   }
 
+  Future<void> _clearQcManagerDate() async {
+    setState(() {
+      _qcManagerDateEnabled = false;
+      _qcManagerDateManual = false;
+    });
+    await _saveDraftNow();
+  }
+
   bool get _hasDraftChanges =>
       _currentDraftPayload().toJson().toString() !=
-      _initialDraft.toJson().toString();
+      _savedDraftBaseline.toJson().toString();
 
   Future<void> _handleBackNavigation() async {
+    _autosaveDebounce?.cancel();
+    await _draftSaveQueue.catchError((_) {});
+
     if (_allowImmediatePop || !_hasDraftChanges) {
       if (!mounted) {
         return;
@@ -326,6 +380,9 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
       return;
     }
 
+    if (!mounted) {
+      return;
+    }
     final action = await _showExitReceivingReportDialog(context);
     if (!mounted || action == null || action == _MaterialFormExitAction.keep) {
       return;
@@ -538,31 +595,47 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
 
     final jobNumber = widget.appState.jobById(widget.jobId).jobNumber;
     final nextPaths = [..._photoPaths];
+    var savedCount = 0;
+    var failedCount = 0;
     for (final capture in captures) {
-      final savedPath = await widget.appState.mediaService.saveCapturedPhoto(
-        sourcePath: capture.tempPath,
-        jobNumber: jobNumber,
-        materialLabel: _materialLabelForFiles,
-        nextIndex: capture.index,
-      );
-      final targetIndex = capture.index - 1;
-      if (targetIndex < nextPaths.length) {
-        final previousPath = nextPaths[targetIndex];
-        if (previousPath != savedPath) {
-          await widget.appState.mediaService.deletePath(previousPath);
+      try {
+        final savedPath = await widget.appState.mediaService.saveCapturedPhoto(
+          sourcePath: capture.tempPath,
+          jobNumber: jobNumber,
+          materialLabel: _materialLabelForFiles,
+          nextIndex: capture.index,
+        );
+        final targetIndex = capture.index - 1;
+        if (targetIndex < nextPaths.length) {
+          final previousPath = nextPaths[targetIndex];
+          if (previousPath != savedPath) {
+            await widget.appState.mediaService.deletePath(previousPath);
+          }
+          nextPaths[targetIndex] = savedPath;
+        } else {
+          nextPaths.add(savedPath);
         }
-        nextPaths[targetIndex] = savedPath;
-      } else {
-        nextPaths.add(savedPath);
+        savedCount++;
+      } catch (_) {
+        failedCount++;
       }
     }
     if (!mounted) {
       return;
     }
-    setState(() {
-      _photoPaths = nextPaths;
-    });
-    await _saveDraftNow();
+    if (savedCount > 0) {
+      setState(() {
+        _photoPaths = nextPaths;
+      });
+      await _saveDraftNow();
+    }
+    if (failedCount > 0) {
+      _showMessage(
+        savedCount > 0
+            ? 'Some photos could not be saved. Try the missing shots again.'
+            : 'The photo could not be saved. Try again.',
+      );
+    }
   }
 
   Future<void> _captureScansInApp({int? replaceIndex}) async {
@@ -579,31 +652,47 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
 
     final jobNumber = widget.appState.jobById(widget.jobId).jobNumber;
     final nextPaths = [..._scanPaths];
+    var savedCount = 0;
+    var failedCount = 0;
     for (final capture in captures) {
-      final savedPath = await widget.appState.mediaService.saveCapturedScan(
-        sourcePath: capture.tempPath,
-        jobNumber: jobNumber,
-        materialLabel: _materialLabelForFiles,
-        nextIndex: capture.index,
-      );
-      final targetIndex = capture.index - 1;
-      if (targetIndex < nextPaths.length) {
-        final previousPath = nextPaths[targetIndex];
-        if (previousPath != savedPath) {
-          await widget.appState.mediaService.deletePath(previousPath);
+      try {
+        final savedPath = await widget.appState.mediaService.saveCapturedScan(
+          sourcePath: capture.tempPath,
+          jobNumber: jobNumber,
+          materialLabel: _materialLabelForFiles,
+          nextIndex: capture.index,
+        );
+        final targetIndex = capture.index - 1;
+        if (targetIndex < nextPaths.length) {
+          final previousPath = nextPaths[targetIndex];
+          if (previousPath != savedPath) {
+            await widget.appState.mediaService.deletePath(previousPath);
+          }
+          nextPaths[targetIndex] = savedPath;
+        } else {
+          nextPaths.add(savedPath);
         }
-        nextPaths[targetIndex] = savedPath;
-      } else {
-        nextPaths.add(savedPath);
+        savedCount++;
+      } catch (_) {
+        failedCount++;
       }
     }
     if (!mounted) {
       return;
     }
-    setState(() {
-      _scanPaths = nextPaths;
-    });
-    await _saveDraftNow();
+    if (savedCount > 0) {
+      setState(() {
+        _scanPaths = nextPaths;
+      });
+      await _saveDraftNow();
+    }
+    if (failedCount > 0) {
+      _showMessage(
+        savedCount > 0
+            ? 'Some scans could not be saved. Try the missing pages again.'
+            : 'The scan could not be saved. Try again.',
+      );
+    }
   }
 
   Future<void> _scanDocumentsWithDeviceScanner({int? replaceIndex}) async {
@@ -618,8 +707,9 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
           .scanDocumentsWithDeviceScanner(
             jobNumber: widget.appState.jobById(widget.jobId).jobNumber,
             materialLabel: _materialLabelForFiles,
-            nextIndex:
-                replaceIndex == null ? _scanPaths.length + 1 : replaceIndex + 1,
+            nextIndex: replaceIndex == null
+                ? _scanPaths.length + 1
+                : replaceIndex + 1,
             pageLimit: remainingSlots,
           );
       if (!mounted || scannedPaths.isEmpty) {
@@ -713,36 +803,6 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
     await _saveDraftNow();
   }
 
-  Future<void> _openFile(String path) async {
-    final result = await OpenFilex.open(path);
-    if (result.type == ResultType.done || !mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(result.message)));
-  }
-
-  Future<void> _importSignature({required bool forManager}) async {
-    final importedPath = await widget.appState.mediaService.importSignature(
-      jobNumber: widget.appState.jobById(widget.jobId).jobNumber,
-      materialLabel: _materialLabelForFiles,
-      targetLabel: forManager ? 'qc_manager' : 'qc_inspector',
-    );
-    if (importedPath == null || !mounted) {
-      return;
-    }
-    setState(() {
-      if (forManager) {
-        _qcManagerSignaturePath = importedPath;
-      } else {
-        _qcSignaturePath = importedPath;
-        _signatureApplied = true;
-      }
-    });
-    await _saveDraftNow();
-  }
-
   Future<void> _captureSignature({required bool forManager}) async {
     final pngBytes = await showSignatureCaptureDialog(
       context,
@@ -766,6 +826,10 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
     setState(() {
       if (forManager) {
         _qcManagerSignaturePath = capturedPath;
+        if (!_qcManagerDateEnabled || !_qcManagerDateManual) {
+          _qcManagerDate = DateTime.now();
+          _qcManagerDateEnabled = true;
+        }
       } else {
         _qcSignaturePath = capturedPath;
         _signatureApplied = true;
@@ -779,8 +843,14 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
     if (sourcePath.isEmpty) {
       return;
     }
+    final copiedPath = await widget.appState.mediaService.copyExistingSignature(
+      sourcePath: sourcePath,
+      jobNumber: widget.appState.jobById(widget.jobId).jobNumber,
+      materialLabel: _materialLabelForFiles,
+      targetLabel: 'qc_inspector',
+    );
     setState(() {
-      _qcSignaturePath = sourcePath;
+      _qcSignaturePath = copiedPath;
       _signatureApplied = true;
     });
     await _saveDraftNow();
@@ -790,6 +860,9 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
     setState(() {
       if (forManager) {
         _qcManagerSignaturePath = '';
+        if (!_qcManagerDateManual) {
+          _qcManagerDateEnabled = false;
+        }
       } else {
         _qcSignaturePath = '';
         _signatureApplied = false;
@@ -799,9 +872,17 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
   }
 
   Future<void> _saveMaterialReceiving() async {
+    if (_isSubmitting) {
+      return;
+    }
+    setState(() {
+      _isSubmitting = true;
+    });
     try {
       final wasEditing = _isEditingExistingMaterial;
       final currentDraft = _currentDraftPayload();
+      _autosaveDebounce?.cancel();
+      await _draftSaveQueue.catchError((_) {});
       await widget.appState.saveDraft(currentDraft);
       await widget.appState.completeDraft(currentDraft);
       if (!mounted) {
@@ -820,6 +901,9 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
       if (!mounted) {
         return;
       }
+      setState(() {
+        _isSubmitting = false;
+      });
       await showDialog<void>(
         context: context,
         builder: (context) {
@@ -838,6 +922,1123 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
         },
       );
     }
+  }
+
+  Widget _buildOverviewCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final inspectorSigned = _qcSignaturePath.trim().isNotEmpty;
+    final managerSigned = _qcManagerSignaturePath.trim().isNotEmpty;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'RECEIVING INSPECTION\nREPORT',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+                height: 1.15,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _isEditingExistingMaterial
+                  ? 'Editing a saved receiving item. Every field change autosaves while you work.'
+                  : 'Capture one material at a time. Every field change autosaves while you work.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _StatusPill(
+                  label: 'Photos ${_photoPaths.length}/4',
+                  background: const Color(0xFFE8F1FB),
+                  foreground: const Color(0xFF16507A),
+                ),
+                _StatusPill(
+                  label: 'Scans ${_scanPaths.length}/8',
+                  background: const Color(0xFFEFF6FF),
+                  foreground: const Color(0xFF1D4ED8),
+                ),
+                _StatusPill(
+                  label: inspectorSigned
+                      ? 'Inspector signature ready'
+                      : 'Inspector signature pending',
+                  background: inspectorSigned
+                      ? const Color(0xFFE9F7EE)
+                      : const Color(0xFFFFF4E5),
+                  foreground: inspectorSigned
+                      ? const Color(0xFF1E6B3C)
+                      : const Color(0xFF8A5B14),
+                ),
+                _StatusPill(
+                  label: managerSigned
+                      ? 'Manager signature ready'
+                      : 'Manager signature pending',
+                  background: managerSigned
+                      ? const Color(0xFFE9F7EE)
+                      : const Color(0xFFF3F4F6),
+                  foreground: managerSigned
+                      ? const Color(0xFF1E6B3C)
+                      : const Color(0xFF4B5563),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDimensionTextField(
+    TextEditingController controller,
+    String label,
+  ) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.text,
+      inputFormatters: _maxLengthFormatters(_dimensionValueMaxLength),
+      decoration: InputDecoration(labelText: label),
+    );
+  }
+
+  Widget _buildMaterialSection(BuildContext context, {required bool showB16}) {
+    return _FormSectionCard(
+      icon: Icons.inventory_2_outlined,
+      title: 'Material Details',
+      subtitle:
+          'Capture how this item should be identified in the report and packet export.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _descriptionController,
+            inputFormatters: _maxLengthFormatters(_descriptionMaxLength),
+            decoration: const InputDecoration(labelText: 'Material Description'),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _poNumberController,
+                  inputFormatters: _maxLengthFormatters(_poNumberMaxLength),
+                  decoration: const InputDecoration(labelText: 'PO #'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _vendorController,
+                  inputFormatters: _maxLengthFormatters(_vendorMaxLength),
+                  decoration: const InputDecoration(labelText: 'Vendor'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stackFields = constraints.maxWidth < 560;
+              if (stackFields) {
+                return Column(
+                  children: [
+                    TextField(
+                      controller: _quantityController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: _maxLengthFormatters(_quantityMaxLength),
+                      decoration: const InputDecoration(labelText: 'Qty'),
+                    ),
+                    const SizedBox(height: 12),
+                    _LabeledDropdownField(
+                      value: _productTypeController.text,
+                      labelText: 'Product',
+                      options: _optionsWithCurrent(
+                        _productTypeController.text,
+                        _productTypeOptions,
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _productTypeController.text = value ?? '';
+                        });
+                        _saveDraftSilently();
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _LabeledDropdownField(
+                      value: _specificationPrefixController.text,
+                      labelText: 'A/SA',
+                      options: _optionsWithCurrent(
+                        _specificationPrefixController.text,
+                        _specificationPrefixOptions,
+                      ),
+                      labelBuilder: (value) => value.isEmpty ? 'Blank' : value,
+                      onChanged: (value) {
+                        setState(() {
+                          _specificationPrefixController.text = value ?? '';
+                        });
+                        _saveDraftSilently();
+                      },
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextField(
+                      controller: _quantityController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: _maxLengthFormatters(_quantityMaxLength),
+                      decoration: const InputDecoration(labelText: 'Qty'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 4,
+                    child: _LabeledDropdownField(
+                      value: _productTypeController.text,
+                      labelText: 'Product',
+                      options: _optionsWithCurrent(
+                        _productTypeController.text,
+                        _productTypeOptions,
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _productTypeController.text = value ?? '';
+                        });
+                        _saveDraftSilently();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: _LabeledDropdownField(
+                      value: _specificationPrefixController.text,
+                      labelText: 'A/SA',
+                      options: _optionsWithCurrent(
+                        _specificationPrefixController.text,
+                        _specificationPrefixOptions,
+                      ),
+                      labelBuilder: (value) => value.isEmpty ? 'Blank' : value,
+                      onChanged: (value) {
+                        setState(() {
+                          _specificationPrefixController.text = value ?? '';
+                        });
+                        _saveDraftSilently();
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _gradeTypeController,
+            inputFormatters: _maxLengthFormatters(_gradeTypeMaxLength),
+            decoration: const InputDecoration(labelText: 'Spec/Grade'),
+          ),
+          if (showB16) ...[
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final stackFields = constraints.maxWidth < 560;
+                if (stackFields) {
+                  return Column(
+                    children: [
+                      _LabeledDropdownField(
+                        value: _fittingStandardController.text,
+                        labelText: 'Fitting',
+                        options: _optionsWithCurrent(
+                          _fittingStandardController.text,
+                          _fittingStandardOptions,
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _fittingStandardController.text = value ?? 'N/A';
+                            if (_fittingStandardController.text != 'B16') {
+                              _fittingSuffixController.text = '';
+                            }
+                          });
+                          _saveDraftSilently();
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _LabeledDropdownField(
+                        value: _fittingSuffixController.text,
+                        labelText: 'B16 Standard',
+                        options: _optionsWithCurrent(
+                          _fittingSuffixController.text,
+                          _preferredB16SuffixOptions,
+                        ),
+                        enabled: _fittingStandardController.text == 'B16',
+                        labelBuilder: (value) => value.isEmpty
+                            ? 'N/A'
+                            : formatB16StandardDropdownLabel(value),
+                        onChanged: (value) {
+                          setState(() {
+                            _fittingSuffixController.text = value ?? '';
+                          });
+                          _saveDraftSilently();
+                        },
+                      ),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(
+                      child: _LabeledDropdownField(
+                        value: _fittingStandardController.text,
+                        labelText: 'Fitting',
+                        options: _optionsWithCurrent(
+                          _fittingStandardController.text,
+                          _fittingStandardOptions,
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _fittingStandardController.text = value ?? 'N/A';
+                            if (_fittingStandardController.text != 'B16') {
+                              _fittingSuffixController.text = '';
+                            }
+                          });
+                          _saveDraftSilently();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _LabeledDropdownField(
+                        value: _fittingSuffixController.text,
+                        labelText: 'B16 Standard',
+                        options: _optionsWithCurrent(
+                          _fittingSuffixController.text,
+                          _preferredB16SuffixOptions,
+                        ),
+                        enabled: _fittingStandardController.text == 'B16',
+                        labelBuilder: (value) => value.isEmpty
+                            ? 'N/A'
+                            : formatB16StandardDropdownLabel(value),
+                        onChanged: (value) {
+                          setState(() {
+                            _fittingSuffixController.text = value ?? '';
+                          });
+                          _saveDraftSilently();
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInspectionSection(
+    BuildContext context, {
+    required bool showB16,
+    required bool showSurfaceFinish,
+  }) {
+    final theme = Theme.of(context);
+    return _FormSectionCard(
+      icon: Icons.straighten_outlined,
+      title: 'Inspection',
+      subtitle:
+          'Record measured dimensions, markings, supporting docs, and final disposition.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _InsetInfoPanel(
+            title: 'Dimensions',
+            subtitle: _dimensionHelperText,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: UnitSystem.values
+                      .map(
+                        (unitSystem) => ChoiceChip(
+                          label: Text(unitSystem.label),
+                          selected: _unitSystem == unitSystem,
+                          onSelected: (_) {
+                            setState(() {
+                              _unitSystem = unitSystem;
+                            });
+                            _saveDraftSilently();
+                          },
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+                const SizedBox(height: 12),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final stackFields = constraints.maxWidth < 700;
+                    if (stackFields) {
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildDimensionTextField(
+                                  _thickness1Controller,
+                                  'TH 1',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildDimensionTextField(
+                                  _thickness2Controller,
+                                  'TH 2',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildDimensionTextField(
+                                  _thickness3Controller,
+                                  'TH 3',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildDimensionTextField(
+                                  _thickness4Controller,
+                                  'TH 4',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: _buildDimensionTextField(
+                            _thickness1Controller,
+                            'TH 1',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildDimensionTextField(
+                            _thickness2Controller,
+                            'TH 2',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildDimensionTextField(
+                            _thickness3Controller,
+                            'TH 3',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildDimensionTextField(
+                            _thickness4Controller,
+                            'TH 4',
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final stackFields = constraints.maxWidth < 700;
+                    if (stackFields) {
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildDimensionTextField(
+                                  _widthController,
+                                  'Width',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildDimensionTextField(
+                                  _lengthController,
+                                  'Length',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildDimensionTextField(
+                                  _diameterController,
+                                  'Diameter',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _LabeledDropdownField(
+                                  value: _diameterTypeController.text,
+                                  labelText: 'ID/OD',
+                                  options: _optionsWithCurrent(
+                                    _diameterTypeController.text,
+                                    _diameterTypeOptions,
+                                  ),
+                                  labelBuilder: (value) =>
+                                      value.isEmpty ? 'None' : value,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _diameterTypeController.text = value ?? '';
+                                    });
+                                    _saveDraftSilently();
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: _buildDimensionTextField(
+                            _widthController,
+                            'Width',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildDimensionTextField(
+                            _lengthController,
+                            'Length',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildDimensionTextField(
+                            _diameterController,
+                            'Diameter',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _LabeledDropdownField(
+                            value: _diameterTypeController.text,
+                            labelText: 'ID/OD',
+                            options: _optionsWithCurrent(
+                              _diameterTypeController.text,
+                              _diameterTypeOptions,
+                            ),
+                            labelBuilder: (value) =>
+                                value.isEmpty ? 'None' : value,
+                            onChanged: (value) {
+                              setState(() {
+                                _diameterTypeController.text = value ?? '';
+                              });
+                              _saveDraftSilently();
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                _BinaryChoiceRow(
+                  label: 'Visual inspection acceptable',
+                  yesSelected: _visualInspectionAcceptable,
+                  onYes: () {
+                    setState(() {
+                      _visualInspectionAcceptable = true;
+                    });
+                    _saveDraftSilently();
+                  },
+                  onNo: () {
+                    setState(() {
+                      _visualInspectionAcceptable = false;
+                    });
+                    _saveDraftSilently();
+                  },
+                ),
+                if (showB16) ...[
+                  const SizedBox(height: 12),
+                  _LabeledDropdownField(
+                    value: _b16SizeController.text,
+                    labelText: 'B16 Dimensions acceptable',
+                    options: _optionsWithCurrent(
+                      _b16SizeController.text,
+                      const ['', 'Yes', 'No'],
+                    ),
+                    labelBuilder: (value) => value.isEmpty ? 'N/A' : value,
+                    onChanged: (value) {
+                      setState(() {
+                        _b16SizeController.text = value ?? '';
+                      });
+                      _saveDraftSilently();
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (showSurfaceFinish) ...[
+            const SizedBox(height: 14),
+            _InsetInfoPanel(
+              title: 'Surface Finish',
+              subtitle:
+                  'Use the requested finish and the actual measured reading from the part.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _LabeledDropdownField(
+                    value: _surfaceFinishController.text,
+                    labelText: 'Surface Finish',
+                    options: _optionsWithCurrent(
+                      _surfaceFinishController.text,
+                      _surfaceFinishOptions,
+                    ),
+                    labelBuilder: (value) => value.isEmpty ? 'N/A' : value,
+                    onChanged: (value) {
+                      setState(() {
+                        _surfaceFinishController.text = value ?? '';
+                      });
+                      _saveDraftSilently();
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  const _CenteredSubsectionTitle(
+                    title: 'Actual Surface Finish Reading',
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _surfaceFinishReadingController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters:
+                              _surfaceFinishReadingInputFormatters,
+                          decoration: const InputDecoration(labelText: 'Reading'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        _customization.surfaceFinishUnit,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          _InsetInfoPanel(
+            title: 'Markings and Documentation',
+            subtitle:
+                'Record what is physically marked on the material and whether the supporting docs are acceptable.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _CenteredSubsectionTitle(title: 'Actual Markings'),
+                TextField(
+                  controller: _markingsController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(labelText: 'Markings found'),
+                ),
+                const SizedBox(height: 12),
+                _TriStateChoiceRow(
+                  label: 'Marking acceptable to Code/Standard',
+                  hasSelection: _markingSelected,
+                  yesSelected:
+                      _markingSelected &&
+                      _markingAcceptable &&
+                      !_markingAcceptableNa,
+                  noSelected:
+                      _markingSelected &&
+                      !_markingAcceptable &&
+                      !_markingAcceptableNa,
+                  naSelected: _markingSelected && _markingAcceptableNa,
+                  onYes: () {
+                    setState(() {
+                      _markingAcceptable = true;
+                      _markingAcceptableNa = false;
+                      _markingSelected = true;
+                    });
+                    _saveDraftSilently();
+                  },
+                  onNo: () {
+                    setState(() {
+                      _markingAcceptable = false;
+                      _markingAcceptableNa = false;
+                      _markingSelected = true;
+                    });
+                    _saveDraftSilently();
+                  },
+                  onNa: () {
+                    setState(() {
+                      _markingAcceptable = false;
+                      _markingAcceptableNa = true;
+                      _markingSelected = true;
+                    });
+                    _saveDraftSilently();
+                  },
+                  onClear: () {
+                    setState(() {
+                      _markingAcceptable = false;
+                      _markingAcceptableNa = false;
+                      _markingSelected = false;
+                    });
+                    _saveDraftSilently();
+                  },
+                ),
+                const SizedBox(height: 12),
+                _TriStateChoiceRow(
+                  label: 'MTR/CoC acceptable to specification',
+                  hasSelection: _mtrSelected,
+                  yesSelected:
+                      _mtrSelected &&
+                      _mtrAcceptable &&
+                      !_mtrAcceptableNa,
+                  noSelected:
+                      _mtrSelected &&
+                      !_mtrAcceptable &&
+                      !_mtrAcceptableNa,
+                  naSelected: _mtrSelected && _mtrAcceptableNa,
+                  onYes: () {
+                    setState(() {
+                      _mtrAcceptable = true;
+                      _mtrAcceptableNa = false;
+                      _mtrSelected = true;
+                    });
+                    _saveDraftSilently();
+                  },
+                  onNo: () {
+                    setState(() {
+                      _mtrAcceptable = false;
+                      _mtrAcceptableNa = false;
+                      _mtrSelected = true;
+                    });
+                    _saveDraftSilently();
+                  },
+                  onNa: () {
+                    setState(() {
+                      _mtrAcceptable = false;
+                      _mtrAcceptableNa = true;
+                      _mtrSelected = true;
+                    });
+                    _saveDraftSilently();
+                  },
+                  onClear: () {
+                    setState(() {
+                      _mtrAcceptable = false;
+                      _mtrAcceptableNa = false;
+                      _mtrSelected = false;
+                    });
+                    _saveDraftSilently();
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _InsetInfoPanel(
+            title: 'Disposition',
+            subtitle:
+                'Finish the receiving review with the material decision and any brief notes.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: _acceptanceOptions
+                      .map(
+                        (status) => ChoiceChip(
+                          label: Text(
+                            status == 'accept' ? 'Accept' : 'Reject',
+                          ),
+                          selected: _acceptanceStatus == status,
+                          onSelected: (_) {
+                            setState(() {
+                              _acceptanceStatus = status;
+                            });
+                            _saveDraftSilently();
+                          },
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _commentsController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'Comments'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignatureBlock({
+    required BuildContext context,
+    required String title,
+    required TextEditingController nameController,
+    required String nameLabel,
+    required String dateLabel,
+    required String dateValue,
+    required VoidCallback onPickDate,
+    required String signaturePath,
+    required String previewLabel,
+    required String readyLabel,
+    required String pendingLabel,
+    required String helperText,
+    required VoidCallback onCapture,
+    required VoidCallback onClear,
+    VoidCallback? onUseSaved,
+    bool showClearDateButton = false,
+    VoidCallback? onClearDate,
+  }) {
+    final hasSignature = signaturePath.trim().isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFD8E1EA)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              _StatusPill(
+                label: hasSignature ? readyLabel : pendingLabel,
+                background: hasSignature
+                    ? const Color(0xFFE9F7EE)
+                    : const Color(0xFFFFF4E5),
+                foreground: hasSignature
+                    ? const Color(0xFF1E6B3C)
+                    : const Color(0xFF8A5B14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            helperText,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stackFields = constraints.maxWidth < 600;
+              final dateField = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _DateFieldButton(
+                    label: dateLabel,
+                    value: dateValue,
+                    onPressed: onPickDate,
+                  ),
+                  if (showClearDateButton && onClearDate != null) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: 'Clear date',
+                      onPressed: onClearDate,
+                      icon: const Icon(Icons.clear_rounded),
+                    ),
+                  ],
+                ],
+              );
+              if (stackFields) {
+                return Column(
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      inputFormatters: _maxLengthFormatters(_qcNameMaxLength),
+                      decoration: InputDecoration(labelText: nameLabel),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(alignment: Alignment.centerLeft, child: dateField),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: nameController,
+                      inputFormatters: _maxLengthFormatters(_qcNameMaxLength),
+                      decoration: InputDecoration(labelText: nameLabel),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  dateField,
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              if (onUseSaved != null)
+                FilledButton.tonalIcon(
+                  onPressed: onUseSaved,
+                  icon: const Icon(Icons.draw_outlined),
+                  label: const Text('Use Saved'),
+                ),
+              FilledButton.icon(
+                onPressed: onCapture,
+                icon: const Icon(Icons.edit_outlined),
+                label: Text(hasSignature ? 'Re-sign' : 'Capture Signature'),
+              ),
+              OutlinedButton.icon(
+                onPressed: hasSignature ? onClear : null,
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: const Text('Clear'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _SignaturePreviewCard(
+            label: previewLabel,
+            path: signaturePath,
+            emptyLabel: 'No signature captured yet',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQualityControlSection(BuildContext context) {
+    final canUseSavedInspectorSignature =
+        _customization.hasSavedInspectorSignature &&
+        _customization.savedInspectorSignaturePath.trim().isNotEmpty;
+    return _FormSectionCard(
+      icon: Icons.verified_user_outlined,
+      title: 'Signoff',
+      subtitle:
+          'Capture the QC signoff that should print into the exported receiving packet.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSignatureBlock(
+            context: context,
+            title: 'QC Inspector Signature',
+            nameController: _qcInspectorController,
+            nameLabel: 'QC Inspector',
+            dateLabel: 'Date',
+            dateValue: _formatDateForField(_qcInspectorDate),
+            onPickDate: () => _pickQcDate(forManager: false),
+            signaturePath: _qcSignaturePath,
+            previewLabel: 'QC inspector signature',
+            readyLabel: 'Ready',
+            pendingLabel: 'Pending',
+            helperText:
+                'Use the saved inspector signature if you already set one in customization, or capture it directly on this report.',
+            onCapture: () => _captureSignature(forManager: false),
+            onClear: () => _clearSignature(forManager: false),
+            onUseSaved:
+                canUseSavedInspectorSignature ? _applySavedInspectorSignature : null,
+          ),
+          const SizedBox(height: 14),
+          _InsetInfoPanel(
+            title: 'Material Approval',
+            subtitle: 'Set the overall approval outcome for this material.',
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: _materialApprovalOptions
+                  .map(
+                    (status) => ChoiceChip(
+                      label: Text(
+                        status == 'approved' ? 'Approved' : 'Rejected',
+                      ),
+                      selected: _materialApproval == status,
+                      onSelected: (_) {
+                        setState(() {
+                          _materialApproval = status;
+                        });
+                        _saveDraftSilently();
+                      },
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _buildSignatureBlock(
+            context: context,
+            title: 'QC Manager Signature',
+            nameController: _qcManagerController,
+            nameLabel: 'QC Manager',
+            dateLabel: 'Manager Date',
+            dateValue:
+                _qcManagerDateEnabled ? _formatDateForField(_qcManagerDate) : '',
+            onPickDate: () => _pickQcDate(forManager: true),
+            signaturePath: _qcManagerSignaturePath,
+            previewLabel: 'QC manager signature',
+            readyLabel: 'Ready',
+            pendingLabel: 'Optional',
+            helperText:
+                'Leave this blank until the manager signs. Capturing a signature sets today automatically unless you already chose a date.',
+            onCapture: () => _captureSignature(forManager: true),
+            onClear: () => _clearSignature(forManager: true),
+            showClearDateButton: _qcManagerDateEnabled,
+            onClearDate: _clearQcManagerDate,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMediaBlock({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required int count,
+    required int maxCount,
+    required String actionLabel,
+    required IconData icon,
+    required VoidCallback onPressed,
+    required List<String> paths,
+    required String itemLabel,
+    required ValueChanged<int> onTap,
+  }) {
+    return _InsetInfoPanel(
+      title: title,
+      subtitle: subtitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _StatusPill(
+                  label: '$count / $maxCount attached',
+                  background: count > 0
+                      ? const Color(0xFFE9F7EE)
+                      : const Color(0xFFF3F4F6),
+                  foreground: count > 0
+                      ? const Color(0xFF1E6B3C)
+                      : const Color(0xFF4B5563),
+                ),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: onPressed,
+                icon: Icon(icon),
+                label: Text(actionLabel),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFD8E1EA)),
+            ),
+            child: _ThumbnailRow(
+              paths: paths,
+              maxCount: maxCount,
+              itemLabel: itemLabel,
+              onTap: onTap,
+            ),
+          ),
+          if (paths.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Tap a thumbnail to retake or delete it.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentsSection(BuildContext context) {
+    return _FormSectionCard(
+      icon: Icons.attach_file_outlined,
+      title: 'Attachments',
+      subtitle:
+          'Bundle jobsite photos and MTR/CoC scans into the exported receiving packet.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildMediaBlock(
+            context: context,
+            title: 'Material Photos',
+            subtitle:
+                'Use these for arrival condition, markings, and visible damage.',
+            count: _photoPaths.length,
+            maxCount: 4,
+            actionLabel: 'Add Photos',
+            icon: Icons.add_a_photo_outlined,
+            onPressed: _handlePhotoAction,
+            paths: _photoPaths,
+            itemLabel: 'photo',
+            onTap: (index) =>
+                _handleExistingMediaTap(isPhoto: true, index: index),
+          ),
+          const SizedBox(height: 14),
+          _buildMediaBlock(
+            context: context,
+            title: 'MTR/CoC Scans',
+            subtitle:
+                'Preferred: built-in document scanner with cleanup. Camera fallback still exports into the combined MTR PDF.',
+            count: _scanPaths.length,
+            maxCount: 8,
+            actionLabel: 'Add Scans',
+            icon: Icons.picture_as_pdf_outlined,
+            onPressed: _handleScanAction,
+            paths: _scanPaths,
+            itemLabel: 'scan',
+            onTap: (index) =>
+                _handleExistingMediaTap(isPhoto: false, index: index),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -883,1049 +2084,30 @@ class _MaterialFormScreenState extends State<MaterialFormScreen> {
             child: ListView(
               padding: listPadding,
               children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'RECEIVING INSPECTION\nREPORT',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1,
-                                height: 1.15,
-                              ),
-                        ),
-                        if (_isEditingExistingMaterial) ...[
-                          const SizedBox(height: 8),
-                          Center(
-                            child: Text(
-                              'Editing saved material',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 18),
-                        TextField(
-                          controller: _descriptionController,
-                          inputFormatters: _maxLengthFormatters(
-                            _descriptionMaxLength,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: 'Material Description',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _poNumberController,
-                                inputFormatters: _maxLengthFormatters(
-                                  _poNumberMaxLength,
-                                ),
-                                decoration: const InputDecoration(
-                                  labelText: 'PO #',
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _vendorController,
-                                inputFormatters: _maxLengthFormatters(
-                                  _vendorMaxLength,
-                                ),
-                                decoration: const InputDecoration(
-                                  labelText: 'Vendor',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final stackFields = constraints.maxWidth < 560;
-                            if (stackFields) {
-                              return Column(
-                                children: [
-                                  TextField(
-                                    controller: _quantityController,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: _maxLengthFormatters(
-                                      _quantityMaxLength,
-                                    ),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Qty',
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _LabeledDropdownField(
-                                    value: _productTypeController.text,
-                                    labelText: 'Product',
-                                    options: _optionsWithCurrent(
-                                      _productTypeController.text,
-                                      _productTypeOptions,
-                                    ),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _productTypeController.text =
-                                            value ?? '';
-                                      });
-                                      _saveDraftSilently();
-                                    },
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _LabeledDropdownField(
-                                    value:
-                                        _specificationPrefixController.text,
-                                    labelText: 'A/SA',
-                                    options: _optionsWithCurrent(
-                                      _specificationPrefixController.text,
-                                      _specificationPrefixOptions,
-                                    ),
-                                    labelBuilder: (value) =>
-                                        value.isEmpty ? 'Blank' : value,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _specificationPrefixController.text =
-                                            value ?? '';
-                                      });
-                                      _saveDraftSilently();
-                                    },
-                                  ),
-                                ],
-                              );
-                            }
-                            return Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: TextField(
-                                    controller: _quantityController,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: _maxLengthFormatters(
-                                      _quantityMaxLength,
-                                    ),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Qty',
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  flex: 4,
-                                  child: _LabeledDropdownField(
-                                    value: _productTypeController.text,
-                                    labelText: 'Product',
-                                    options: _optionsWithCurrent(
-                                      _productTypeController.text,
-                                      _productTypeOptions,
-                                    ),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _productTypeController.text =
-                                            value ?? '';
-                                      });
-                                      _saveDraftSilently();
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  flex: 2,
-                                  child: _LabeledDropdownField(
-                                    value:
-                                        _specificationPrefixController.text,
-                                    labelText: 'A/SA',
-                                    options: _optionsWithCurrent(
-                                      _specificationPrefixController.text,
-                                      _specificationPrefixOptions,
-                                    ),
-                                    labelBuilder: (value) =>
-                                        value.isEmpty ? 'Blank' : value,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _specificationPrefixController.text =
-                                            value ?? '';
-                                      });
-                                      _saveDraftSilently();
-                                    },
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _gradeTypeController,
-                          inputFormatters: _maxLengthFormatters(
-                            _gradeTypeMaxLength,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: 'Spec/Grade',
-                          ),
-                        ),
-                        if (showB16) ...[
-                          const SizedBox(height: 12),
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final stackFields = constraints.maxWidth < 560;
-                              if (stackFields) {
-                                return Column(
-                                  children: [
-                                    _LabeledDropdownField(
-                                      value: _fittingStandardController.text,
-                                      labelText: 'Fitting',
-                                      options: _optionsWithCurrent(
-                                        _fittingStandardController.text,
-                                        _fittingStandardOptions,
-                                      ),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _fittingStandardController.text =
-                                              value ?? 'N/A';
-                                          if (_fittingStandardController.text !=
-                                              'B16') {
-                                            _fittingSuffixController.text = '';
-                                          }
-                                        });
-                                        _saveDraftSilently();
-                                      },
-                                    ),
-                                    const SizedBox(height: 12),
-                                    _LabeledDropdownField(
-                                      value: _fittingSuffixController.text,
-                                      labelText: 'B16 Type',
-                                      options: _optionsWithCurrent(
-                                        _fittingSuffixController.text,
-                                        _fittingSuffixOptions,
-                                      ),
-                                      enabled:
-                                          _fittingStandardController.text ==
-                                          'B16',
-                                      labelBuilder: (value) =>
-                                          value.isEmpty ? 'N/A' : value,
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _fittingSuffixController.text =
-                                              value ?? '';
-                                        });
-                                        _saveDraftSilently();
-                                      },
-                                    ),
-                                  ],
-                                );
-                              }
-                              return Row(
-                                children: [
-                                  Expanded(
-                                    child: _LabeledDropdownField(
-                                      value: _fittingStandardController.text,
-                                      labelText: 'Fitting',
-                                      options: _optionsWithCurrent(
-                                        _fittingStandardController.text,
-                                        _fittingStandardOptions,
-                                      ),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _fittingStandardController.text =
-                                              value ?? 'N/A';
-                                          if (_fittingStandardController.text !=
-                                              'B16') {
-                                            _fittingSuffixController.text = '';
-                                          }
-                                        });
-                                        _saveDraftSilently();
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _LabeledDropdownField(
-                                      value: _fittingSuffixController.text,
-                                      labelText: 'B16 Type',
-                                      options: _optionsWithCurrent(
-                                        _fittingSuffixController.text,
-                                        _fittingSuffixOptions,
-                                      ),
-                                      enabled:
-                                          _fittingStandardController.text ==
-                                          'B16',
-                                      labelBuilder: (value) =>
-                                          value.isEmpty ? 'N/A' : value,
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _fittingSuffixController.text =
-                                              value ?? '';
-                                        });
-                                        _saveDraftSilently();
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        const _SectionHeader(title: 'Dimensions'),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: UnitSystem.values
-                              .map(
-                                (unitSystem) => ChoiceChip(
-                                  label: Text(unitSystem.label),
-                                  selected: _unitSystem == unitSystem,
-                                  onSelected: (_) {
-                                    setState(() {
-                                      _unitSystem = unitSystem;
-                                    });
-                                    _saveDraftSilently();
-                                  },
-                                ),
-                              )
-                              .toList(growable: false),
-                        ),
-                        const SizedBox(height: 12),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final stackFields = constraints.maxWidth < 700;
-                            Widget buildThicknessField(
-                              TextEditingController controller,
-                              String label,
-                            ) {
-                              return TextField(
-                                controller: controller,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                inputFormatters: _maxLengthFormatters(
-                                  _dimensionValueMaxLength,
-                                ),
-                                decoration: InputDecoration(labelText: label),
-                              );
-                            }
-
-                            if (stackFields) {
-                              return Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: buildThicknessField(
-                                          _thickness1Controller,
-                                          'TH 1',
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: buildThicknessField(
-                                          _thickness2Controller,
-                                          'TH 2',
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: buildThicknessField(
-                                          _thickness3Controller,
-                                          'TH 3',
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: buildThicknessField(
-                                          _thickness4Controller,
-                                          'TH 4',
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              );
-                            }
-
-                            return Row(
-                              children: [
-                                Expanded(
-                                  child: buildThicknessField(
-                                    _thickness1Controller,
-                                    'TH 1',
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: buildThicknessField(
-                                    _thickness2Controller,
-                                    'TH 2',
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: buildThicknessField(
-                                    _thickness3Controller,
-                                    'TH 3',
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: buildThicknessField(
-                                    _thickness4Controller,
-                                    'TH 4',
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final stackFields = constraints.maxWidth < 700;
-                            if (stackFields) {
-                              return Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _widthController,
-                                          keyboardType: const TextInputType
-                                              .numberWithOptions(decimal: true),
-                                          inputFormatters: _maxLengthFormatters(
-                                            _dimensionValueMaxLength,
-                                          ),
-                                          decoration: const InputDecoration(
-                                            labelText: 'Width',
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _lengthController,
-                                          keyboardType: const TextInputType
-                                              .numberWithOptions(decimal: true),
-                                          inputFormatters: _maxLengthFormatters(
-                                            _dimensionValueMaxLength,
-                                          ),
-                                          decoration: const InputDecoration(
-                                            labelText: 'Length',
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _diameterController,
-                                          keyboardType: const TextInputType
-                                              .numberWithOptions(decimal: true),
-                                          inputFormatters: _maxLengthFormatters(
-                                            _dimensionValueMaxLength,
-                                          ),
-                                          decoration: const InputDecoration(
-                                            labelText: 'Diameter',
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _LabeledDropdownField(
-                                          value:
-                                              _diameterTypeController.text,
-                                          labelText: 'ID/OD',
-                                          options: _optionsWithCurrent(
-                                            _diameterTypeController.text,
-                                            _diameterTypeOptions,
-                                          ),
-                                          labelBuilder: (value) =>
-                                              value.isEmpty ? 'None' : value,
-                                          onChanged: (value) {
-                                            setState(() {
-                                              _diameterTypeController.text =
-                                                  value ?? '';
-                                            });
-                                            _saveDraftSilently();
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              );
-                            }
-                            return Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _widthController,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    inputFormatters: _maxLengthFormatters(
-                                      _dimensionValueMaxLength,
-                                    ),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Width',
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _lengthController,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    inputFormatters: _maxLengthFormatters(
-                                      _dimensionValueMaxLength,
-                                    ),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Length',
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _diameterController,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    inputFormatters: _maxLengthFormatters(
-                                      _dimensionValueMaxLength,
-                                    ),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Diameter',
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _LabeledDropdownField(
-                                    value: _diameterTypeController.text,
-                                    labelText: 'ID/OD',
-                                    options: _optionsWithCurrent(
-                                      _diameterTypeController.text,
-                                      _diameterTypeOptions,
-                                    ),
-                                    labelBuilder: (value) =>
-                                        value.isEmpty ? 'None' : value,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _diameterTypeController.text =
-                                            value ?? '';
-                                      });
-                                      _saveDraftSilently();
-                                    },
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        _BinaryChoiceRow(
-                          label: 'Visual inspection acceptable',
-                          yesSelected: _visualInspectionAcceptable,
-                          onYes: () {
-                            setState(() {
-                              _visualInspectionAcceptable = true;
-                            });
-                            _saveDraftSilently();
-                          },
-                          onNo: () {
-                            setState(() {
-                              _visualInspectionAcceptable = false;
-                            });
-                            _saveDraftSilently();
-                          },
-                        ),
-                        if (showB16) ...[
-                          const SizedBox(height: 12),
-                          _LabeledDropdownField(
-                            value: _b16SizeController.text,
-                            labelText: 'B16 Dimensions',
-                            options: _optionsWithCurrent(
-                              _b16SizeController.text,
-                              const ['', 'Yes', 'No'],
-                            ),
-                            labelBuilder: (value) =>
-                                value.isEmpty ? 'N/A' : value,
-                            onChanged: (value) {
-                              setState(() {
-                                _b16SizeController.text = value ?? '';
-                              });
-                              _saveDraftSilently();
-                            },
-                          ),
-                        ],
-                        if (showSurfaceFinish) ...[
-                          const SizedBox(height: 12),
-                          _LabeledDropdownField(
-                            value: _surfaceFinishController.text,
-                            labelText: 'Surface Finish',
-                            options: _optionsWithCurrent(
-                              _surfaceFinishController.text,
-                              _surfaceFinishOptions,
-                            ),
-                            labelBuilder: (value) =>
-                                value.isEmpty ? 'N/A' : value,
-                            onChanged: (value) {
-                              setState(() {
-                                _surfaceFinishController.text = value ?? '';
-                              });
-                              _saveDraftSilently();
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _surfaceFinishReadingController,
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters:
-                                      _surfaceFinishReadingInputFormatters,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Actual Surface Finish Reading',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                _customization.surfaceFinishUnit,
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ],
-                          ),
-                        ],
-                        TextField(
-                          controller: _markingsController,
-                          maxLines: 5,
-                          decoration: const InputDecoration(
-                            labelText: 'Actual Markings',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _TriStateChoiceRow(
-                          label: 'Marking acceptable to Code/Standard',
-                          hasSelection: _markingSelected,
-                          yesSelected:
-                              _markingSelected &&
-                              _markingAcceptable &&
-                              !_markingAcceptableNa,
-                          noSelected:
-                              _markingSelected &&
-                              !_markingAcceptable &&
-                              !_markingAcceptableNa,
-                          naSelected: _markingSelected && _markingAcceptableNa,
-                          onYes: () {
-                            setState(() {
-                              _markingAcceptable = true;
-                              _markingAcceptableNa = false;
-                              _markingSelected = true;
-                            });
-                            _saveDraftSilently();
-                          },
-                          onNo: () {
-                            setState(() {
-                              _markingAcceptable = false;
-                              _markingAcceptableNa = false;
-                              _markingSelected = true;
-                            });
-                            _saveDraftSilently();
-                          },
-                          onNa: () {
-                            setState(() {
-                              _markingAcceptable = false;
-                              _markingAcceptableNa = true;
-                              _markingSelected = true;
-                            });
-                            _saveDraftSilently();
-                          },
-                          onClear: () {
-                            setState(() {
-                              _markingAcceptable = false;
-                              _markingAcceptableNa = false;
-                              _markingSelected = false;
-                            });
-                            _saveDraftSilently();
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        _TriStateChoiceRow(
-                          label: 'MTR/CoC acceptable to specification',
-                          hasSelection: _mtrSelected,
-                          yesSelected:
-                              _mtrSelected &&
-                              _mtrAcceptable &&
-                              !_mtrAcceptableNa,
-                          noSelected:
-                              _mtrSelected &&
-                              !_mtrAcceptable &&
-                              !_mtrAcceptableNa,
-                          naSelected: _mtrSelected && _mtrAcceptableNa,
-                          onYes: () {
-                            setState(() {
-                              _mtrAcceptable = true;
-                              _mtrAcceptableNa = false;
-                              _mtrSelected = true;
-                            });
-                            _saveDraftSilently();
-                          },
-                          onNo: () {
-                            setState(() {
-                              _mtrAcceptable = false;
-                              _mtrAcceptableNa = false;
-                              _mtrSelected = true;
-                            });
-                            _saveDraftSilently();
-                          },
-                          onNa: () {
-                            setState(() {
-                              _mtrAcceptable = false;
-                              _mtrAcceptableNa = true;
-                              _mtrSelected = true;
-                            });
-                            _saveDraftSilently();
-                          },
-                          onClear: () {
-                            setState(() {
-                              _mtrAcceptable = false;
-                              _mtrAcceptableNa = false;
-                              _mtrSelected = false;
-                            });
-                            _saveDraftSilently();
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Disposition',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: _acceptanceOptions
-                              .map(
-                                (status) => ChoiceChip(
-                                  label: Text(
-                                    status == 'accept' ? 'Accept' : 'Reject',
-                                  ),
-                                  selected: _acceptanceStatus == status,
-                                  onSelected: (_) {
-                                    setState(() {
-                                      _acceptanceStatus = status;
-                                    });
-                                    _saveDraftSilently();
-                                  },
-                                ),
-                              )
-                              .toList(growable: false),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _commentsController,
-                          maxLines: 2,
-                          decoration: const InputDecoration(
-                            labelText: 'Comments',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const _SectionHeader(title: 'Quality Control'),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _qcInspectorController,
-                                inputFormatters: _maxLengthFormatters(
-                                  _qcNameMaxLength,
-                                ),
-                                decoration: const InputDecoration(
-                                  labelText: 'QC Inspector',
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            _DateFieldButton(
-                              label: 'Date',
-                              value: _formatDateForField(_qcInspectorDate),
-                              onPressed: () => _pickQcDate(forManager: false),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            if (_customization.hasSavedInspectorSignature &&
-                                _customization.savedInspectorSignaturePath
-                                    .trim()
-                                    .isNotEmpty)
-                              OutlinedButton.icon(
-                                onPressed: _applySavedInspectorSignature,
-                                icon: const Icon(Icons.draw_outlined),
-                                label: Text(
-                                  _qcInspectorController.text.trim().isEmpty
-                                      ? 'Apply Saved Signature'
-                                      : 'Apply Saved Signature for ${_qcInspectorController.text.trim()}',
-                                ),
-                              ),
-                            OutlinedButton.icon(
-                              onPressed: () =>
-                                  _captureSignature(forManager: false),
-                              icon: const Icon(Icons.draw_outlined),
-                              label: Text(
-                                _qcSignaturePath.trim().isEmpty
-                                    ? 'Capture Inspector Signature'
-                                    : 'Re-sign Inspector',
-                              ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () =>
-                                  _importSignature(forManager: false),
-                              icon: const Icon(Icons.upload_file_outlined),
-                              label: const Text('Import Inspector Signature'),
-                            ),
-                            if (_qcSignaturePath.trim().isNotEmpty)
-                              OutlinedButton.icon(
-                                onPressed: () => _openFile(_qcSignaturePath),
-                                icon: const Icon(Icons.visibility_outlined),
-                                label: const Text(
-                                  'Preview Inspector Signature',
-                                ),
-                              ),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.error,
-                              ),
-                              onPressed: () =>
-                                  _clearSignature(forManager: false),
-                              icon: const Icon(Icons.delete_sweep_outlined),
-                              label: const Text('Clear Inspector Signature'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _qcSignaturePath.trim().isNotEmpty
-                              ? 'Inspector signature attached.'
-                              : 'No inspector signature attached to this draft yet.',
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          _qcManagerSignaturePath.trim().isNotEmpty
-                              ? 'Manager signature attached.'
-                              : 'No manager signature attached yet.',
-                        ),
-                        if (_qcSignaturePath.trim().isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          _SignaturePreviewCard(
-                            label: 'QC inspector signature',
-                            path: _qcSignaturePath,
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        Text(
-                          'Material approval',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: _materialApprovalOptions
-                              .map(
-                                (status) => ChoiceChip(
-                                  label: Text(
-                                    status == 'approved'
-                                        ? 'Approved'
-                                        : 'Rejected',
-                                  ),
-                                  selected: _materialApproval == status,
-                                  onSelected: (_) {
-                                    setState(() {
-                                      _materialApproval = status;
-                                    });
-                                    _saveDraftSilently();
-                                  },
-                                ),
-                              )
-                              .toList(growable: false),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _qcManagerController,
-                                inputFormatters: _maxLengthFormatters(
-                                  _qcNameMaxLength,
-                                ),
-                                decoration: const InputDecoration(
-                                  labelText: 'QC Manager',
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            _DateFieldButton(
-                              label: 'Date',
-                              value: _formatDateForField(_qcManagerDate),
-                              onPressed: () => _pickQcDate(forManager: true),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: () =>
-                                  _captureSignature(forManager: true),
-                              icon: const Icon(Icons.draw_outlined),
-                              label: Text(
-                                _qcManagerSignaturePath.trim().isEmpty
-                                    ? 'Capture Manager Signature'
-                                    : 'Re-sign Manager',
-                              ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () =>
-                                  _importSignature(forManager: true),
-                              icon: const Icon(Icons.upload_file_outlined),
-                              label: const Text('Import Manager Signature'),
-                            ),
-                            if (_qcManagerSignaturePath.trim().isNotEmpty)
-                              OutlinedButton.icon(
-                                onPressed: () =>
-                                    _openFile(_qcManagerSignaturePath),
-                                icon: const Icon(Icons.visibility_outlined),
-                                label: const Text('Preview Manager Signature'),
-                              ),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.error,
-                              ),
-                              onPressed: () =>
-                                  _clearSignature(forManager: true),
-                              icon: const Icon(Icons.delete_outline_rounded),
-                              label: const Text('Clear Manager Signature'),
-                            ),
-                          ],
-                        ),
-                        if (_qcManagerSignaturePath.trim().isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          _SignaturePreviewCard(
-                            label: 'QC manager signature',
-                            path: _qcManagerSignaturePath,
-                          ),
-                        ],
-                        const SizedBox(height: 18),
-                        const _SectionHeader(title: 'Material photos'),
-                        OutlinedButton.icon(
-                          onPressed: _handlePhotoAction,
-                          icon: const Icon(Icons.add_a_photo_outlined),
-                          label: Text(
-                            'Add material photos (${_photoPaths.length}/4)',
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Use these for arrival condition, markings, and visible damage.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 10),
-                        _ThumbnailRow(
-                          paths: _photoPaths,
-                          maxCount: 4,
-                          itemLabel: 'photo',
-                          onTap: (index) {
-                            _handleExistingMediaTap(
-                              isPhoto: true,
-                              index: index,
-                            );
-                          },
-                        ),
-                        if (_photoPaths.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'Tap a thumbnail to retake or delete it.',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                        const SizedBox(height: 18),
-                        const _SectionHeader(title: 'MTR/CoC scans'),
-                        OutlinedButton.icon(
-                          onPressed: _handleScanAction,
-                          icon: const Icon(Icons.picture_as_pdf_outlined),
-                          label: Text(
-                            'Scan MTR/CoC PDFs (${_scanPaths.length}/8)',
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Preferred: built-in document scanner with cleanup. Camera fallback still exports cleanly into the combined MTR PDF.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 10),
-                        _ThumbnailRow(
-                          paths: _scanPaths,
-                          maxCount: 8,
-                          itemLabel: 'scan',
-                          onTap: (index) {
-                            _handleExistingMediaTap(
-                              isPhoto: false,
-                              index: index,
-                            );
-                          },
-                        ),
-                        if (_scanPaths.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'Tap a thumbnail to retake or delete it.',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                _buildOverviewCard(context),
+                const SizedBox(height: 16),
+                _buildMaterialSection(context, showB16: showB16),
+                const SizedBox(height: 16),
+                _buildInspectionSection(
+                  context,
+                  showB16: showB16,
+                  showSurfaceFinish: showSurfaceFinish,
                 ),
+                const SizedBox(height: 16),
+                _buildQualityControlSection(context),
+                const SizedBox(height: 16),
+                _buildAttachmentsSection(context),
                 const SizedBox(height: 18),
                 FilledButton.icon(
-                  onPressed: _saveMaterialReceiving,
+                  onPressed: _isSubmitting ? null : _saveMaterialReceiving,
                   icon: const Icon(Icons.check_circle_outline_rounded),
                   label: const Text('Save Material'),
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
-                  onPressed: () async {
+                  onPressed: _isSubmitting
+                      ? null
+                      : () async {
                     await _saveDraftNow();
                     if (!context.mounted) {
                       return;
@@ -1954,20 +2136,164 @@ List<String> _optionsWithCurrent(String current, List<String> baseOptions) {
   return [...baseOptions, current];
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
+class _FormSectionCard extends StatelessWidget {
+  const _FormSectionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: const Color(0xFF1D4ED8)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InsetInfoPanel extends StatelessWidget {
+  const _InsetInfoPanel({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFD8E1EA)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _CenteredSubsectionTitle extends StatelessWidget {
+  const _CenteredSubsectionTitle({required this.title});
 
   final String title;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        title,
-        style: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Center(
+        child: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
       ),
     );
   }
@@ -2170,15 +2496,21 @@ class _LabeledDropdownField extends StatelessWidget {
 }
 
 class _SignaturePreviewCard extends StatelessWidget {
-  const _SignaturePreviewCard({required this.label, required this.path});
+  const _SignaturePreviewCard({
+    required this.label,
+    required this.path,
+    this.emptyLabel = 'Signature file unavailable',
+  });
 
   final String label;
   final String path;
+  final String emptyLabel;
 
   @override
   Widget build(BuildContext context) {
-    final file = File(path);
-    final exists = file.existsSync();
+    final trimmedPath = path.trim();
+    final file = trimmedPath.isEmpty ? null : File(trimmedPath);
+    final exists = file?.existsSync() ?? false;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2193,14 +2525,14 @@ class _SignaturePreviewCard extends StatelessWidget {
             border: Border.all(color: const Color(0xFFCBD5E1)),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: exists
+          child: exists && file != null
               ? Image.file(
                   file,
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) =>
-                      const _MissingSignaturePreview(),
+                      _MissingSignaturePreview(message: emptyLabel),
                 )
-              : const _MissingSignaturePreview(),
+              : _MissingSignaturePreview(message: emptyLabel),
         ),
       ],
     );
@@ -2208,13 +2540,15 @@ class _SignaturePreviewCard extends StatelessWidget {
 }
 
 class _MissingSignaturePreview extends StatelessWidget {
-  const _MissingSignaturePreview();
+  const _MissingSignaturePreview({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        'Signature file unavailable',
+        message,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: const Color(0xFF6B7280),
@@ -2283,7 +2617,8 @@ class _ThumbnailCell extends StatelessWidget {
           ? File(pdfPreviewSiblingPath(resolvedPath))
           : null;
       Widget child;
-      if (_isPreviewableImagePath(resolvedPath) && previewFile.existsSync()) {
+      if (!resolvedPath.toLowerCase().endsWith('.pdf') &&
+          previewFile.existsSync()) {
         child = ClipRRect(
           borderRadius: borderRadius,
           child: Image.file(
@@ -2291,6 +2626,11 @@ class _ThumbnailCell extends StatelessWidget {
             width: 64,
             height: 64,
             fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => _thumbnailFallback(
+              context,
+              resolvedPath,
+              borderRadius,
+            ),
           ),
         );
       } else if (pdfPreviewFile != null && pdfPreviewFile.existsSync()) {
@@ -2328,34 +2668,7 @@ class _ThumbnailCell extends StatelessWidget {
           ],
         );
       } else {
-        child = Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE5E7EB),
-            borderRadius: borderRadius,
-          ),
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                resolvedPath.toLowerCase().endsWith('.pdf')
-                    ? Icons.picture_as_pdf_outlined
-                    : Icons.insert_drive_file_outlined,
-                size: 20,
-                color: const Color(0xFF4B5563),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                resolvedPath.toLowerCase().endsWith('.pdf') ? 'PDF' : 'File',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: const Color(0xFF4B5563),
-                ),
-              ),
-            ],
-          ),
-        );
+        child = _thumbnailFallback(context, resolvedPath, borderRadius);
       }
 
       return Semantics(
@@ -2402,9 +2715,9 @@ class _ThumbnailCell extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               '$slotIndex',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF6B7280),
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: const Color(0xFF6B7280)),
             ),
           ],
         ),
@@ -2413,12 +2726,40 @@ class _ThumbnailCell extends StatelessWidget {
   }
 }
 
-bool _isPreviewableImagePath(String path) {
-  final lowered = path.toLowerCase();
-  return lowered.endsWith('.png') ||
-      lowered.endsWith('.jpg') ||
-      lowered.endsWith('.jpeg') ||
-      lowered.endsWith('.webp');
+Widget _thumbnailFallback(
+  BuildContext context,
+  String path,
+  BorderRadius borderRadius,
+) {
+  final isPdf = path.toLowerCase().endsWith('.pdf');
+  return Container(
+    width: 64,
+    height: 64,
+    decoration: BoxDecoration(
+      color: const Color(0xFFE5E7EB),
+      borderRadius: borderRadius,
+    ),
+    alignment: Alignment.center,
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          isPdf
+              ? Icons.picture_as_pdf_outlined
+              : Icons.insert_photo_outlined,
+          size: 20,
+          color: const Color(0xFF4B5563),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          isPdf ? 'PDF' : 'Image',
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall?.copyWith(color: const Color(0xFF4B5563)),
+        ),
+      ],
+    ),
+  );
 }
 
 String _capitalize(String value) {
@@ -2558,7 +2899,6 @@ Future<_MaterialFormExitAction?> _showExitReceivingReportDialog(
     },
   );
 }
-
 Future<_MediaAction?> _showMediaOptionsDialog(BuildContext context) {
   return showDialog<_MediaAction>(
     context: context,

@@ -152,6 +152,7 @@ class _InAppCameraCaptureOverlayState extends State<InAppCameraCaptureOverlay> {
       return;
     }
     _acceptedCaptures.add(pendingCapture);
+    _pendingCapture = null;
     final reachedLimit =
         _isReplacement ||
         widget.currentCount + _acceptedCaptures.length >= widget.maxCount;
@@ -159,9 +160,10 @@ class _InAppCameraCaptureOverlayState extends State<InAppCameraCaptureOverlay> {
       _closeOverlay();
       return;
     }
-    setState(() {
-      _pendingCapture = null;
-    });
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 
   Future<void> _handleRetake() async {

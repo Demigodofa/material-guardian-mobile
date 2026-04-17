@@ -8,6 +8,7 @@ Start with:
 
 - `docs/flutter_cross_platform_build_plan.md`
 - `ios/Codex Handoff for Material Guardian.md`
+- `ios/apple-handoff-2026-04-13.md`
 
 Review/validation preference:
 
@@ -40,10 +41,17 @@ Current state:
   - copied Android reference assets under `assets/reference/android-source/`
   - Android donor docs in `C:\Users\KevinPenfield\source\repos\Demigodofa\MaterialGuardian_Android\docs\`
   - Android UI/assets under `C:\Users\KevinPenfield\source\repos\Demigodofa\MaterialGuardian_Android\app\`, `assets/`, and `www/`
-  - iOS coordination notes already in this folder:
+- iOS coordination notes already in this folder:
     - `ios/android-preferences-change-notes-2026-03-30.md`
     - `ios/apple-backend-coordination-2026-03-30.md`
     - `ios/apple-platform-todo-2026-04-01.md`
+    - `ios/apple-handoff-2026-04-13.md`
+
+Current release-lane note:
+
+- Android is the active shipping lane right now.
+- Apple/App Store work should be treated as deferred until Apple developer/store authorization is actually available.
+- Overlap work that helps both platforms is fine, but do not claim Apple release readiness from shared/backend progress alone.
 
 Recommended iOS handoff inputs:
 

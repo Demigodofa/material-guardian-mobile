@@ -2,26 +2,24 @@
 
 Date: 2026-04-01
 
-This note separates **current shipped wording** from **future backend-account wording** so Material Guardian does not accidentally ship account-backed behavior with old local-only statements.
+This note now treats the backend-account release as the current truth, and it keeps a separate section for any future cloud-storage expansion so Material Guardian does not reuse stale local-only wording.
 
 ## Current truth vs future truth
 
 ### Current shipped Android truth
 
-The currently shipped Android app is still described correctly as:
+The current Flutter-backed Android release should be described as:
 
-- offline-first
-- no required account
-- local jobs/media/signatures on device
+- backend-backed account sign-in and session restore
+- backend-managed organization, seat, entitlement, trial, and purchase-verification state
+- local jobs/media/signatures on device unless explicitly exported
 - no developer-operated cloud sync for jobs/media
 
-That wording should remain true for the current shipped Android release until backend-backed account features are actually live in the released app.
+That is the baseline wording for the active Android release.
 
-### Future backend-account truth
+### Current backend-account truth
 
-Once the Flutter/mobile release includes account-backed features, the product wording must change.
-
-At that point, Material Guardian will need wording that says, in substance:
+Material Guardian product wording should now say, in substance:
 
 - users may create or use an app account
 - the backend stores account, session, organization, seat, trial, entitlement, and purchase-verification data

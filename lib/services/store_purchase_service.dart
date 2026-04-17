@@ -71,6 +71,13 @@ class StorePurchaseUpdate {
   bool get isCanceled => status == 'canceled';
 }
 
+class StoreRestoreResult {
+  const StoreRestoreResult({required this.updates, required this.errorMessage});
+
+  final List<StorePurchaseUpdate> updates;
+  final String? errorMessage;
+}
+
 abstract class StorePurchaseService {
   Stream<List<StorePurchaseUpdate>> get purchaseUpdates;
 
@@ -82,7 +89,7 @@ abstract class StorePurchaseService {
 
   Future<void> completePurchase(String productId);
 
-  Future<void> restorePurchases();
+  Future<StoreRestoreResult> restorePurchases();
 
   void dispose();
 }
@@ -120,6 +127,8 @@ class InAppStorePurchaseService implements StorePurchaseService {
       <String, ProductDetails>{};
   final Map<String, PurchaseDetails> _latestPurchaseDetailsByProductId =
       <String, PurchaseDetails>{};
+  Completer<List<StorePurchaseUpdate>>? _pendingRestoreCompleter;
+  List<StorePurchaseUpdate> _pendingRestoreUpdates = <StorePurchaseUpdate>[];
   late final StreamController<List<StorePurchaseUpdate>>
   _purchaseUpdatesController;
   late final StreamSubscription<List<PurchaseDetails>> _purchaseSubscription;
@@ -210,8 +219,40 @@ class InAppStorePurchaseService implements StorePurchaseService {
   }
 
   @override
-  Future<void> restorePurchases() async {
+  Future<StoreRestoreResult> restorePurchases() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      final addition = _inAppPurchase
+          .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+      final response = await addition.queryPastPurchases();
+      final directUpdates = response.pastPurchases
+          .map(
+            (purchaseDetails) => _toStorePurchaseUpdate(
+              purchaseDetails,
+              forcedStatus: 'restored',
+            ),
+          )
+          .toList(growable: false);
+      final errorMessage = response.error?.message.trim().isNotEmpty == true
+          ? response.error!.message
+          : response.error?.details?.toString();
+      if (errorMessage != null && errorMessage.isNotEmpty) {
+        return StoreRestoreResult(
+          updates: directUpdates,
+          errorMessage: errorMessage,
+        );
+      }
+      if (directUpdates.isNotEmpty) {
+        return StoreRestoreResult(updates: directUpdates, errorMessage: null);
+      }
+      final streamedUpdates = await _restorePurchasesFromStream();
+      return StoreRestoreResult(updates: streamedUpdates, errorMessage: null);
+    }
+
     await _inAppPurchase.restorePurchases();
+    return const StoreRestoreResult(
+      updates: <StorePurchaseUpdate>[],
+      errorMessage: null,
+    );
   }
 
   @override
@@ -222,47 +263,86 @@ class InAppStorePurchaseService implements StorePurchaseService {
 
   void _onPurchaseDetails(List<PurchaseDetails> purchaseDetailsList) {
     final updates = purchaseDetailsList
-        .map((purchaseDetails) {
-          _latestPurchaseDetailsByProductId[purchaseDetails.productID] =
-              purchaseDetails;
-
-          final provider = purchaseDetails is GooglePlayPurchaseDetails
-              ? 'google'
-              : 'apple';
-          final providerTransactionRef =
-              purchaseDetails is GooglePlayPurchaseDetails
-              ? purchaseDetails.billingClientPurchase.orderId
-              : purchaseDetails.purchaseID;
-          final providerOriginalRef =
-              purchaseDetails is GooglePlayPurchaseDetails
-              ? purchaseDetails.billingClientPurchase.purchaseToken
-              : purchaseDetails.purchaseID;
-
-          return StorePurchaseUpdate(
-            productId: purchaseDetails.productID,
-            purchaseId: purchaseDetails.purchaseID,
-            status: purchaseDetails.status.name,
-            provider: provider,
-            pendingCompletePurchase: purchaseDetails.pendingCompletePurchase,
-            verificationServerData:
-                purchaseDetails.verificationData.serverVerificationData,
-            verificationLocalData:
-                purchaseDetails.verificationData.localVerificationData,
-            verificationSource: purchaseDetails.verificationData.source,
-            transactionDate: purchaseDetails.transactionDate == null
-                ? null
-                : DateTime.tryParse(purchaseDetails.transactionDate!) ??
-                      DateTime.fromMillisecondsSinceEpoch(
-                        int.tryParse(purchaseDetails.transactionDate!) ?? 0,
-                      ),
-            providerTransactionRef: providerTransactionRef,
-            providerOriginalRef: providerOriginalRef,
-            errorMessage: purchaseDetails.error?.message,
-          );
-        })
+        .map((purchaseDetails) => _toStorePurchaseUpdate(purchaseDetails))
         .toList(growable: false);
 
     _purchaseUpdatesController.add(updates);
+    final restoreCompleter = _pendingRestoreCompleter;
+    if (restoreCompleter != null && !restoreCompleter.isCompleted) {
+      if (updates.isNotEmpty) {
+        _pendingRestoreUpdates = <StorePurchaseUpdate>[
+          ..._pendingRestoreUpdates,
+          ...updates,
+        ];
+      }
+      restoreCompleter.complete(
+        List<StorePurchaseUpdate>.unmodifiable(_pendingRestoreUpdates),
+      );
+    }
+  }
+
+  Future<List<StorePurchaseUpdate>> _restorePurchasesFromStream() async {
+    final existingCompleter = _pendingRestoreCompleter;
+    if (existingCompleter != null) {
+      return existingCompleter.future;
+    }
+
+    final completer = Completer<List<StorePurchaseUpdate>>();
+    _pendingRestoreCompleter = completer;
+    _pendingRestoreUpdates = <StorePurchaseUpdate>[];
+    try {
+      await _inAppPurchase.restorePurchases();
+      return await completer.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () =>
+            List<StorePurchaseUpdate>.unmodifiable(_pendingRestoreUpdates),
+      );
+    } finally {
+      if (identical(_pendingRestoreCompleter, completer)) {
+        _pendingRestoreCompleter = null;
+        _pendingRestoreUpdates = <StorePurchaseUpdate>[];
+      }
+    }
+  }
+
+  StorePurchaseUpdate _toStorePurchaseUpdate(
+    PurchaseDetails purchaseDetails, {
+    String? forcedStatus,
+  }) {
+    _latestPurchaseDetailsByProductId[purchaseDetails.productID] =
+        purchaseDetails;
+
+    final provider = purchaseDetails is GooglePlayPurchaseDetails
+        ? 'google'
+        : 'apple';
+    final providerTransactionRef = purchaseDetails is GooglePlayPurchaseDetails
+        ? purchaseDetails.billingClientPurchase.orderId
+        : purchaseDetails.purchaseID;
+    final providerOriginalRef = purchaseDetails is GooglePlayPurchaseDetails
+        ? purchaseDetails.billingClientPurchase.purchaseToken
+        : purchaseDetails.purchaseID;
+
+    return StorePurchaseUpdate(
+      productId: purchaseDetails.productID,
+      purchaseId: purchaseDetails.purchaseID,
+      status: forcedStatus ?? purchaseDetails.status.name,
+      provider: provider,
+      pendingCompletePurchase: purchaseDetails.pendingCompletePurchase,
+      verificationServerData:
+          purchaseDetails.verificationData.serverVerificationData,
+      verificationLocalData:
+          purchaseDetails.verificationData.localVerificationData,
+      verificationSource: purchaseDetails.verificationData.source,
+      transactionDate: purchaseDetails.transactionDate == null
+          ? null
+          : DateTime.tryParse(purchaseDetails.transactionDate!) ??
+                DateTime.fromMillisecondsSinceEpoch(
+                  int.tryParse(purchaseDetails.transactionDate!) ?? 0,
+                ),
+      providerTransactionRef: providerTransactionRef,
+      providerOriginalRef: providerOriginalRef,
+      errorMessage: purchaseDetails.error?.message,
+    );
   }
 }
 
@@ -293,7 +373,11 @@ class NoopStorePurchaseService implements StorePurchaseService {
   Future<void> completePurchase(String productId) async {}
 
   @override
-  Future<void> restorePurchases() async {}
+  Future<StoreRestoreResult> restorePurchases() async =>
+      const StoreRestoreResult(
+        updates: <StorePurchaseUpdate>[],
+        errorMessage: null,
+      );
 
   @override
   void dispose() {}

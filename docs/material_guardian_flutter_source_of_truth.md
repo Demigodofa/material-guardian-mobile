@@ -121,7 +121,8 @@ Current reality:
 
 ## Current reference behavior to preserve
 
-- offline-first local workflow
+- local-first jobs, reports, photos, scans, signatures, and exports on device unless the user explicitly exports them
+- backend-backed account, session, trial, seat, and entitlement workflow
 - blank `Add Material`
 - explicit `Resume Draft` and `Delete Draft`
 - editable jobs and deletable saved materials

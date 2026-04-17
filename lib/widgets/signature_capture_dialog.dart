@@ -27,6 +27,7 @@ class _SignatureCaptureDialog extends StatefulWidget {
 class _SignatureCaptureDialogState extends State<_SignatureCaptureDialog> {
   final GlobalKey _boundaryKey = GlobalKey();
   final List<List<Offset>> _strokes = <List<Offset>>[];
+  int? _activePointer;
 
   bool get _hasSignature => _strokes.any((stroke) => stroke.isNotEmpty);
 
@@ -50,6 +51,24 @@ class _SignatureCaptureDialogState extends State<_SignatureCaptureDialog> {
     setState(() {
       _strokes.last.add(offset);
     });
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    _activePointer = event.pointer;
+    _startStroke(event.localPosition);
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (_activePointer != event.pointer) {
+      return;
+    }
+    _extendStroke(event.localPosition);
+  }
+
+  void _handlePointerUp(PointerEvent event) {
+    if (_activePointer == event.pointer) {
+      _activePointer = null;
+    }
   }
 
   Future<void> _save() async {
@@ -96,89 +115,96 @@ class _SignatureCaptureDialogState extends State<_SignatureCaptureDialog> {
     final theme = Theme.of(context);
     return Dialog(
       insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.title,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Draw directly in the box below. This stays in shared Flutter so Android and Apple use the same signature flow.',
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 16),
-              RepaintBoundary(
-                key: _boundaryKey,
-                child: Container(
-                  height: 260,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: theme.colorScheme.outline),
-                    borderRadius: BorderRadius.circular(16),
+      child: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.title,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onPanStart: (details) => _startStroke(details.localPosition),
-                    onPanUpdate: (details) =>
-                        _extendStroke(details.localPosition),
-                    child: CustomPaint(
-                      painter: _SignaturePainter(
-                        strokes: _strokes,
-                        color: Colors.black87,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Draw your signature in the box below.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                RepaintBoundary(
+                  key: _boundaryKey,
+                  child: Container(
+                    height: 260,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: theme.colorScheme.outline),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Listener(
+                      key: const ValueKey('signature-canvas'),
+                      behavior: HitTestBehavior.opaque,
+                      onPointerDown: _handlePointerDown,
+                      onPointerMove: _handlePointerMove,
+                      onPointerUp: _handlePointerUp,
+                      onPointerCancel: _handlePointerUp,
+                      child: CustomPaint(
+                        painter: _SignaturePainter(
+                          strokes: _strokes,
+                          color: Colors.black87,
+                        ),
+                        child: const SizedBox.expand(),
                       ),
-                      child: const SizedBox.expand(),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                runSpacing: 10,
-                spacing: 10,
-                children: [
-                  TextButton.icon(
-                    onPressed: _hasSignature
-                        ? () {
-                            setState(() {
-                              _strokes.clear();
-                            });
-                          }
-                        : null,
-                    icon: const Icon(Icons.cleaning_services_outlined),
-                    label: const Text('Clear'),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        child: const Text('Cancel'),
+                const SizedBox(height: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: _hasSignature
+                            ? () {
+                                setState(() {
+                                  _strokes.clear();
+                                });
+                              }
+                            : null,
+                        icon: const Icon(Icons.cleaning_services_outlined),
+                        label: const Text('Clear'),
                       ),
-                      const SizedBox(width: 10),
-                      FilledButton.icon(
-                        onPressed: _save,
-                        icon: const Icon(Icons.save_outlined),
-                        label: const Text('Save Signature'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      runSpacing: 10,
+                      spacing: 10,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton.icon(
+                          onPressed: _save,
+                          icon: const Icon(Icons.save_outlined),
+                          label: const Text('Save Signature'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
